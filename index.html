@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>D&amp;D 5e Character Generator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <button class="link-button hidden" id="homeButton" type="button">Home</button>
+        <h1>D&amp;D 5e Character Generator</h1>
+      </header>
+
+      <section class="view home-view" id="homeView" aria-labelledby="homeTitle">
+        <h2 id="homeTitle">D&amp;D 5e Character Generator</h2>
+        <div class="home-actions" aria-label="Character generator actions">
+          <button class="primary-button" id="buildButton" type="button">Build a Character</button>
+          <button class="primary-button" id="randomizeButton" type="button">Randomize a Character</button>
+        </div>
+      </section>
+
+      <section class="view hidden" id="buildView" aria-labelledby="buildTitle">
+        <div class="view-header">
+          <div>
+            <p class="section-label">Manual build</p>
+            <h2 id="buildTitle">Build Character</h2>
+          </div>
+        </div>
+
+        <div class="builder-layout">
+          <section class="panel wizard-panel" id="wizardStep" aria-live="polite"></section>
+
+          <aside class="panel preview-panel" aria-labelledby="livePreviewTitle">
+            <h2 id="livePreviewTitle">Character Preview</h2>
+            <div id="livePreview"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view hidden" id="previewView" aria-labelledby="previewTitle">
+        <div class="view-header">
+          <div>
+            <p class="section-label">Randomized starter</p>
+            <h2 id="previewTitle">Character Preview</h2>
+          </div>
+          <button class="secondary-button" id="editRandomButton" type="button">Edit Result</button>
+        </div>
+        <div class="panel" id="randomPreview"></div>
+      </section>
+    </main>
+
+    <script src="data/standard-array.js"></script>
+    <script src="data/classes.js"></script>
+    <script src="data/races.js"></script>
+    <script src="data/backgrounds.js"></script>
+    <script src="data/equipment.js"></script>
+    <script src="data/character-model.js"></script>
+    <script src="data/randomizer.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
