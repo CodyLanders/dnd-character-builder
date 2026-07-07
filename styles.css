@@ -487,3 +487,375 @@ select {
     width: 100%;
   }
 }
+
+.randomize-view {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 20px;
+  padding-top: 28px;
+}
+
+.method-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.method-button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.method-button.selected {
+  border-color: var(--button);
+  box-shadow: inset 0 0 0 2px var(--button);
+}
+
+.method-content {
+  display: grid;
+  gap: 12px;
+}
+
+.roll-results,
+.point-buy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roll-result,
+.point-buy-card,
+.point-buy-summary {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.roll-result strong,
+.roll-result span,
+.cost-text {
+  display: block;
+}
+
+.roll-result span,
+.cost-text {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.point-buy-summary {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.point-buy-card {
+  display: grid;
+  gap: 8px;
+}
+
+.stepper-controls {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper-controls span {
+  text-align: center;
+  font-weight: 700;
+}
+
+.stepper-controls .secondary-button {
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+@media (max-width: 760px) {
+  .method-selector,
+  .roll-results,
+  .point-buy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase 1 layout stability and compact score grids */
+.view.hidden,
+.randomize-view.hidden {
+  display: none;
+}
+
+.ability-step-active .preview-panel {
+  min-height: clamp(780px, 88vh, 1040px);
+}
+
+.score-assignment-grid,
+.roll-results {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.point-buy-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.score-assignment-grid label {
+  min-width: 0;
+}
+
+.score-assignment-grid select {
+  min-width: 0;
+}
+
+.roll-result {
+  display: grid;
+  align-content: center;
+  min-height: 66px;
+}
+
+.roll-result span {
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .ability-step-active .preview-panel {
+    min-height: 980px;
+  }
+
+  .score-assignment-grid,
+  .roll-results {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .point-buy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .score-assignment-grid label {
+    gap: 4px;
+    font-size: 0.78rem;
+  }
+
+  .score-assignment-grid select {
+    min-height: 36px;
+    padding: 6px 4px;
+    font-size: 0.78rem;
+  }
+
+  .roll-result {
+    min-height: 62px;
+    padding: 8px 6px;
+  }
+
+  .roll-result strong {
+    font-size: 0.82rem;
+  }
+
+  .roll-result span {
+    font-size: 0.68rem;
+  }
+}
+
+/* Phase 2 Point Buy card clarity */
+.point-buy-score-line {
+  display: block;
+  white-space: nowrap;
+  font-size: 0.96rem;
+}
+
+.point-buy-modifier {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.point-buy-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.point-buy-action {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.point-buy-action .secondary-button {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+.point-change-label {
+  min-height: 1em;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.point-change-label.unavailable {
+  opacity: 0.7;
+}
+
+.point-buy-legend {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  .point-buy-card {
+    gap: 6px;
+    padding: 9px 8px;
+  }
+
+  .point-buy-score-line {
+    font-size: 0.82rem;
+  }
+
+  .point-buy-modifier,
+  .point-change-label,
+  .point-buy-legend {
+    font-size: 0.76rem;
+  }
+
+  .point-buy-actions {
+    gap: 6px;
+  }
+}
+
+/* Small Point Buy visual refinement */
+.point-buy-score-line,
+.point-buy-modifier {
+  text-align: center;
+}
+
+.point-buy-action:first-child {
+  justify-items: start;
+}
+
+.point-buy-action:last-child {
+  justify-items: end;
+}
+
+.point-buy-action .secondary-button {
+  width: 44px;
+  min-width: 44px;
+  min-height: 42px;
+  padding: 6px 8px;
+}
+
+@media (max-width: 760px) {
+  .point-buy-action .secondary-button {
+    width: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 6px;
+  }
+}
+
+/* Ability Scores Build Guidance */
+.build-guidance-panel {
+  display: grid;
+  gap: 10px;
+  min-height: clamp(300px, 34vw, 390px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.build-guidance-panel h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.guidance-section {
+  display: grid;
+  gap: 4px;
+}
+
+.guidance-section-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.guidance-section p,
+.recommendation-row,
+.equipment-impact-row {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.recommendation-row strong {
+  color: var(--button);
+}
+
+.equipment-impact-row strong,
+.guidance-section p strong {
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  .build-guidance-panel {
+    min-height: 430px;
+    padding: 10px;
+  }
+
+  .guidance-section p,
+  .recommendation-row,
+  .equipment-impact-row {
+    font-size: 0.82rem;
+  }
+}
+
+/* Simplified Ability Score Guidance */
+.ability-score-guidance-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.ability-score-guidance-panel h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  .ability-score-guidance-panel {
+    padding: 10px;
+  }
+}
+.ability-score-guidance-panel .guidance-section {
+  gap: 5px;
+}
+
+.ability-score-guidance-panel h3 + .guidance-section {
+  margin-top: 3px;
+}
+
+.ability-score-guidance-panel .guidance-section + .guidance-section {
+  margin-top: 8px;
+}
+
+.score-assignment-legend {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}

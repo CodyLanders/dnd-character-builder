@@ -1,4 +1,4 @@
-window.DND_DATA = window.DND_DATA || {};
+﻿window.DND_DATA = window.DND_DATA || {};
 
 DND_DATA.createCharacter = function createCharacter(overrides = {}) {
   const classId = overrides.classId || "fighter";
@@ -17,6 +17,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     name: overrides.name || "",
     level: 1,
     rulesVersion: "2014 PHB starter",
+    abilityScoreMethod: overrides.abilityScoreMethod || "standard-array",
     classId,
     raceId,
     backgroundId,
@@ -31,6 +32,8 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     baseAbilities,
     abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId),
     equipment: DND_DATA.getStarterEquipment(classId),
+    rolledScores: overrides.rolledScores || [],
+    rolledAssignments: overrides.rolledAssignments || {},
     notes: "Stage 1 temporary character model",
   };
 };
@@ -40,7 +43,10 @@ DND_DATA.applyRaceIncreases = function applyRaceIncreases(baseAbilities, raceId)
   const increases = race ? race.abilityIncreases : {};
 
   return DND_DATA.abilities.reduce((scores, ability) => {
-    scores[ability] = (baseAbilities[ability] || 0) + (increases[ability] || 0);
+    const baseScore = baseAbilities[ability];
+    scores[ability] = baseScore === "" || baseScore === undefined ? "" : baseScore + (increases[ability] || 0);
     return scores;
   }, {});
 };
+
+

@@ -1,4 +1,4 @@
-window.DND_DATA = window.DND_DATA || {};
+﻿window.DND_DATA = window.DND_DATA || {};
 
 DND_DATA.standardArray = [15, 14, 13, 12, 10, 8];
 
@@ -40,3 +40,17 @@ DND_DATA.skills = [
   { name: "Stealth", ability: "Dexterity" },
   { name: "Survival", ability: "Wisdom" },
 ];
+
+DND_DATA.pointBuyTotal = 27;
+DND_DATA.pointBuyMin = 8;
+DND_DATA.pointBuyMax = 15;
+DND_DATA.pointBuyCosts = {
+  8: 0,
+  9: 1,
+  10: 2,
+  11: 3,
+  12: 4,
+  13: 5,
+  14: 7,
+  15: 9,
+};

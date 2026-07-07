@@ -46,12 +46,12 @@ DND_DATA.classes = [
     proficiencyDetails: {
       Armor: "Light armor",
       Weapons: "Simple weapons, hand crossbows, longswords, rapiers, shortswords",
-      Tools: "Thieves’ tools",
+      Tools: "Thieves' tools",
       "Saving Throws": "Dexterity, Intelligence",
     },
     hitDie: 8,
     savingThrowProficiencies: ["Dexterity", "Intelligence"],
-    primaryAbilities: ["Dexterity", "Constitution", "Intelligence", "Charisma", "Wisdom", "Strength"],
+    primaryAbilities: ["Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma", "Strength"],
     proficiencies: ["Light armor", "Simple weapons", "Hand crossbows", "Longswords", "Rapiers", "Shortswords"],
     features: ["Expertise", "Sneak Attack", "Thieves' Cant"],
   },
@@ -64,12 +64,12 @@ DND_DATA.classes = [
     proficiencyDetails: {
       Armor: "None",
       Weapons: "Simple weapons, shortswords",
-      Tools: "One artisan’s tool or musical instrument",
+      Tools: "One artisan's tool or musical instrument",
       "Saving Throws": "Strength, Dexterity",
     },
     hitDie: 8,
     savingThrowProficiencies: ["Strength", "Dexterity"],
-    primaryAbilities: ["Dexterity", "Wisdom", "Constitution", "Strength", "Intelligence", "Charisma"],
+    primaryAbilities: ["Dexterity", "Wisdom", "Constitution", "Strength", "Charisma", "Intelligence"],
     proficiencies: ["Simple weapons", "Shortswords"],
     features: ["Unarmored Defense", "Martial Arts"],
   },
@@ -90,3 +90,4 @@ DND_DATA.classFeatureChoices = {
     ],
   },
 };
+

@@ -1,15 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>D&amp;D 5e Character Generator</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=build-guidance-panel" />
   </head>
   <body>
     <main class="app-shell">
       <header class="app-header">
-        <button class="link-button hidden" id="homeButton" type="button">Home</button>
+        <button class="link-button" id="homeButton" type="button">Home</button>
         <h1>D&amp;D 5e Character Generator</h1>
       </header>
 
@@ -21,6 +21,15 @@
         </div>
       </section>
 
+
+      <section class="view hidden randomize-view" id="randomizeView" aria-labelledby="randomizeTitle">
+        <h2 id="randomizeTitle">Randomize a Character</h2>
+        <div class="home-actions" aria-label="Random character options">
+          <button class="primary-button" id="rollCharacterButton" type="button">Roll a Character</button>
+          <button class="primary-button" id="standardCharacterButton" type="button">Standard Array Character</button>
+          <button class="secondary-button" id="randomizeBackButton" type="button">Back</button>
+        </div>
+      </section>
       <section class="view hidden" id="buildView" aria-labelledby="buildTitle">
         <div class="view-header">
           <div>
@@ -58,6 +67,9 @@
     <script src="data/equipment.js"></script>
     <script src="data/character-model.js"></script>
     <script src="data/randomizer.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=build-guidance-panel"></script>
   </body>
 </html>
+
+
+

@@ -1,7 +1,11 @@
-window.DND_DATA = window.DND_DATA || {};
+﻿window.DND_DATA = window.DND_DATA || {};
 
 DND_DATA.randomChoice = function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)];
+};
+
+DND_DATA.shuffle = function shuffle(items) {
+  return [...items].sort(() => Math.random() - 0.5);
 };
 
 DND_DATA.assignStandardArray = function assignStandardArray(classId) {
@@ -14,25 +18,79 @@ DND_DATA.assignStandardArray = function assignStandardArray(classId) {
   }, {});
 };
 
-DND_DATA.randomizeCharacter = function randomizeCharacter() {
+DND_DATA.rollAbilityScore = function rollAbilityScore(id) {
+  const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+  const dropped = Math.min(...dice);
+  const total = dice.reduce((sum, die) => sum + die, 0) - dropped;
+
+  return { id, dice, dropped, total };
+};
+
+DND_DATA.rollSixAbilityScores = function rollSixAbilityScores() {
+  return Array.from({ length: 6 }, (_, index) => DND_DATA.rollAbilityScore(`roll-${index + 1}`));
+};
+
+DND_DATA.randomlyAssignRolls = function randomlyAssignRolls(rolls) {
+  const shuffledRolls = DND_DATA.shuffle(rolls);
+
+  return DND_DATA.abilities.reduce((assignments, ability, index) => {
+    assignments[ability] = shuffledRolls[index].id;
+    return assignments;
+  }, {});
+};
+
+DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
   const characterClass = DND_DATA.randomChoice(DND_DATA.classes);
-  const race = DND_DATA.randomChoice(DND_DATA.races);
-  const background = DND_DATA.randomChoice(DND_DATA.backgrounds);
-  const baseAbilities = DND_DATA.assignStandardArray(characterClass.id);
-  const classFeatures = {
-    fightingStyle: "",
-  };
+  const classFeatures = { fightingStyle: "" };
 
   if (characterClass.id === "fighter") {
     classFeatures.fightingStyle = DND_DATA.randomChoice(DND_DATA.classFeatureChoices.fighter.options).id;
   }
 
+  return {
+    characterClass,
+    race: DND_DATA.randomChoice(DND_DATA.races),
+    background: DND_DATA.randomChoice(DND_DATA.backgrounds),
+    classFeatures,
+  };
+};
+
+DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter() {
+  const choices = DND_DATA.createRandomStarterChoices();
+  const baseAbilities = DND_DATA.assignStandardArray(choices.characterClass.id);
+
   return DND_DATA.createCharacter({
     name: "Random Starter",
-    classId: characterClass.id,
-    raceId: race.id,
-    backgroundId: background.id,
-    classFeatures,
+    abilityScoreMethod: "standard-array",
+    classId: choices.characterClass.id,
+    raceId: choices.race.id,
+    backgroundId: choices.background.id,
+    classFeatures: choices.classFeatures,
     baseAbilities,
   });
 };
+
+DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter() {
+  const choices = DND_DATA.createRandomStarterChoices();
+  const rolledScores = DND_DATA.rollSixAbilityScores();
+  const rolledAssignments = DND_DATA.randomlyAssignRolls(rolledScores);
+  const baseAbilities = DND_DATA.abilities.reduce((scores, ability) => {
+    const roll = rolledScores.find((item) => item.id === rolledAssignments[ability]);
+    scores[ability] = roll.total;
+    return scores;
+  }, {});
+
+  return DND_DATA.createCharacter({
+    name: "Random Starter",
+    abilityScoreMethod: "rolled",
+    classId: choices.characterClass.id,
+    raceId: choices.race.id,
+    backgroundId: choices.background.id,
+    classFeatures: choices.classFeatures,
+    baseAbilities,
+    rolledScores,
+    rolledAssignments,
+  });
+};
+
+DND_DATA.randomizeCharacter = DND_DATA.randomizeStandardArrayCharacter;
