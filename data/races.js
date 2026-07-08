@@ -12,6 +12,7 @@ DND_DATA.races = [
       Wisdom: 1,
       Charisma: 1,
     },
+    speed: 30,
     traits: ["Extra language"],
   },
   {
@@ -21,6 +22,7 @@ DND_DATA.races = [
       Constitution: 2,
       Wisdom: 1,
     },
+    speed: 25,
     traits: ["Darkvision", "Dwarven Resilience", "Dwarven Toughness"],
   },
   {
@@ -30,6 +32,7 @@ DND_DATA.races = [
       Dexterity: 2,
       Wisdom: 1,
     },
+    speed: 35,
     traits: ["Darkvision", "Keen Senses", "Fleet of Foot"],
   },
   {
@@ -39,6 +42,7 @@ DND_DATA.races = [
       Dexterity: 2,
       Charisma: 1,
     },
+    speed: 25,
     traits: ["Lucky", "Brave", "Naturally Stealthy"],
   },
   {
@@ -48,6 +52,7 @@ DND_DATA.races = [
       Strength: 2,
       Constitution: 1,
     },
+    speed: 30,
     traits: ["Darkvision", "Relentless Endurance", "Savage Attacks"],
   },
 ];

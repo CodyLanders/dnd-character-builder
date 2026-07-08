@@ -298,6 +298,139 @@ select {
   line-height: 1.4;
 }
 
+.equipment-section,
+.equipment-notes {
+  display: grid;
+  gap: 10px;
+}
+
+.equipment-choice-group {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.equipment-choice-group + .equipment-choice-group {
+  margin-top: 8px;
+}
+
+.equipment-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.equipment-group-header h3 {
+  margin: 0;
+}
+
+.equipment-group-header span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.equipment-options {
+  display: grid;
+  gap: 10px;
+}
+
+.equipment-option {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.equipment-option.selected {
+  border-color: var(--button);
+  box-shadow: inset 0 0 0 2px var(--button);
+}
+
+.equipment-choice-button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+}
+
+.equipment-radio {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 2px solid #9aa6ad;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.equipment-option.selected .equipment-radio {
+  border-color: var(--button);
+  box-shadow: inset 0 0 0 3px #ffffff;
+  background: var(--button);
+}
+
+.equipment-choice-copy,
+.equipment-choice-copy strong,
+.equipment-choice-copy span {
+  display: block;
+}
+
+.equipment-choice-copy span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.equipment-dropdowns {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 0 12px 12px;
+}
+
+.equipment-select-label {
+  color: var(--text);
+}
+
+.pack-detail,
+.equipment-includes,
+.equipment-notes p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.pack-detail,
+.equipment-includes {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px 12px;
+}
+
+.equipment-includes + .equipment-dropdowns {
+  border-top: 0;
+}
+
+.equipment-notes {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
 .wizard-actions {
   display: flex;
   flex-wrap: wrap;
@@ -358,6 +491,16 @@ select {
   text-transform: uppercase;
 }
 
+#livePreview h3,
+#randomPreview h3 {
+  margin-top: 22px;
+}
+
+#livePreview .sheet-grid + h3,
+#randomPreview .sheet-grid + h3 {
+  margin-top: 18px;
+}
+
 .plain-list {
   margin: 14px 0 0;
   padding-left: 18px;
@@ -365,6 +508,91 @@ select {
 
 .plain-list li {
   margin-bottom: 6px;
+}
+
+.categorized-equipment-list > li {
+  margin-bottom: 8px;
+}
+
+.nested-equipment-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.nested-equipment-list li {
+  margin-bottom: 3px;
+}
+
+.weapon-table-wrap {
+  width: 100%;
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.weapon-table-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.equipment-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.weapon-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.weapon-table th,
+.weapon-table td {
+  border: 1px solid var(--line);
+  padding: 6px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.weapon-table th {
+  color: var(--muted);
+  background: #fafafa;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.weapon-table tbody tr.weapon-group-start td {
+  border-top: 2px solid #b8c6cf;
+}
+
+.weapon-table tbody tr:first-child td {
+  border-top-width: 1px;
+}
+
+.weapon-table th:nth-child(2),
+.weapon-table td:nth-child(2),
+.weapon-table th:nth-child(3),
+.weapon-table td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.weapon-variant-row td:first-child {
+  color: var(--muted);
+}
+
+.weapon-detail-row td {
+  color: var(--muted);
+  border-top: 0;
+  background: #f7f9fa;
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.35;
 }
 
 .ability-table {

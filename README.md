@@ -3,11 +3,14 @@
 An interactive web-based Dungeons & Dragons character builder that guides users through core character-creation choices and displays the resulting character details.
 
 ## Features
-- Guided character creation workflow
-- Race, class, background, and ability-score selection
-- Racial ability-score bonuses shown beside affected abilities
-- Clear bonus legend available throughout the builder
-- Responsive browser-based interface
+* Guided character creation workflow
+* Race, class, background, level 1 feature, and ability-score selection
+* Starting equipment choices for Fighter, Barbarian, Rogue, and Monk
+* Character Preview with ability scores, saving throws, skills, armor class, initiative, speed, and equipment
+* Armor & Defense explanation showing how the current Armor Class is being sourced
+* Racial ability-score bonuses shown beside affected abilities
+* Clear bonus legend available throughout the builder
+* Responsive browser-based interface
 
 ## Built With
 - HTML
@@ -43,3 +46,12 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 - Added beginner-focused equipment notes, such as how armor and weapon choices interact with ability scores.
 - Improved mobile layouts for Standard Array, rolled scores, and Point Buy.
 - Kept the Character Preview stable while users switch ability-score methods or make score selections.
+
+### v0.3.0 — July 8, 2026 — Starting Equipment & Armor Preview Polish
+* Added starting equipment selection for supported classes.
+* Added Initiative and Speed to the Character Preview.
+* Improved the Character Preview layout with stronger visual grouping between major sections.
+* Expanded equipment preview details for weapons, armor, tools, adventuring gear, and other equipment.
+* Added an Armor & Defense section that explains the sources contributing to Armor Class.
+* Added support for defensive class features such as Fighter Defense/Protection Fighting Style and Monk/Barbarian Unarmored Defense.
+* Kept the final Armor Class value centralized in the Armor Class summary box while using Armor & Defense for beginner-friendly explanation.
