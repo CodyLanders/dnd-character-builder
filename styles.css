@@ -145,9 +145,12 @@ p {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
   gap: 18px;
   align-items: start;
+  min-width: 0;
 }
 
 .panel {
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 18px;
@@ -341,6 +344,7 @@ select {
 }
 
 .equipment-option {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
@@ -385,6 +389,8 @@ select {
 .equipment-choice-copy strong,
 .equipment-choice-copy span {
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .equipment-choice-copy span {
@@ -399,9 +405,11 @@ select {
   gap: 8px;
   border-top: 1px solid var(--line);
   padding: 0 12px 12px;
+  min-width: 0;
 }
 
 .equipment-select-label {
+  min-width: 0;
   color: var(--text);
 }
 
@@ -467,6 +475,8 @@ select {
 .preview-panel {
   position: sticky;
   top: 18px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sheet-grid {
@@ -525,13 +535,7 @@ select {
   margin-bottom: 3px;
 }
 
-.weapon-table-wrap {
-  width: 100%;
-  margin-top: 8px;
-  overflow-x: auto;
-}
-
-.weapon-table-note {
+.weapon-card-note {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.82rem;
@@ -545,75 +549,156 @@ select {
   line-height: 1.35;
 }
 
-.weapon-table {
-  width: 100%;
-  min-width: 560px;
-  border-collapse: collapse;
-  font-size: 0.84rem;
+.weapon-card-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  min-width: 0;
 }
 
-.weapon-table th,
-.weapon-table td {
+.weapon-card {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--line);
-  padding: 6px 7px;
-  text-align: left;
-  vertical-align: top;
+  border-radius: 8px;
+  background: #fff;
 }
 
-.weapon-table th {
+.weapon-card[open] {
+  border-color: #b8c6cf;
+  box-shadow: 0 1px 0 rgba(20, 38, 50, 0.04);
+}
+
+.weapon-card-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.weapon-card-summary::-webkit-details-marker {
+  display: none;
+}
+
+.weapon-card-summary::after {
+  content: "Open details";
+  justify-self: start;
+  color: var(--button);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.weapon-card[open] .weapon-card-summary::after {
+  content: "Close details";
+}
+
+.weapon-card-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.weapon-card-heading strong {
+  overflow-wrap: anywhere;
+}
+
+.weapon-card-heading span {
   color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.weapon-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.weapon-stat {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   background: #fafafa;
-  font-size: 0.68rem;
+}
+
+.weapon-stat span,
+.weapon-stat strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.weapon-stat span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.1;
   text-transform: uppercase;
 }
 
-.weapon-table tbody tr.weapon-group-start td {
-  border-top: 2px solid #b8c6cf;
+.weapon-stat strong {
+  margin-top: 3px;
+  font-size: 0.9rem;
+  line-height: 1.2;
 }
 
-.weapon-table tbody tr:first-child td {
-  border-top-width: 1px;
-}
-
-.weapon-table th:nth-child(2),
-.weapon-table td:nth-child(2),
-.weapon-table th:nth-child(3),
-.weapon-table td:nth-child(3) {
-  white-space: nowrap;
-}
-
-.weapon-variant-row td:first-child {
-  color: var(--muted);
-}
-
-.weapon-detail-row td {
-  color: var(--muted);
-  border-top: 0;
+.weapon-card-details {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
   background: #f7f9fa;
-  font-size: 0.8rem;
-  font-style: italic;
+  color: var(--muted);
+  font-size: 0.84rem;
   line-height: 1.35;
+}
+
+.weapon-card-details ul {
+  margin: 6px 0 10px;
+  padding-left: 18px;
+}
+
+.weapon-card-details ul:last-child {
+  margin-bottom: 0;
 }
 
 .ability-table {
   width: 100%;
   margin-top: 12px;
   border-collapse: collapse;
-  font-size: 0.94rem;
+  table-layout: fixed;
+  font-size: 0.88rem;
 }
 
 .ability-table th,
 .ability-table td {
   border: 1px solid var(--line);
-  padding: 7px 8px;
+  padding: 6px 7px;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .ability-table th {
   color: var(--muted);
   background: #fafafa;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
+}
+
+.ability-table th:first-child,
+.ability-table td:first-child {
+  width: 42%;
+}
+
+.ability-table th:nth-child(2),
+.ability-table td:nth-child(2) {
+  width: 36%;
+}
+
+.ability-table th:nth-child(3),
+.ability-table td:nth-child(3) {
+  width: 22%;
+  text-align: center;
 }
 
 .table-note {
@@ -632,21 +717,24 @@ select {
   margin-top: 10px;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
 }
 
 .preview-table th,
 .preview-table td {
   border: 1px solid var(--line);
-  padding: 6px 5px;
+  padding: 5px 5px;
   text-align: left;
   vertical-align: middle;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .preview-table th {
   color: var(--muted);
   background: #fafafa;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
+  line-height: 1.15;
   text-transform: uppercase;
 }
 
@@ -659,43 +747,44 @@ select {
 
 .saving-throws-table th:first-child,
 .saving-throws-table td:first-child {
-  width: 30%;
+  width: 16%;
 }
 
 .saving-throws-table th:nth-child(2),
 .saving-throws-table td:nth-child(2) {
-  width: 45%;
+  width: 64%;
 }
 
 .saving-throws-table th:nth-child(3),
 .saving-throws-table td:nth-child(3) {
-  width: 25%;
+  width: 20%;
 }
 
 .skills-table th:first-child,
 .skills-table td:first-child {
-  width: 24%;
+  width: 13%;
 }
 
 .skills-table th:nth-child(2),
 .skills-table td:nth-child(2) {
-  width: 40%;
+  width: 47%;
 }
 
 .skills-table th:nth-child(3),
 .skills-table td:nth-child(3) {
-  width: 18%;
+  width: 17%;
+  text-align: center;
 }
 
 .skills-table th:nth-child(4),
 .skills-table td:nth-child(4) {
-  width: 18%;
+  width: 23%;
   text-align: center;
 }
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 12px 18px 18px;
+    padding: 12px 18px calc(96px + env(safe-area-inset-bottom));
   }
 
   .builder-layout {
@@ -710,9 +799,58 @@ select {
     position: static;
   }
 
+  #buildView {
+    padding-bottom: 88px;
+  }
+
+  .wizard-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 8px;
+    margin: 4px -18px -18px;
+    border-top: 1px solid var(--line);
+    padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -8px 18px rgba(31, 41, 51, 0.1);
+  }
+
+  .wizard-actions .primary-button,
+  .wizard-actions .secondary-button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 46px;
+    padding: 10px 8px;
+  }
+
+  .ability-table,
+  .preview-table {
+    font-size: 0.78rem;
+  }
+
+  .ability-table th,
+  .preview-table th {
+    font-size: 0.58rem;
+  }
+
+  .ability-table th,
+  .ability-table td,
+  .preview-table th,
+  .preview-table td {
+    padding: 5px 4px;
+  }
+
   .primary-button,
   .secondary-button {
     width: 100%;
+  }
+
+  .wizard-actions .primary-button,
+  .wizard-actions .secondary-button {
+    width: auto;
   }
 }
 
@@ -840,6 +978,10 @@ select {
   min-width: 0;
 }
 
+.assignment-button {
+  justify-self: start;
+}
+
 .roll-result {
   display: grid;
   align-content: center;
@@ -868,13 +1010,19 @@ select {
 
   .score-assignment-grid label {
     gap: 4px;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
+    line-height: 1.15;
   }
 
   .score-assignment-grid select {
-    min-height: 36px;
-    padding: 6px 4px;
-    font-size: 0.78rem;
+    min-height: 34px;
+    padding: 5px 4px;
+    font-size: 0.72rem;
+  }
+
+  .assignment-button {
+    justify-self: stretch;
+    min-height: 40px;
   }
 
   .roll-result {
@@ -940,8 +1088,8 @@ select {
 
 @media (max-width: 760px) {
   .point-buy-card {
-    gap: 6px;
-    padding: 9px 8px;
+    gap: 8px;
+    padding: 10px 8px;
   }
 
   .point-buy-score-line {
@@ -955,7 +1103,12 @@ select {
   }
 
   .point-buy-actions {
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .point-buy-action {
+    justify-items: center;
   }
 }
 
@@ -963,14 +1116,6 @@ select {
 .point-buy-score-line,
 .point-buy-modifier {
   text-align: center;
-}
-
-.point-buy-action:first-child {
-  justify-items: start;
-}
-
-.point-buy-action:last-child {
-  justify-items: end;
 }
 
 .point-buy-action .secondary-button {
@@ -982,10 +1127,15 @@ select {
 
 @media (max-width: 760px) {
   .point-buy-action .secondary-button {
-    width: 42px;
-    min-width: 42px;
-    min-height: 42px;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 6px;
+  }
+
+  .point-change-label {
+    width: 100%;
+    text-align: center;
   }
 }
 

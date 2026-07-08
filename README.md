@@ -19,16 +19,28 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
-### July 6, 2026 — Ability Score Clarity & GitHub Publishing
-- Published the D&D Character Builder as a standalone public GitHub project.
-- Preserved the existing Ability Score dropdown workflow so users can continue assigning scores the same way.
-- Added racial ability-score bonus indicators directly beside the relevant ability names.
-- Used one asterisk for each racial bonus point:
-  - `*` = +1 bonus
-  - `**` = +2 bonus
-- Kept the racial bonus legend visible throughout the character-building process rather than only after race selection.
-- Simplified the legend into one compact line:  
-  `Racial Ability Score Bonus: Number of * indicates bonus points to that ability.`
+### v0.3.1 — July 8, 2026 — UI Polish, Mobile UX, and Save Protection
+- Reworked parts of the Character Preview UI to be easier to read and less table-heavy.
+- Converted weapon/combat output from dense tables into cleaner card-style displays where appropriate.
+- Improved beginner-facing action details so attacks and combat options are easier to understand at a glance.
+- Refined spacing, labels, and section structure across the preview to make the page feel more polished.
+- Improved mobile usability across the character builder workflow.
+- Refined ability-score and Point Buy layouts for smaller screens.
+- Adjusted Point Buy controls so buttons, numbers, and labels align more cleanly.
+- Clarified random ability-score assignment language with the “Random Assign” label.
+- Added autosave behavior so character-building progress can survive refreshes.
+- Added refresh protection to reduce the chance of accidentally losing progress.
+- Added future polish notes for improving horizontal mobile scrolling and replacing the Home button with a clearer Restart action.
+
+### v0.3.0 — July 8, 2026 — Starting Equipment & Armor Preview Polish
+* Added starting equipment selection for supported classes.
+* Added Initiative and Speed to the Character Preview.
+* Improved the Character Preview layout with stronger visual grouping between major sections.
+* Expanded equipment preview details for weapons, armor, tools, adventuring gear, and other equipment.
+* Added an Armor & Defense section that explains the sources contributing to Armor Class.
+* Added support for defensive class features such as Fighter Defense/Protection Fighting Style and Monk/Barbarian Unarmored Defense.
+* Kept the final Armor Class value centralized in the Armor Class summary box while using Armor & Defense for beginner-friendly explanation.
+* Added an Attack Summary that calculates weapon attack bonuses, damage bonuses, attack ability, range, and relevant fighting-style bonuses.
 
 ### July 7, 2026 — Ability Score Methods & Beginner Guidance
 - Added three ability-score assignment methods:
@@ -47,11 +59,13 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 - Improved mobile layouts for Standard Array, rolled scores, and Point Buy.
 - Kept the Character Preview stable while users switch ability-score methods or make score selections.
 
-### v0.3.0 — July 8, 2026 — Starting Equipment & Armor Preview Polish
-* Added starting equipment selection for supported classes.
-* Added Initiative and Speed to the Character Preview.
-* Improved the Character Preview layout with stronger visual grouping between major sections.
-* Expanded equipment preview details for weapons, armor, tools, adventuring gear, and other equipment.
-* Added an Armor & Defense section that explains the sources contributing to Armor Class.
-* Added support for defensive class features such as Fighter Defense/Protection Fighting Style and Monk/Barbarian Unarmored Defense.
-* Kept the final Armor Class value centralized in the Armor Class summary box while using Armor & Defense for beginner-friendly explanation.
+### July 6, 2026 — Ability Score Clarity & GitHub Publishing
+- Published the D&D Character Builder as a standalone public GitHub project.
+- Preserved the existing Ability Score dropdown workflow so users can continue assigning scores the same way.
+- Added racial ability-score bonus indicators directly beside the relevant ability names.
+- Used one asterisk for each racial bonus point:
+  - `*` = +1 bonus
+  - `**` = +2 bonus
+- Kept the racial bonus legend visible throughout the character-building process rather than only after race selection.
+- Simplified the legend into one compact line:  
+  `Racial Ability Score Bonus: Number of * indicates bonus points to that ability.`

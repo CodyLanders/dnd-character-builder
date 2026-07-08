@@ -28,6 +28,8 @@ const ABILITY_METHODS = {
   pointBuy: "point-buy",
 };
 
+const AUTOSAVE_KEY = "dnd-character-builder-save";
+
 const views = {
   home: document.querySelector("#homeView"),
   randomize: document.querySelector("#randomizeView"),
@@ -116,6 +118,133 @@ const appState = {
   abilityState: createAbilityState(),
 };
 
+function normalizeAbilityMap(source, fallbackValue = "") {
+  return DND_DATA.abilities.reduce((scores, ability) => {
+    scores[ability] = source && source[ability] !== undefined ? source[ability] : fallbackValue;
+    return scores;
+  }, {});
+}
+
+function normalizeCharacter(savedCharacter = {}) {
+  const blank = createBlankCharacter();
+  return {
+    ...blank,
+    ...savedCharacter,
+    classFeatures: { ...blank.classFeatures, ...(savedCharacter.classFeatures || {}) },
+    skillProficiencies: { ...blank.skillProficiencies, ...(savedCharacter.skillProficiencies || {}) },
+    classSkillProficiencies: { ...blank.classSkillProficiencies, ...(savedCharacter.classSkillProficiencies || {}) },
+    expertise: { ...blank.expertise, ...(savedCharacter.expertise || {}) },
+    savingThrowProficiencies: { ...blank.savingThrowProficiencies, ...(savedCharacter.savingThrowProficiencies || {}) },
+    savingThrowExpertise: { ...blank.savingThrowExpertise, ...(savedCharacter.savingThrowExpertise || {}) },
+    baseAbilities: normalizeAbilityMap(savedCharacter.baseAbilities),
+    abilities: normalizeAbilityMap(savedCharacter.abilities),
+    equipmentSelections: savedCharacter.equipmentSelections || {},
+    equipment: Array.isArray(savedCharacter.equipment) ? savedCharacter.equipment : [],
+  };
+}
+
+function normalizeAbilityState(savedAbilityState = {}) {
+  const blank = createAbilityState();
+  return {
+    standard: {
+      assignments: normalizeAbilityMap(savedAbilityState.standard && savedAbilityState.standard.assignments),
+    },
+    rolled: {
+      results: Array.isArray(savedAbilityState.rolled && savedAbilityState.rolled.results)
+        ? savedAbilityState.rolled.results.map((roll) => ({ ...roll }))
+        : blank.rolled.results,
+      assignments: normalizeAbilityMap(savedAbilityState.rolled && savedAbilityState.rolled.assignments),
+    },
+    pointBuy: {
+      scores: normalizeAbilityMap(savedAbilityState.pointBuy && savedAbilityState.pointBuy.scores, 8),
+      touched: normalizeAbilityMap(savedAbilityState.pointBuy && savedAbilityState.pointBuy.touched, false),
+      finalized: Boolean(savedAbilityState.pointBuy && savedAbilityState.pointBuy.finalized),
+    },
+  };
+}
+
+function getActiveViewName() {
+  return Object.entries(views).find(([, view]) => !view.classList.contains("hidden"))?.[0] || "home";
+}
+
+function hasMeaningfulProgress() {
+  const character = appState.character;
+  const equipmentChoices = character.equipmentSelections && character.equipmentSelections.choices
+    ? Object.keys(character.equipmentSelections.choices).length
+    : 0;
+  const classFeatureChoices = Object.values(character.classFeatures || {}).some(Boolean);
+  const standardAssignments = Object.values(appState.abilityState.standard.assignments || {}).some((value) => value !== "");
+  const rolledScores = appState.abilityState.rolled.results.length > 0;
+  const rolledAssignments = Object.values(appState.abilityState.rolled.assignments || {}).some(Boolean);
+  const pointBuyTouched = Object.values(appState.abilityState.pointBuy.touched || {}).some(Boolean);
+
+  return Boolean(
+    character.classId
+    || character.raceId
+    || character.backgroundId
+    || classFeatureChoices
+    || equipmentChoices
+    || standardAssignments
+    || rolledScores
+    || rolledAssignments
+    || pointBuyTouched
+    || appState.abilityState.pointBuy.finalized
+  );
+}
+
+function saveProgress() {
+  if (!hasMeaningfulProgress()) {
+    clearSavedProgress();
+    return;
+  }
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+      version: 1,
+      savedAt: new Date().toISOString(),
+      currentView: getActiveViewName(),
+      wizardStepIndex: appState.wizardStepIndex,
+      character: appState.character,
+      abilityMethod: appState.abilityMethod,
+      abilityState: appState.abilityState,
+    }));
+  } catch (error) {
+    console.warn("Unable to autosave character progress.", error);
+  }
+}
+
+function clearSavedProgress() {
+  try {
+    localStorage.removeItem(AUTOSAVE_KEY);
+  } catch (error) {
+    console.warn("Unable to clear saved character progress.", error);
+  }
+}
+
+function loadSavedProgress() {
+  try {
+    const rawSave = localStorage.getItem(AUTOSAVE_KEY);
+    return rawSave ? JSON.parse(rawSave) : null;
+  } catch (error) {
+    console.warn("Unable to restore saved character progress.", error);
+    clearSavedProgress();
+    return null;
+  }
+}
+
+function restoreSavedProgress() {
+  const saved = loadSavedProgress();
+  if (!saved || !saved.character) return false;
+  appState.character = normalizeCharacter(saved.character);
+  appState.abilityMethod = Object.values(ABILITY_METHODS).includes(saved.abilityMethod)
+    ? saved.abilityMethod
+    : appState.character.abilityScoreMethod || ABILITY_METHODS.standard;
+  appState.abilityState = normalizeAbilityState(saved.abilityState);
+  appState.wizardStepIndex = Number.isInteger(saved.wizardStepIndex)
+    ? Math.min(Math.max(saved.wizardStepIndex, 0), wizardSteps.length - 1)
+    : 0;
+  return true;
+}
+
 function getById(collection, id) {
   return collection.find((item) => item.id === id);
 }
@@ -123,7 +252,24 @@ function getById(collection, id) {
 function showView(viewName) {
   Object.values(views).forEach((view) => view.classList.add("hidden"));
   views[viewName].classList.remove("hidden");
+  scrollToCurrentViewTop();
+}
 
+function scrollToCurrentViewTop(behavior = "smooth") {
+  requestAnimationFrame(() => {
+    const activeView = Object.values(views).find((view) => !view.classList.contains("hidden"));
+    const target = activeView || document.querySelector(".app-shell");
+    const top = target ? target.getBoundingClientRect().top + window.pageYOffset : 0;
+    window.scrollTo({ top: Math.max(top - 8, 0), behavior });
+  });
+}
+
+function scrollBuilderStepToTop(behavior = "smooth") {
+  requestAnimationFrame(() => {
+    const target = wizardStep.querySelector("h2") || wizardStep;
+    const top = target.getBoundingClientRect().top + window.pageYOffset;
+    window.scrollTo({ top: Math.max(top - 12, 0), behavior });
+  });
 }
 
 function abilityModifier(score) {
@@ -177,7 +323,7 @@ function renderAbilityScoresTable(character, race) {
   return `
     <h3>Ability Scores</h3>
     <table class="ability-table">
-      <thead><tr><th>Ability</th><th>Score</th><th>Modifier</th></tr></thead>
+      <thead><tr><th>Ability</th><th>Score</th><th>Mod</th></tr></thead>
       <tbody>
         ${DND_DATA.abilities.map((ability) => {
           const score = character.abilities[ability];
@@ -366,7 +512,7 @@ function renderSavingThrowsTable(character, characterClass) {
   return `
     <h3>Saving Throws</h3>
     <table class="preview-table saving-throws-table">
-      <thead><tr><th>Proficiency</th><th>Ability</th><th>Modifier</th></tr></thead>
+      <thead><tr><th>Prof</th><th>Ability</th><th>Mod</th></tr></thead>
       <tbody>
         ${DND_DATA.abilities.map((ability) => {
           const level = savingThrowLevels[ability] || 0;
@@ -384,7 +530,7 @@ function renderSkillsTable(character, race, background) {
   return `
     <h3>Skills</h3>
     <table class="preview-table skills-table">
-      <thead><tr><th>Proficiency</th><th>Skill</th><th>Modifier</th><th>Base Ability</th></tr></thead>
+      <thead><tr><th>Prof</th><th>Skill</th><th>Mod</th><th>Ability</th></tr></thead>
       <tbody>
         ${DND_DATA.skills.map((skill) => {
           const level = skillLevels[skill.name] || 0;
@@ -568,70 +714,125 @@ function twoWeaponFightingDescription(character, label, singularName) {
   return `${label}: Can hold one in each hand. After attacking with one ${singularName.toLowerCase()}, you can use your bonus action to attack with the other.${fightingStyleNote}`;
 }
 
-function createWeaponRows(character, item, label = item.name, quantityPrefix = "", descriptionOverride = "", options = {}) {
+function formatWeaponProperties(item) {
+  return (item.properties || [])
+    .map((property) => property.startsWith("versatile ") ? "versatile" : property)
+    .map((property) => property.charAt(0).toUpperCase() + property.slice(1))
+    .join(", ") || "None";
+}
+
+function getWeaponReachRange(item) {
+  if (hasWeaponProperty(item, "ranged")) return item.range ? `Range: ${item.range} ft.` : "Range: Ranged";
+  if (hasWeaponProperty(item, "thrown")) return item.range ? `Reach/Range: Melee, 5 ft.; thrown ${item.range} ft.` : "Reach/Range: Melee, 5 ft.; thrown";
+  if (hasWeaponProperty(item, "reach")) return "Reach/Range: Melee, 10 ft.";
+  return "Reach/Range: Melee, 5 ft.";
+}
+
+function getWeaponHands(item, isPaired = false) {
+  if (isPaired) return "Hands: One in each hand";
+  if (hasWeaponProperty(item, "two-handed")) return "Hands: Two-handed";
+  if (getVersatileDamage(item)) return "Hands: One-handed or two-handed";
+  return "Hands: One-handed";
+}
+
+function getWeaponRole(item, label, options = {}) {
+  if (options.role) return options.role;
+  if (options.isPaired) return "Secondary / off-hand option";
+  if (label.includes("Javelin") || label.includes("Dart")) return "Backup / thrown weapon";
+  if (isRangedWeapon(item)) return label.includes("crossbow") ? "Secondary ranged weapon" : "Ranged weapon";
+  if (hasWeaponProperty(item, "thrown")) return "Thrown weapon";
+  return "Main weapon";
+}
+
+function getWeaponRoleRank(role) {
+  if (role === "Main weapon") return 1;
+  if (role === "Ranged weapon") return 2;
+  if (role === "Secondary ranged weapon" || role === "Secondary / off-hand option") return 3;
+  if (role === "Backup / thrown weapon" || role === "Thrown weapon") return 4;
+  return 5;
+}
+
+function getWeaponNotes(character, item, options = {}) {
+  if (options.isPaired) return [twoWeaponFightingDescription(character, options.label, options.singularName)];
+  const notes = [];
+  const isRanged = hasWeaponProperty(item, "ranged");
+  const isThrown = hasWeaponProperty(item, "thrown");
+  if (isRanged) notes.push("Uses Dexterity.");
+  else if (hasWeaponProperty(item, "finesse")) notes.push("Finesse uses your better modifier: Strength or Dexterity.");
+  else notes.push("Usually uses Strength.");
+  if (hasWeaponProperty(item, "two-handed")) notes.push("Requires two hands to use.");
+  if (hasWeaponProperty(item, "light")) notes.push("Light weapons are useful for two-weapon fighting.");
+  if (getVersatileDamage(item)) notes.push("Can be used one-handed, or two-handed for higher damage.");
+  if (isThrown && !isRanged) notes.push("Can be used in melee or thrown.");
+  if (shouldApplyArchery(character, item)) notes.push("Includes +2 attack bonus from Archery Fighting Style.");
+  if (options.dueling) notes.push("Includes +2 damage from Dueling when used one-handed with no second weapon.");
+  if (options.greatWeaponFighting) notes.push("Great Weapon Fighting lets you reroll 1s and 2s on weapon damage dice when using this weapon two-handed.");
+  return notes;
+}
+
+function createWeaponCardEntry(character, item, label = item.name, descriptionOverride = "", options = {}) {
   const attackBonus = getWeaponAttackBonus(character, item);
   const abilityInfo = getWeaponAbilityInfo(character, item);
   const duelingBonus = shouldApplyDueling(character, item, "main") && !options.isPaired ? 2 : 0;
-  const rows = [{
-    weapon: label,
-    attackBonus,
-    damage: quantityPrefix ? `${quantityPrefix} ${formatDamage(item.damage, abilityInfo.modifier, duelingBonus)}` : formatDamage(item.damage, abilityInfo.modifier, duelingBonus),
-    type: formatDamageType(item.damageType),
-    use: getWeaponUse(item),
-    isGroupStart: true,
-  }];
-
-  if (options.isPaired) {
-    const includeOffhandModifier = getFightingStyle(character) === "two-weapon-fighting";
-    rows.push({
-      weapon: `&#8627; Off-hand ${item.name.toLowerCase()}`,
-      attackBonus,
-      damage: formatDamage(item.damage, abilityInfo.modifier, 0, includeOffhandModifier),
-      type: formatDamageType(item.damageType),
-      use: "Bonus action attack",
-      isVariant: true,
-    });
-  }
-
+  const mainDamage = formatDamage(item.damage, abilityInfo.modifier, duelingBonus);
+  const offhandDamage = formatDamage(item.damage, abilityInfo.modifier, 0, getFightingStyle(character) === "two-weapon-fighting");
   const versatileDamage = getVersatileDamage(item);
-  if (versatileDamage) {
-    rows.push({
-      weapon: `&#8627; ${item.name} two-handed`,
-      attackBonus,
-      damage: formatDamage(versatileDamage, abilityInfo.modifier),
-      type: formatDamageType(item.damageType),
-      use: "Versatile use",
-      isVariant: true,
-    });
+  const role = getWeaponRole(item, label, options);
+  const details = [];
+  if (options.isPaired) {
+    details.push(`Main attack damage: ${mainDamage}`);
+    details.push(`Off-hand attack damage: ${offhandDamage}`);
   }
-  const descriptionOptions = {
-    dueling: duelingBonus > 0,
-    greatWeaponFighting: shouldApplyGreatWeaponFighting(character, item, versatileDamage ? "versatile" : "main"),
+  if (versatileDamage) {
+    details.push(`One-handed damage: ${mainDamage}`);
+    details.push(`Two-handed damage: ${formatDamage(versatileDamage, abilityInfo.modifier)} (if other hand is free)`);
+  }
+  if (options.ammunition) details.push(`Ammunition: ${options.ammunition}`);
+  details.push(getWeaponReachRange(item));
+  details.push(getWeaponHands(item, Boolean(options.isPaired)));
+  details.push(`Ability: ${abilityInfo.ability}`);
+  details.push(`Properties: ${formatWeaponProperties(item)}`);
+
+  return {
+    weapon: label,
+    role,
+    roleRank: getWeaponRoleRank(role),
+    attackBonus,
+    damage: mainDamage,
+    type: formatDamageType(item.damageType),
+    details,
+    notes: descriptionOverride
+      ? [descriptionOverride.replace(`${label}: `, "")]
+      : getWeaponNotes(character, item, {
+        ...options,
+        label,
+        dueling: duelingBonus > 0,
+        greatWeaponFighting: shouldApplyGreatWeaponFighting(character, item, versatileDamage ? "versatile" : "main"),
+      }),
   };
-  return { rows, description: descriptionOverride || `${item.name}: ${getWeaponDescription(character, item, descriptionOptions)}` };
 }
 
 function categorizedWeaponEntries(items, character) {
   const entries = [];
   const consumed = new Set();
   const combinedWeapons = [
-    { weaponId: "shortbow", ammoId: "arrows20", label: "Shortbow + 20 arrows" },
-    { weaponId: "longbow", ammoId: "arrows20", label: "Longbow + 20 arrows" },
-    { weaponId: "lightCrossbow", ammoId: "bolts20", label: "Light crossbow + 20 bolts" },
+    { weaponId: "shortbow", ammoId: "arrows20", label: "Shortbow + 20 arrows", ammunition: "20 arrows" },
+    { weaponId: "longbow", ammoId: "arrows20", label: "Longbow + 20 arrows", ammunition: "20 arrows" },
+    { weaponId: "lightCrossbow", ammoId: "bolts20", label: "Light crossbow + 20 bolts", ammunition: "20 bolts" },
   ];
   const quantityWeapons = {
     daggers2: { sourceId: "dagger", label: "Dagger x2", isPaired: true, singularName: "dagger" },
-    handaxes2: { sourceId: "handaxe", label: "Handaxe x2", quantityPrefix: "each", isPaired: true, singularName: "handaxe" },
-    javelins4: { sourceId: "javelin", label: "Javelin x4", quantityPrefix: "each" },
-    darts10: { sourceId: "dart", label: "Dart x10", quantityPrefix: "each" },
+    handaxes2: { sourceId: "handaxe", label: "Handaxe x2", isPaired: true, singularName: "handaxe" },
+    javelins4: { sourceId: "javelin", label: "Javelin x4", role: "Backup / thrown weapon" },
+    darts10: { sourceId: "dart", label: "Dart x10", role: "Backup / thrown weapon" },
   };
 
-  combinedWeapons.forEach(({ weaponId, ammoId, label }) => {
+  combinedWeapons.forEach(({ weaponId, ammoId, label, ammunition }) => {
     const weapon = items.find((item) => typeof item !== "string" && item.id === weaponId);
     if (!weapon || !hasPreviewItem(items, ammoId)) return;
     consumed.add(weaponId);
     consumed.add(ammoId);
-    entries.push(createWeaponRows(character, weapon, label));
+    entries.push(createWeaponCardEntry(character, weapon, label, "", { ammunition }));
   });
 
   items.forEach((item) => {
@@ -642,14 +843,14 @@ function categorizedWeaponEntries(items, character) {
       consumed.add(item.id);
       if (sourceWeapon) {
         const description = quantityWeapon.isPaired ? twoWeaponFightingDescription(character, quantityWeapon.label, quantityWeapon.singularName) : "";
-        entries.push(createWeaponRows(character, sourceWeapon, quantityWeapon.label, quantityWeapon.quantityPrefix || "", description, { isPaired: Boolean(quantityWeapon.isPaired) }));
+        entries.push(createWeaponCardEntry(character, sourceWeapon, quantityWeapon.label, description, { isPaired: Boolean(quantityWeapon.isPaired), singularName: quantityWeapon.singularName, role: quantityWeapon.role }));
       }
       return;
     }
-    if (item.type === "weapon" && item.damage) entries.push(createWeaponRows(character, item));
+    if (item.type === "weapon" && item.damage) entries.push(createWeaponCardEntry(character, item));
   });
 
-  return entries;
+  return entries.sort((first, second) => first.roleRank - second.roleRank);
 }
 
 function getArmorDefenseNote(armor, hasShield, hasDefenseStyle, hasProtectionStyle, character) {
@@ -726,21 +927,32 @@ function renderArmorDefenseCategory(armorDefense) {
   return `${renderPreviewCategory("Armor & Defense", armorDefense.entries)}${armorDefense.note ? `<p class="equipment-note">${armorDefense.note}</p>` : ""}`;
 }
 
-function renderWeaponTable(entries) {
+function renderWeaponCards(entries) {
   if (!entries.length) return "";
   return `
     <h3>Weapons</h3>
-    <p class="weapon-table-note">Weapon attacks include proficiency. Damage includes the relevant ability modifier when applicable.</p>
-    <div class="weapon-table-wrap">
-      <table class="weapon-table">
-        <thead><tr><th>Weapon</th><th>Atk Bonus</th><th>Damage</th><th>Type</th><th>Use</th></tr></thead>
-        <tbody>
-          ${entries.map((entry) => `
-            ${entry.rows.map((row) => `<tr class="${[row.isGroupStart ? "weapon-group-start" : "", row.isVariant ? "weapon-variant-row" : ""].filter(Boolean).join(" ")}"><td>${row.weapon}</td><td>${row.attackBonus}</td><td>${row.damage}</td><td>${row.type}</td><td>${row.use}</td></tr>`).join("")}
-            <tr class="weapon-detail-row"><td colspan="5">${entry.description}</td></tr>
-          `).join("")}
-        </tbody>
-      </table>
+    <p class="weapon-card-note">Weapon attacks include proficiency. Damage includes the relevant ability modifier when applicable.</p>
+    <div class="weapon-card-list">
+      ${entries.map((entry) => `
+        <details class="weapon-card">
+          <summary class="weapon-card-summary">
+            <span class="weapon-card-heading">
+              <strong>${entry.weapon}</strong>
+              <span>${entry.role}</span>
+            </span>
+            <span class="weapon-card-stats" aria-label="${entry.weapon} attack summary">
+              <span class="weapon-stat"><span>Atk Bonus</span><strong>${entry.attackBonus}</strong></span>
+              <span class="weapon-stat"><span>Damage</span><strong>${entry.damage}</strong></span>
+              <span class="weapon-stat"><span>Type</span><strong>${entry.type}</strong></span>
+            </span>
+          </summary>
+          <div class="weapon-card-details">
+            <span class="guidance-section-label">Details</span>
+            <ul>${entry.details.map((detail) => `<li>${detail}</li>`).join("")}</ul>
+            ${entry.notes.length ? `<span class="guidance-section-label">Notes</span><ul>${entry.notes.map((note) => `<li>${note}</li>`).join("")}</ul>` : ""}
+          </div>
+        </details>
+      `).join("")}
     </div>
   `;
 }
@@ -752,7 +964,7 @@ function renderPreviewEquipment(character) {
   }
 
   return [
-    renderWeaponTable(categorizedWeaponEntries(items, character)),
+    renderWeaponCards(categorizedWeaponEntries(items, character)),
     renderArmorDefenseCategory(armorDefenseEntries(items, character)),
     renderPreviewCategory("Tools", toolEntries(items)),
     renderPreviewCategory("Adventuring Gear", adventuringGearEntries(items)),
@@ -1053,8 +1265,8 @@ function standardArrayControls() {
     const selectedScore = appState.abilityState.standard.assignments[ability];
     const blockedScores = getUsedStandardScores(ability);
     const racialBonus = getRaceAbilityBonus(race, ability);
-    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.standard}" data-ability="${ability}"><option value="">Choose score</option>${DND_DATA.standardArray.map((score) => `<option value="${score}" ${Number(selectedScore) === score ? "selected" : ""} ${blockedScores.includes(score) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(score, racialBonus)}</option>`).join("")}</select></label>`;
-  }).join("")}</div>${scoreAssignmentLegend()}<button class="secondary-button" type="button" data-action="randomize-abilities">Randomize Ability Scores</button>`;
+    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.standard}" data-ability="${ability}"><option value="">Score</option>${DND_DATA.standardArray.map((score) => `<option value="${score}" ${Number(selectedScore) === score ? "selected" : ""} ${blockedScores.includes(score) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(score, racialBonus)}</option>`).join("")}</select></label>`;
+  }).join("")}</div>${scoreAssignmentLegend()}<button class="secondary-button assignment-button" type="button" data-action="randomize-abilities">Random Assign</button>`;
 }
 
 function rolledScoreControls() {
@@ -1069,8 +1281,8 @@ function rolledScoreControls() {
     const selectedRollId = rolled.assignments[ability];
     const blockedRollIds = getUsedRollIds(ability);
     const racialBonus = getRaceAbilityBonus(race, ability);
-    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.rolled}" data-ability="${ability}" ${hasRolledScores ? "" : "disabled"}><option value="">Choose rolled score</option>${rolled.results.map((roll, index) => `<option value="${roll.id}" ${selectedRollId === roll.id ? "selected" : ""} ${blockedRollIds.includes(roll.id) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(roll.total, racialBonus)} (Roll ${index + 1})</option>`).join("")}</select></label>`;
-  }).join("")}</div>${scoreAssignmentLegend()}${hasRolledScores ? "" : '<button class="secondary-button" type="button" data-action="roll-scores">Roll Six Scores</button>'}${hasRolledScores ? '<button class="secondary-button" type="button" data-action="randomly-assign-rolled">Randomly Assign Scores</button>' : ""}`;
+    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.rolled}" data-ability="${ability}" ${hasRolledScores ? "" : "disabled"}><option value="">Score</option>${rolled.results.map((roll, index) => `<option value="${roll.id}" ${selectedRollId === roll.id ? "selected" : ""} ${blockedRollIds.includes(roll.id) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(roll.total, racialBonus)} (Roll ${index + 1})</option>`).join("")}</select></label>`;
+  }).join("")}</div>${scoreAssignmentLegend()}${hasRolledScores ? "" : '<button class="secondary-button assignment-button" type="button" data-action="roll-scores">Roll Six Scores</button>'}${hasRolledScores ? '<button class="secondary-button assignment-button" type="button" data-action="randomly-assign-rolled">Random Assign</button>' : ""}`;
 }
 
 function getPointBuySpent() {
@@ -1128,6 +1340,7 @@ function renderWizard() {
   if (step.key === "classFeature") renderClassFeatureStep(step);
   if (step.key === "equipment") renderEquipmentStep(step);
   if (step.key === "abilities") renderAbilityStep(step);
+  saveProgress();
 }
 
 function startBuild(character = createBlankCharacter(), stepIndex = 0) {
@@ -1137,6 +1350,18 @@ function startBuild(character = createBlankCharacter(), stepIndex = 0) {
   appState.wizardStepIndex = stepIndex;
   renderWizard();
   showView("build");
+}
+
+function goToWizardStep(stepIndex) {
+  appState.wizardStepIndex = stepIndex;
+  renderWizard();
+  scrollBuilderStepToTop();
+}
+
+function restartCharacterCreation() {
+  if (!window.confirm("Start over? This will clear your current character.")) return;
+  clearSavedProgress();
+  startBuild(createBlankCharacter(), 0);
 }
 
 function previewRandomizedCharacter(character) {
@@ -1251,6 +1476,7 @@ function finishCharacter() {
   syncAbilityScoresFromState();
   renderPreview(randomPreview, appState.character);
   showView("preview");
+  saveProgress();
 }
 
 wizardStep.addEventListener("click", (event) => {
@@ -1300,12 +1526,12 @@ wizardStep.addEventListener("click", (event) => {
   if (!actionButton) return;
   const action = actionButton.dataset.action;
   if (action === "back") {
-    appState.wizardStepIndex = getPreviousStepIndex();
-    renderWizard();
+    goToWizardStep(getPreviousStepIndex());
+    return;
   }
   if (action === "continue") {
-    appState.wizardStepIndex = getNextStepIndex();
-    renderWizard();
+    goToWizardStep(getNextStepIndex());
+    return;
   }
   if (action === "randomize-current") randomizeCurrentStep();
   if (action === "randomize-abilities") randomizeAbilityScores();
@@ -1332,7 +1558,7 @@ wizardStep.addEventListener("change", (event) => {
   renderWizard();
 });
 
-homeButton.addEventListener("click", () => showView("home"));
+homeButton.addEventListener("click", restartCharacterCreation);
 buildButton.addEventListener("click", () => startBuild());
 randomizeButton.addEventListener("click", () => showView("randomize"));
 randomizeBackButton.addEventListener("click", () => showView("home"));
@@ -1340,8 +1566,19 @@ rollCharacterButton.addEventListener("click", () => previewRandomizedCharacter(D
 standardCharacterButton.addEventListener("click", () => previewRandomizedCharacter(DND_DATA.randomizeStandardArrayCharacter()));
 editRandomButton.addEventListener("click", () => startBuild(appState.character));
 
-syncAbilityScoresFromState();
-renderPreview(livePreview, appState.character);
+function initializeApp() {
+  if (restoreSavedProgress()) {
+    renderWizard();
+    showView("build");
+    saveProgress();
+    return;
+  }
+
+  syncAbilityScoresFromState();
+  renderPreview(livePreview, appState.character);
+}
+
+initializeApp();
 
 
 
