@@ -19,6 +19,18 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.4.2 — Friend Feedback, Rerolls, Starting Gold, and Trinkets — July 9, 2026
+- Added reroll support for rolled ability scores.
+- Added visible reroll attempt tracking for rolled ability scores.
+- Added an advanced Roll Starting Gold equipment method.
+- Kept Take Starting Equipment as the recommended beginner equipment path.
+- Added starting gold reroll support and reroll attempt tracking.
+- Added a manual-equipment warning when rolled starting gold is used.
+- Added an optional trinket roll/picker to Finishing Touches.
+- Kept trinkets blank by default so they remain fully optional.
+- Excluded trinkets from the main Finishing Touches Randomize button.
+- Avoided adding a full equipment shop or inventory builder for now.
+
 ### v0.4.1 — Wizard Spellcasting, Spell Cards, and Blank-Name Confirmation Polish — July 9, 2026
 - Added the level 1 spellcasting foundation for spellcasting classes.
 - Added Wizard as the first selectable spellcasting class.

@@ -34,6 +34,11 @@ const ABILITY_METHODS = {
   pointBuy: "point-buy",
 };
 
+const EQUIPMENT_METHODS = {
+  take: "take-equipment",
+  gold: "rolled-starting-gold",
+};
+
 const AUTOSAVE_KEY = "dnd-character-builder-save";
 
 const views = {
@@ -49,6 +54,8 @@ const randomizeButton = document.querySelector("#randomizeButton");
 const rollCharacterButton = document.querySelector("#rollCharacterButton");
 const standardCharacterButton = document.querySelector("#standardCharacterButton");
 const randomizeBackButton = document.querySelector("#randomizeBackButton");
+const randomEquipmentPrompt = document.querySelector("#randomEquipmentPrompt");
+const randomEquipmentBackButton = document.querySelector("#randomEquipmentBackButton");
 const editRandomButton = document.querySelector("#editRandomButton");
 const wizardStep = document.querySelector("#wizardStep");
 const livePreview = document.querySelector("#livePreview");
@@ -78,10 +85,11 @@ function createBlankCharacter() {
     savingThrowExpertise: {},
     baseAbilities: emptyAbilityScores(),
     abilities: emptyAbilityScores(),
-    equipmentSelections: {},
+    equipmentSelections: { classId: "", method: EQUIPMENT_METHODS.take, choices: {}, rolledGold: null, startingGoldRerollCount: 0 },
     equipment: [],
     spellcasting: { cantrips: [], spellbookSpells: [] },
-    finishingTouches: { choices: {}, alignment: {}, personality: {} },
+    abilityScoreRerollCount: 0,
+    finishingTouches: { choices: {}, alignment: {}, personality: {}, trinket: {} },
     notes: "Stage 1 wizard character",
   };
 }
@@ -89,7 +97,7 @@ function createBlankCharacter() {
 function createAbilityState(character = null) {
   const state = {
     standard: { assignments: emptyAbilityScores() },
-    rolled: { results: [], assignments: emptyAbilityScores() },
+    rolled: { results: [], assignments: emptyAbilityScores(), rerollCount: 0 },
     pointBuy: { scores: emptyAbilityScores(8), touched: emptyAbilityScores(false), finalized: false },
   };
 
@@ -97,6 +105,7 @@ function createAbilityState(character = null) {
 
   if (character.abilityScoreMethod === ABILITY_METHODS.rolled) {
     state.rolled.results = (character.rolledScores || []).map((roll) => ({ ...roll }));
+    state.rolled.rerollCount = Number.isInteger(character.abilityScoreRerollCount) ? character.abilityScoreRerollCount : 0;
     DND_DATA.abilities.forEach((ability) => {
       state.rolled.assignments[ability] = character.rolledAssignments ? character.rolledAssignments[ability] || "" : "";
     });
@@ -124,6 +133,7 @@ const appState = {
   character: createBlankCharacter(),
   abilityMethod: ABILITY_METHODS.standard,
   abilityState: createAbilityState(),
+  pendingRandomAbilityMethod: "",
   openFinishingPicker: "",
   confirmBlankName: false,
 };
@@ -137,6 +147,8 @@ function normalizeAbilityMap(source, fallbackValue = "") {
 
 function normalizeCharacter(savedCharacter = {}) {
   const blank = createBlankCharacter();
+  const savedEquipment = savedCharacter.equipmentSelections || {};
+  const equipmentMethod = Object.values(EQUIPMENT_METHODS).includes(savedEquipment.method) ? savedEquipment.method : EQUIPMENT_METHODS.take;
   return {
     ...blank,
     ...savedCharacter,
@@ -148,16 +160,24 @@ function normalizeCharacter(savedCharacter = {}) {
     savingThrowExpertise: { ...blank.savingThrowExpertise, ...(savedCharacter.savingThrowExpertise || {}) },
     baseAbilities: normalizeAbilityMap(savedCharacter.baseAbilities),
     abilities: normalizeAbilityMap(savedCharacter.abilities),
-    equipmentSelections: savedCharacter.equipmentSelections || {},
+    equipmentSelections: {
+      classId: savedEquipment.classId || savedCharacter.classId || "",
+      method: equipmentMethod,
+      choices: savedEquipment.choices || {},
+      rolledGold: savedEquipment.rolledGold || null,
+      startingGoldRerollCount: Number.isInteger(savedEquipment.startingGoldRerollCount) ? savedEquipment.startingGoldRerollCount : 0,
+    },
     equipment: Array.isArray(savedCharacter.equipment) ? savedCharacter.equipment : [],
     spellcasting: {
       cantrips: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.cantrips) ? savedCharacter.spellcasting.cantrips : [],
       spellbookSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.spellbookSpells) ? savedCharacter.spellcasting.spellbookSpells : [],
     },
+    abilityScoreRerollCount: Number.isInteger(savedCharacter.abilityScoreRerollCount) ? savedCharacter.abilityScoreRerollCount : 0,
     finishingTouches: {
       choices: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.choices) || {}) },
       alignment: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.alignment) || {}) },
       personality: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.personality) || {}) },
+      trinket: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.trinket) || {}) },
     },
   };
 }
@@ -173,6 +193,7 @@ function normalizeAbilityState(savedAbilityState = {}) {
         ? savedAbilityState.rolled.results.map((roll) => ({ ...roll }))
         : blank.rolled.results,
       assignments: normalizeAbilityMap(savedAbilityState.rolled && savedAbilityState.rolled.assignments),
+      rerollCount: Number.isInteger(savedAbilityState.rolled && savedAbilityState.rolled.rerollCount) ? savedAbilityState.rolled.rerollCount : 0,
     },
     pointBuy: {
       scores: normalizeAbilityMap(savedAbilityState.pointBuy && savedAbilityState.pointBuy.scores, 8),
@@ -191,6 +212,7 @@ function hasMeaningfulProgress() {
   const equipmentChoices = character.equipmentSelections && character.equipmentSelections.choices
     ? Object.keys(character.equipmentSelections.choices).length
     : 0;
+  const rolledStartingGold = character.equipmentSelections && character.equipmentSelections.method === EQUIPMENT_METHODS.gold;
   const classFeatureChoices = Object.values(character.classFeatures || {}).some(Boolean);
   const standardAssignments = Object.values(appState.abilityState.standard.assignments || {}).some((value) => value !== "");
   const rolledScores = appState.abilityState.rolled.results.length > 0;
@@ -200,6 +222,7 @@ function hasMeaningfulProgress() {
   const finishingChoices = Object.values(finishingTouches.choices || {}).some(Boolean);
   const alignmentChoice = finishingTouches.alignment && (finishingTouches.alignment.selected || finishingTouches.alignment.skipped);
   const personalityChoices = Object.values(finishingTouches.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped));
+  const trinketChoice = finishingTouches.trinket && finishingTouches.trinket.id;
   const spellcasting = character.spellcasting || {};
   const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || [])].some(Boolean);
 
@@ -209,6 +232,7 @@ function hasMeaningfulProgress() {
     || character.backgroundId
     || classFeatureChoices
     || equipmentChoices
+    || rolledStartingGold
     || standardAssignments
     || rolledScores
     || rolledAssignments
@@ -218,6 +242,7 @@ function hasMeaningfulProgress() {
     || finishingChoices
     || alignmentChoice
     || personalityChoices
+    || trinketChoice
   );
 }
 
@@ -292,6 +317,28 @@ function showView(viewName) {
   scrollToCurrentViewTop();
 }
 
+function showRandomAbilityPrompt() {
+  appState.pendingRandomAbilityMethod = "";
+  document.querySelector(".random-ability-options")?.classList.remove("hidden");
+  randomEquipmentPrompt?.classList.add("hidden");
+}
+
+function showRandomEquipmentPrompt(abilityMethod) {
+  appState.pendingRandomAbilityMethod = abilityMethod;
+  document.querySelector(".random-ability-options")?.classList.add("hidden");
+  randomEquipmentPrompt?.classList.remove("hidden");
+  scrollWindowToTop();
+}
+
+function generateRandomCharacter(equipmentMethod) {
+  const options = { equipmentMethod };
+  const character = appState.pendingRandomAbilityMethod === ABILITY_METHODS.rolled
+    ? DND_DATA.randomizeRolledCharacter(options)
+    : DND_DATA.randomizeStandardArrayCharacter(options);
+  showRandomAbilityPrompt();
+  previewRandomizedCharacter(character);
+}
+
 function scrollWindowToTop() {
   requestAnimationFrame(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -354,8 +401,12 @@ function shouldShowUnassignedRacialBonus(character) {
 }
 
 function renderAbilityScoresTable(character, race) {
+  const rerollNote = character.abilityScoreMethod === ABILITY_METHODS.rolled
+    ? `<p class="ability-reroll-note">Reroll Attempts: ${character.abilityScoreRerollCount || 0}</p>`
+    : "";
   return `
     <h3>Ability Scores</h3>
+    ${rerollNote}
     <table class="ability-table">
       <thead><tr><th>Ability</th><th>Score</th><th>Mod</th></tr></thead>
       <tbody>
@@ -392,13 +443,36 @@ function getEquipmentDefinition(classId) {
 
 function getEquipmentSelections(character) {
   if (!character.equipmentSelections || character.equipmentSelections.classId !== character.classId) {
-    character.equipmentSelections = { classId: character.classId, choices: {} };
+    character.equipmentSelections = { classId: character.classId, method: EQUIPMENT_METHODS.take, choices: {}, rolledGold: null, startingGoldRerollCount: 0 };
   }
+  if (!Object.values(EQUIPMENT_METHODS).includes(character.equipmentSelections.method)) character.equipmentSelections.method = EQUIPMENT_METHODS.take;
+  if (!character.equipmentSelections.choices) character.equipmentSelections.choices = {};
+  if (!Number.isInteger(character.equipmentSelections.startingGoldRerollCount)) character.equipmentSelections.startingGoldRerollCount = 0;
   return character.equipmentSelections;
 }
 
 function resetEquipmentSelections(character) {
-  character.equipmentSelections = { classId: character.classId, choices: {} };
+  character.equipmentSelections = { classId: character.classId, method: EQUIPMENT_METHODS.take, choices: {}, rolledGold: null, startingGoldRerollCount: 0 };
+}
+
+function getEquipmentMethod(character) {
+  return getEquipmentSelections(character).method;
+}
+
+function usesRolledStartingGold(character) {
+  return getEquipmentMethod(character) === EQUIPMENT_METHODS.gold;
+}
+
+function ensureRolledStartingGold(character) {
+  const selections = getEquipmentSelections(character);
+  if (!selections.rolledGold) selections.rolledGold = DND_DATA.rollStartingWealth(character.classId);
+  return selections.rolledGold;
+}
+
+function rerollStartingGold(character) {
+  const selections = getEquipmentSelections(character);
+  selections.rolledGold = DND_DATA.rollStartingWealth(character.classId);
+  selections.startingGoldRerollCount += 1;
 }
 
 function getSelectedEquipmentOption(group, selections) {
@@ -428,6 +502,7 @@ function getOptionItems(option, selectedChoice = {}) {
 }
 
 function getClassEquipmentItems(character, requireComplete = false) {
+  if (usesRolledStartingGold(character)) return [];
   const definition = getEquipmentDefinition(character.classId);
   if (!definition) return [];
   const selections = getEquipmentSelections(character);
@@ -446,6 +521,7 @@ function getClassEquipmentItems(character, requireComplete = false) {
 }
 
 function getBackgroundEquipmentItems(character) {
+  if (usesRolledStartingGold(character)) return [];
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   return background ? background.equipment || [] : [];
 }
@@ -455,6 +531,7 @@ function getAllEquipmentItems(character) {
 }
 
 function hasCompleteEquipmentSelections(character) {
+  if (usesRolledStartingGold(character)) return true;
   const definition = getEquipmentDefinition(character.classId);
   if (!definition) return false;
   const selections = getEquipmentSelections(character);
@@ -632,9 +709,16 @@ function formatSenses(race) {
 }
 
 function getStartingGoldGp(character) {
+  if (usesRolledStartingGold(character)) return 0;
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   const startingGold = background ? Number(background.startingGoldGp) : 0;
   return Number.isFinite(startingGold) && startingGold > 0 ? startingGold : 0;
+}
+
+function getRolledStartingGoldGp(character) {
+  if (!usesRolledStartingGold(character)) return 0;
+  const rolledGold = ensureRolledStartingGold(character);
+  return Number.isFinite(Number(rolledGold.totalGp)) ? Number(rolledGold.totalGp) : 0;
 }
 
 function normalizeSkillSource(source, defaultLevel = 1) {
@@ -826,6 +910,9 @@ function syncAbilityScoresFromState() {
       const roll = getRollById(appState.abilityState.rolled.assignments[ability]);
       baseAbilities[ability] = roll ? roll.total : "";
     });
+    appState.character.rolledScores = appState.abilityState.rolled.results.map((roll) => ({ ...roll }));
+    appState.character.rolledAssignments = { ...appState.abilityState.rolled.assignments };
+    appState.character.abilityScoreRerollCount = appState.abilityState.rolled.rerollCount;
   }
 
   if (appState.abilityMethod === ABILITY_METHODS.pointBuy) {
@@ -836,6 +923,11 @@ function syncAbilityScoresFromState() {
   }
 
   appState.character.abilityScoreMethod = appState.abilityMethod;
+  if (appState.abilityMethod !== ABILITY_METHODS.rolled) {
+    appState.character.rolledScores = [];
+    appState.character.rolledAssignments = {};
+    appState.character.abilityScoreRerollCount = 0;
+  }
   appState.character.baseAbilities = baseAbilities;
   recomputeCharacter();
 }
@@ -1377,15 +1469,30 @@ function renderSpellcastingPreview(character, characterClass) {
 }
 
 function getFinishingTouches(character) {
-  if (!character.finishingTouches) character.finishingTouches = { choices: {}, alignment: {}, personality: {} };
+  if (!character.finishingTouches) character.finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
   if (!character.finishingTouches.choices) character.finishingTouches.choices = {};
   if (!character.finishingTouches.alignment) character.finishingTouches.alignment = {};
   if (!character.finishingTouches.personality) character.finishingTouches.personality = {};
+  if (!character.finishingTouches.trinket) character.finishingTouches.trinket = {};
   return character.finishingTouches;
 }
 
 function resetFinishingTouches(character) {
-  character.finishingTouches = { choices: {}, alignment: {}, personality: {} };
+  character.finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
+}
+
+function getSelectedTrinket(character) {
+  const trinketId = getFinishingTouches(character).trinket.id;
+  return trinketId ? DND_DATA.getTrinketById(trinketId) : null;
+}
+
+function setRandomTrinket(character) {
+  const trinket = DND_DATA.randomChoice(DND_DATA.trinkets);
+  getFinishingTouches(character).trinket = { id: trinket.id, source: "rolled" };
+}
+
+function clearTrinket(character) {
+  getFinishingTouches(character).trinket = {};
 }
 
 function finishingChoice(id, label, category, helper, extra = {}) {
@@ -1493,9 +1600,21 @@ function personalityEntries(character) {
 }
 
 function renderFinishingTouchesPreview(character) {
+  const trinket = getSelectedTrinket(character);
   return [
     renderPreviewCategory("Background Details", personalityEntries(character)),
+    trinket ? renderPreviewCategory("Optional Trinket", [{ text: `#${trinket.roll} - ${trinket.description}` }]) : "",
   ].join("");
+}
+
+function renderRolledStartingGoldPreview(character) {
+  if (!usesRolledStartingGold(character)) return "";
+  return `
+    <div class="equipment-warning-panel">
+      <p>You rolled starting gold instead of taking class/background equipment. Choose equipment manually from the Player's Handbook equipment list.</p>
+      <p>Weapon, armor, AC, and equipment summaries may be incomplete because equipment was chosen outside this builder.</p>
+    </div>
+  `;
 }
 
 function renderArmorDefenseCategory(armorDefense) {
@@ -1534,6 +1653,9 @@ function renderWeaponCards(entries) {
 }
 
 function renderPreviewEquipment(character) {
+  if (usesRolledStartingGold(character)) {
+    return `<h3>Equipment</h3>${renderRolledStartingGoldPreview(character)}${renderEquipmentList([], "Manual equipment was chosen outside this builder.")}`;
+  }
   const items = getPreviewEquipmentItems(character);
   if (!items.length) {
     return `<h3>Equipment</h3>${renderEquipmentList([], character.classId ? "Choose starting equipment." : "Choose a class first.")}`;
@@ -1571,7 +1693,7 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Speed</span>${formatSpeed(race)}</div>
       <div class="sheet-item"><span class="sheet-label">Passive Perception</span>${calculatePassivePerception(character, race, background)}</div>
       <div class="sheet-item"><span class="sheet-label">Senses</span>${formatSenses(race)}</div>
-      <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${getStartingGoldGp(character)} gp</div>
+      <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${usesRolledStartingGold(character) ? getRolledStartingGoldGp(character) : getStartingGoldGp(character)} gp${usesRolledStartingGold(character) ? `<span class="sheet-subnote">Reroll Attempts: ${getEquipmentSelections(character).startingGoldRerollCount}</span>` : ""}</div>
       ${classChoice ? `<div class="sheet-item"><span class="sheet-label">Level 1 Class Choice</span>${fightingStyle ? `Fighting Style: ${fightingStyle.name}` : "Choose a Fighting Style"}</div>` : ""}
     </div>
     ${renderAbilityScoresTable(character, race)}
@@ -1660,9 +1782,66 @@ function renderEquipmentGroup(group, selections) {
   return `<section class="equipment-choice-group"><div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div><div class="equipment-options">${group.options.map((option) => renderEquipmentOption(group, option, selectedChoice)).join("")}</div></section>`;
 }
 
+function renderEquipmentMethodSelector(character) {
+  const method = getEquipmentMethod(character);
+  const methods = [
+    {
+      id: EQUIPMENT_METHODS.take,
+      title: "Take Starting Equipment",
+      tag: "Recommended",
+      text: "Use class equipment choices plus automatic background equipment and background gold.",
+    },
+    {
+      id: EQUIPMENT_METHODS.gold,
+      title: "Roll Starting Gold",
+      tag: "Advanced",
+      text: "Roll class-based starting wealth and choose equipment manually from the Player's Handbook.",
+    },
+  ];
+  return `
+    <section class="equipment-section">
+      <h3>Equipment Method</h3>
+      <div class="equipment-method-grid">
+        ${methods.map((item) => `
+          <button class="equipment-method-card ${method === item.id ? "selected" : ""}" type="button" data-equipment-method="${item.id}" aria-pressed="${method === item.id}">
+            <span class="equipment-method-indicator" aria-hidden="true"></span>
+            <span>
+              <strong>${item.title}</strong>
+              <em>${item.tag}</em>
+              <span>${item.text}</span>
+            </span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderRolledStartingGoldPanel(character) {
+  const rolledGold = ensureRolledStartingGold(character);
+  const selections = getEquipmentSelections(character);
+  const rollText = rolledGold.rolls.length ? rolledGold.rolls.join(", ") : "None";
+  const multiplierText = rolledGold.multiplier === 1 ? "" : ` x ${rolledGold.multiplier}`;
+  return `
+    <section class="equipment-section rolled-gold-panel">
+      <h3>Rolled Starting Gold</h3>
+      <p class="reroll-attempt-note">Reroll Attempts: ${selections.startingGoldRerollCount}</p>
+      <div class="sheet-grid">
+        <div class="sheet-item"><span class="sheet-label">Formula</span>${rolledGold.formula}</div>
+        <div class="sheet-item"><span class="sheet-label">Rolls</span>${rollText}${multiplierText}</div>
+        <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${rolledGold.totalGp} gp</div>
+      </div>
+      <p class="equipment-note">Advanced alternate path: choose and buy equipment manually from the Player's Handbook equipment list.</p>
+      <p class="equipment-note">Weapon, armor, AC, and equipment summaries may be incomplete because this builder does not know what gear you bought.</p>
+      <button class="secondary-button assignment-button" type="button" data-action="reroll-starting-gold">Reroll Starting Gold</button>
+    </section>
+  `;
+}
+
 function renderEquipmentStep(step) {
   const definition = getEquipmentDefinition(appState.character.classId);
   const selections = getEquipmentSelections(appState.character);
+  const useRolledGold = usesRolledStartingGold(appState.character);
   const fixedItems = definition ? (definition.fixed || []).map((itemId) => DND_DATA.getEquipmentItem(itemId)).filter(Boolean) : [];
   const backgroundItems = getBackgroundEquipmentItems(appState.character);
   const selectedClass = getById(DND_DATA.classes, appState.character.classId);
@@ -1671,6 +1850,9 @@ function renderEquipmentStep(step) {
     <p class="progress-text">${step.progress}</p>
     <h2>${step.title}</h2>
     ${guidancePanel(stepGuidance.equipment)}
+    ${renderEquipmentMethodSelector(appState.character)}
+    ${useRolledGold ? renderRolledStartingGoldPanel(appState.character) : ""}
+    ${useRolledGold ? "" : `
     <section class="equipment-notes">
       <h3>Weapon Property Notes</h3>
       <p><strong>Finesse:</strong> can use Strength or Dexterity.</p>
@@ -1691,6 +1873,7 @@ function renderEquipmentStep(step) {
       <h3>Background Equipment</h3>
       ${renderEquipmentList(backgroundItems, appState.character.backgroundId ? "No background equipment listed." : "Choose a background first.")}
     </section>
+    `}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteEquipmentSelections(appState.character) ? "" : "disabled"}>Continue</button></div>
   `;
 }
@@ -1862,12 +2045,12 @@ function rolledScoreControls() {
     ? rolled.results
     : Array.from({ length: 6 }, (_, index) => ({ id: `empty-roll-${index + 1}`, dice: [], total: "" }));
 
-  return `<div class="roll-results" aria-label="Rolled ability scores">${rollSlots.map((roll, index) => `<div class="roll-result ${hasRolledScores ? "" : "empty"}"><strong>${hasRolledScores ? `Roll ${index + 1}: ${roll.total}` : ""}</strong><span>${hasRolledScores ? `${roll.dice.join(", ")} -> ${roll.total}` : ""}</span></div>`).join("")}</div><div class="ability-controls score-assignment-grid rolled-assignment-grid">${DND_DATA.abilities.map((ability) => {
+  return `<div class="roll-results" aria-label="Rolled ability scores">${rollSlots.map((roll, index) => `<div class="roll-result ${hasRolledScores ? "" : "empty"}"><strong>${hasRolledScores ? `Roll ${index + 1}: ${roll.total}` : ""}</strong><span>${hasRolledScores ? `${roll.dice.join(", ")} -> ${roll.total}` : ""}</span></div>`).join("")}</div>${hasRolledScores ? `<p class="table-note">Reroll Attempts: ${rolled.rerollCount}</p>` : ""}<div class="ability-controls score-assignment-grid rolled-assignment-grid">${DND_DATA.abilities.map((ability) => {
     const selectedRollId = rolled.assignments[ability];
     const blockedRollIds = getUsedRollIds(ability);
     const racialBonus = getRaceAbilityBonus(race, ability);
     return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.rolled}" data-ability="${ability}" ${hasRolledScores ? "" : "disabled"}><option value="">Score</option>${rolled.results.map((roll, index) => `<option value="${roll.id}" ${selectedRollId === roll.id ? "selected" : ""} ${blockedRollIds.includes(roll.id) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(roll.total, racialBonus)} (Roll ${index + 1})</option>`).join("")}</select></label>`;
-  }).join("")}</div>${scoreAssignmentLegend()}${hasRolledScores ? "" : '<button class="secondary-button assignment-button" type="button" data-action="roll-scores">Roll Six Scores</button>'}${hasRolledScores ? '<button class="secondary-button assignment-button" type="button" data-action="randomly-assign-rolled">Random Assign</button>' : ""}`;
+  }).join("")}</div>${scoreAssignmentLegend()}${hasRolledScores ? "" : '<button class="secondary-button assignment-button" type="button" data-action="roll-scores">Roll Six Scores</button>'}${hasRolledScores ? '<div class="assignment-actions"><button class="secondary-button assignment-button" type="button" data-action="randomly-assign-rolled">Random Assign</button><button class="secondary-button assignment-button" type="button" data-action="reroll-stats">Reroll Stats</button></div>' : ""}`;
 }
 
 function getPointBuySpent() {
@@ -2014,6 +2197,35 @@ function renderAlignmentField() {
   `;
 }
 
+function renderTrinketSection() {
+  const trinketEntry = getFinishingTouches(appState.character).trinket || {};
+  const selectedTrinket = getSelectedTrinket(appState.character);
+  const options = DND_DATA.trinkets.map((trinket) => ({ value: trinket.id, label: `#${trinket.roll} - ${trinket.description}` }));
+  return `
+    <section class="finishing-section">
+      <div class="finishing-section-header">
+        <h3>Optional Trinket</h3>
+        <p>Optional rule. Ask your DM before using a rolled or chosen trinket.</p>
+      </div>
+      <section class="finishing-card trinket-card">
+        ${renderInlinePicker({
+          id: "trinket",
+          label: "Choose Trinket",
+          value: trinketEntry.id || "",
+          placeholder: "Choose a trinket",
+          options,
+          helper: selectedTrinket ? `Selected: #${selectedTrinket.roll} - ${selectedTrinket.description}` : "",
+          actionType: "trinket-select",
+        })}
+        <div class="personality-actions">
+          <button class="secondary-button" type="button" data-roll-trinket>Roll Random Trinket</button>
+          ${selectedTrinket ? '<button class="secondary-button" type="button" data-clear-trinket>Clear Trinket</button>' : ""}
+        </div>
+      </section>
+    </section>
+  `;
+}
+
 function renderFinishingStep(step) {
   const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
   const choices = getFinishingChoices(appState.character);
@@ -2064,6 +2276,7 @@ function renderFinishingStep(step) {
         ${renderPersonalityField("flaw", "Flaw", personality.flaw || [])}
       </div>
     </section>
+    ${renderTrinketSection()}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-randomize-finishing>Randomize</button><button class="primary-button" type="button" data-action="finish" ${canFinish ? "" : "disabled"}>Finish</button></div>
   `;
 }
@@ -2265,9 +2478,15 @@ function isWizardStepAvailable(step) {
 }
 
 function randomizeEquipmentSelections(character) {
+  if (usesRolledStartingGold(character)) {
+    rerollStartingGold(character);
+    return;
+  }
   const definition = getEquipmentDefinition(character.classId);
   if (!definition) return;
-  const selections = { classId: character.classId, choices: {} };
+  const selections = getEquipmentSelections(character);
+  selections.method = EQUIPMENT_METHODS.take;
+  selections.choices = {};
 
   definition.choices.forEach((group) => {
     const option = DND_DATA.randomChoice(group.options);
@@ -2278,7 +2497,6 @@ function randomizeEquipmentSelections(character) {
     selections.choices[group.id] = selectedChoice;
   });
 
-  character.equipmentSelections = selections;
 }
 
 function randomizeCurrentStep() {
@@ -2324,6 +2542,15 @@ function rollSixScores() {
   resetSkillSelections(appState.character);
   appState.abilityState.rolled.results = DND_DATA.rollSixAbilityScores();
   appState.abilityState.rolled.assignments = emptyAbilityScores();
+  appState.abilityState.rolled.rerollCount = 0;
+  renderWizard();
+}
+
+function rerollRolledAbilityScores() {
+  resetSkillSelections(appState.character);
+  appState.abilityState.rolled.results = DND_DATA.rollSixAbilityScores();
+  appState.abilityState.rolled.assignments = emptyAbilityScores();
+  appState.abilityState.rolled.rerollCount += 1;
   renderWizard();
 }
 
@@ -2382,6 +2609,7 @@ wizardStep.addEventListener("click", (event) => {
   const optionButton = event.target.closest("[data-option-id]");
   const methodButton = event.target.closest("[data-score-method]");
   const pointBuyButton = event.target.closest("[data-point-buy]");
+  const equipmentMethodButton = event.target.closest("[data-equipment-method]");
   const equipmentChoiceButton = event.target.closest("[data-equipment-group]");
   const skillChoiceButton = event.target.closest("[data-skill-choice]");
   const spellChoiceButton = event.target.closest("[data-spell-selection]");
@@ -2393,6 +2621,8 @@ wizardStep.addEventListener("click", (event) => {
   const skipAlignmentButton = event.target.closest("[data-skip-alignment]");
   const randomPersonalityButton = event.target.closest("[data-random-personality]");
   const skipPersonalityButton = event.target.closest("[data-skip-personality]");
+  const rollTrinketButton = event.target.closest("[data-roll-trinket]");
+  const clearTrinketButton = event.target.closest("[data-clear-trinket]");
   const actionButton = event.target.closest("[data-action]");
 
   if (randomFinishingButton) {
@@ -2446,6 +2676,9 @@ wizardStep.addEventListener("click", (event) => {
     if (action === "alignment-select") {
       getFinishingTouches(appState.character).alignment = { selected: value, skipped: false };
     }
+    if (action === "trinket-select") {
+      getFinishingTouches(appState.character).trinket = { id: value, source: "chosen" };
+    }
     appState.openFinishingPicker = "";
     renderWizard();
     return;
@@ -2470,6 +2703,20 @@ wizardStep.addEventListener("click", (event) => {
     return;
   }
 
+  if (rollTrinketButton) {
+    setRandomTrinket(appState.character);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (clearTrinketButton) {
+    clearTrinket(appState.character);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
   if (skillChoiceButton) {
     const skillName = skillChoiceButton.dataset.skillChoice;
     const selectedSkills = getSelectedClassSkillNames(appState.character);
@@ -2486,6 +2733,14 @@ wizardStep.addEventListener("click", (event) => {
 
   if (spellChoiceButton) {
     toggleSpellSelection(appState.character, spellChoiceButton.dataset.spellSelection, spellChoiceButton.dataset.spellId);
+    renderWizard();
+    return;
+  }
+
+  if (equipmentMethodButton) {
+    const selections = getEquipmentSelections(appState.character);
+    selections.method = equipmentMethodButton.dataset.equipmentMethod;
+    if (selections.method === EQUIPMENT_METHODS.gold) ensureRolledStartingGold(appState.character);
     renderWizard();
     return;
   }
@@ -2567,6 +2822,11 @@ wizardStep.addEventListener("click", (event) => {
   if (action === "randomize-current") randomizeCurrentStep();
   if (action === "randomize-abilities") randomizeAbilityScores();
   if (action === "roll-scores") rollSixScores();
+  if (action === "reroll-stats") rerollRolledAbilityScores();
+  if (action === "reroll-starting-gold") {
+    rerollStartingGold(appState.character);
+    renderWizard();
+  }
   if (action === "randomly-assign-rolled") randomlyAssignRolledScores();
   if (action === "finish") finishCharacter();
 });
@@ -2611,10 +2871,22 @@ wizardStep.addEventListener("input", (event) => {
 
 homeButton.addEventListener("click", restartCharacterCreation);
 buildButton.addEventListener("click", () => startBuild());
-randomizeButton.addEventListener("click", () => showView("randomize"));
-randomizeBackButton.addEventListener("click", () => showView("home"));
-rollCharacterButton.addEventListener("click", () => previewRandomizedCharacter(DND_DATA.randomizeRolledCharacter()));
-standardCharacterButton.addEventListener("click", () => previewRandomizedCharacter(DND_DATA.randomizeStandardArrayCharacter()));
+randomizeButton.addEventListener("click", () => {
+  showRandomAbilityPrompt();
+  showView("randomize");
+});
+randomizeBackButton.addEventListener("click", () => {
+  showRandomAbilityPrompt();
+  showView("home");
+});
+randomEquipmentBackButton.addEventListener("click", showRandomAbilityPrompt);
+rollCharacterButton.addEventListener("click", () => showRandomEquipmentPrompt(ABILITY_METHODS.rolled));
+standardCharacterButton.addEventListener("click", () => showRandomEquipmentPrompt(ABILITY_METHODS.standard));
+randomEquipmentPrompt.addEventListener("click", (event) => {
+  const methodButton = event.target.closest("[data-random-equipment-method]");
+  if (!methodButton) return;
+  generateRandomCharacter(methodButton.dataset.randomEquipmentMethod);
+});
 editRandomButton.addEventListener("click", () => startBuild(appState.character));
 
 function initializeApp() {

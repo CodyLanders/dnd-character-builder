@@ -24,10 +24,33 @@
 
       <section class="view hidden randomize-view" id="randomizeView" aria-labelledby="randomizeTitle">
         <h2 id="randomizeTitle">Randomize a Character</h2>
-        <div class="home-actions" aria-label="Random character options">
+        <div class="home-actions random-ability-options" aria-label="Random character options">
           <button class="primary-button" id="rollCharacterButton" type="button">Roll a Character</button>
           <button class="primary-button" id="standardCharacterButton" type="button">Standard Array Character</button>
           <button class="secondary-button" id="randomizeBackButton" type="button">Back</button>
+        </div>
+        <div class="random-equipment-prompt hidden" id="randomEquipmentPrompt">
+          <h3>Choose Equipment Method</h3>
+          <p>Choose how this random character should receive starting gear.</p>
+          <div class="equipment-method-grid">
+            <button class="equipment-method-card" type="button" data-random-equipment-method="take-equipment">
+              <span class="equipment-method-indicator" aria-hidden="true"></span>
+              <span>
+                <strong>Use Starting Equipment</strong>
+                <em>Recommended</em>
+                <span>Uses normal class equipment plus background equipment and gold.</span>
+              </span>
+            </button>
+            <button class="equipment-method-card" type="button" data-random-equipment-method="rolled-starting-gold">
+              <span class="equipment-method-indicator" aria-hidden="true"></span>
+              <span>
+                <strong>Roll Starting Gold</strong>
+                <em>Advanced</em>
+                <span>Rolls class-based starting wealth and skips equipment choices. Equipment must be chosen manually from the Player's Handbook.</span>
+              </span>
+            </button>
+            <button class="secondary-button" id="randomEquipmentBackButton" type="button">Back</button>
+          </div>
         </div>
       </section>
       <section class="view hidden" id="buildView" aria-labelledby="buildTitle">

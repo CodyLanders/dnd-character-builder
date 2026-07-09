@@ -69,9 +69,23 @@ DND_DATA.randomClassSkillProficiencies = function randomClassSkillProficiencies(
   }, {});
 };
 
-DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter() {
+function randomEquipmentSelections(classId, equipmentMethod) {
+  if (equipmentMethod === "rolled-starting-gold") {
+    return {
+      classId,
+      method: "rolled-starting-gold",
+      choices: {},
+      rolledGold: DND_DATA.rollStartingWealth(classId),
+      startingGoldRerollCount: 0,
+    };
+  }
+  return DND_DATA.createRandomEquipmentSelections(classId);
+}
+
+DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter(options = {}) {
   const choices = DND_DATA.createRandomStarterChoices();
   const baseAbilities = DND_DATA.assignStandardArray(choices.characterClass.id);
+  const equipmentMethod = options.equipmentMethod || "take-equipment";
 
   return DND_DATA.createCharacter({
     name: "Random Starter",
@@ -82,14 +96,16 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     classFeatures: choices.classFeatures,
     classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
+    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod),
     spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
   });
 };
 
-DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter() {
+DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = {}) {
   const choices = DND_DATA.createRandomStarterChoices();
   const rolledScores = DND_DATA.rollSixAbilityScores();
   const rolledAssignments = DND_DATA.randomlyAssignRolls(rolledScores);
+  const equipmentMethod = options.equipmentMethod || "take-equipment";
   const baseAbilities = DND_DATA.abilities.reduce((scores, ability) => {
     const roll = rolledScores.find((item) => item.id === rolledAssignments[ability]);
     scores[ability] = roll.total;
@@ -105,6 +121,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter() {
     classFeatures: choices.classFeatures,
     classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
+    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod),
     spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
     rolledScores,
     rolledAssignments,

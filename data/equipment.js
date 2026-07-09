@@ -240,6 +240,35 @@ DND_DATA.startingEquipment = {
   },
 };
 
+DND_DATA.startingWealth = {
+  barbarian: { dice: 2, die: 4, multiplier: 10, label: "2d4 x 10 gp" },
+  bard: { dice: 5, die: 4, multiplier: 10, label: "5d4 x 10 gp" },
+  cleric: { dice: 5, die: 4, multiplier: 10, label: "5d4 x 10 gp" },
+  druid: { dice: 2, die: 4, multiplier: 10, label: "2d4 x 10 gp" },
+  fighter: { dice: 5, die: 4, multiplier: 10, label: "5d4 x 10 gp" },
+  monk: { dice: 5, die: 4, multiplier: 1, label: "5d4 gp" },
+  paladin: { dice: 5, die: 4, multiplier: 10, label: "5d4 x 10 gp" },
+  ranger: { dice: 5, die: 4, multiplier: 10, label: "5d4 x 10 gp" },
+  rogue: { dice: 4, die: 4, multiplier: 10, label: "4d4 x 10 gp" },
+  sorcerer: { dice: 3, die: 4, multiplier: 10, label: "3d4 x 10 gp" },
+  warlock: { dice: 4, die: 4, multiplier: 10, label: "4d4 x 10 gp" },
+  wizard: { dice: 4, die: 4, multiplier: 10, label: "4d4 x 10 gp" },
+};
+
+DND_DATA.rollStartingWealth = function rollStartingWealth(classId) {
+  const formula = DND_DATA.startingWealth[classId];
+  if (!formula) return { formula: "No class formula", rolls: [], subtotal: 0, multiplier: 1, totalGp: 0 };
+  const rolls = Array.from({ length: formula.dice }, () => Math.floor(Math.random() * formula.die) + 1);
+  const subtotal = rolls.reduce((sum, roll) => sum + roll, 0);
+  return {
+    formula: formula.label,
+    rolls,
+    subtotal,
+    multiplier: formula.multiplier,
+    totalGp: subtotal * formula.multiplier,
+  };
+};
+
 DND_DATA.getEquipmentItem = function getEquipmentItem(itemId) {
   return DND_DATA.equipmentItems[itemId] || null;
 };
@@ -254,7 +283,7 @@ DND_DATA.getWeaponOptions = function getWeaponOptions(list) {
 
 DND_DATA.createRandomEquipmentSelections = function createRandomEquipmentSelections(classId) {
   const definition = DND_DATA.startingEquipment[classId];
-  const selections = { classId, choices: {} };
+  const selections = { classId, method: "take-equipment", choices: {}, rolledGold: null, startingGoldRerollCount: 0 };
   if (!definition) return selections;
 
   definition.choices.forEach((group) => {
