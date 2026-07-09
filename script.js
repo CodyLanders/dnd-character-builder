@@ -1,10 +1,12 @@
 const wizardSteps = [
-  { key: "class", title: "Pick Your Class", progress: "Step 1 of 6 - Class" },
-  { key: "race", title: "Pick Your Race", progress: "Step 2 of 6 - Race" },
-  { key: "background", title: "Pick Your Background", progress: "Step 3 of 6 - Background" },
-  { key: "classFeature", title: "Choose Your Level 1 Class Choice", progress: "Step 4 of 6 - Level 1 Class Choice" },
-  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 6 - Starting Equipment" },
-  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 6 - Ability Scores" },
+  { key: "class", title: "Pick Your Class", progress: "Step 1 of 8 - Class" },
+  { key: "race", title: "Pick Your Race", progress: "Step 2 of 8 - Race" },
+  { key: "background", title: "Pick Your Background", progress: "Step 3 of 8 - Background" },
+  { key: "classFeature", title: "Choose Your Level 1 Class Choice", progress: "Step 4 of 8 - Level 1 Class Choice" },
+  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 8 - Starting Equipment" },
+  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 8 - Ability Scores" },
+  { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 7 of 8 - Skills & Proficiencies" },
+  { key: "finishing", title: "Finishing Touches", progress: "Step 8 of 8 - Finishing Touches" },
 ];
 
 const stepGuidance = {
@@ -20,6 +22,8 @@ You will make more choices later, but your class is the foundation for how your 
   race: "Your race gives your character traits that can affect ability scores, movement, senses, and other special abilities. Choose the option that best fits the character you want to play.",
   background: "Your background explains what your character did before adventuring. It provides skills, tools or languages, starting equipment, and a roleplaying hook.",
   equipment: "Choose the starting equipment granted by your class. Background equipment is added automatically.",
+  skills: "Choose the skill proficiencies granted by your class. Skills from your race and background are already included and cannot be chosen again.",
+  finishing: "Choose any remaining languages, tools, and character details before finishing.",
 };
 
 const ABILITY_METHODS = {
@@ -74,6 +78,7 @@ function createBlankCharacter() {
     abilities: emptyAbilityScores(),
     equipmentSelections: {},
     equipment: [],
+    finishingTouches: { choices: {}, alignment: {}, personality: {} },
     notes: "Stage 1 wizard character",
   };
 }
@@ -116,6 +121,8 @@ const appState = {
   character: createBlankCharacter(),
   abilityMethod: ABILITY_METHODS.standard,
   abilityState: createAbilityState(),
+  openFinishingPicker: "",
+  confirmBlankName: false,
 };
 
 function normalizeAbilityMap(source, fallbackValue = "") {
@@ -140,6 +147,11 @@ function normalizeCharacter(savedCharacter = {}) {
     abilities: normalizeAbilityMap(savedCharacter.abilities),
     equipmentSelections: savedCharacter.equipmentSelections || {},
     equipment: Array.isArray(savedCharacter.equipment) ? savedCharacter.equipment : [],
+    finishingTouches: {
+      choices: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.choices) || {}) },
+      alignment: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.alignment) || {}) },
+      personality: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.personality) || {}) },
+    },
   };
 }
 
@@ -177,6 +189,10 @@ function hasMeaningfulProgress() {
   const rolledScores = appState.abilityState.rolled.results.length > 0;
   const rolledAssignments = Object.values(appState.abilityState.rolled.assignments || {}).some(Boolean);
   const pointBuyTouched = Object.values(appState.abilityState.pointBuy.touched || {}).some(Boolean);
+  const finishingTouches = character.finishingTouches || {};
+  const finishingChoices = Object.values(finishingTouches.choices || {}).some(Boolean);
+  const alignmentChoice = finishingTouches.alignment && (finishingTouches.alignment.selected || finishingTouches.alignment.skipped);
+  const personalityChoices = Object.values(finishingTouches.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped));
 
   return Boolean(
     character.classId
@@ -189,6 +205,9 @@ function hasMeaningfulProgress() {
     || rolledAssignments
     || pointBuyTouched
     || appState.abilityState.pointBuy.finalized
+    || finishingChoices
+    || alignmentChoice
+    || personalityChoices
   );
 }
 
@@ -247,6 +266,14 @@ function restoreSavedProgress() {
 
 function getById(collection, id) {
   return collection.find((item) => item.id === id);
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function showView(viewName) {
@@ -541,6 +568,100 @@ function renderSkillsTable(character, race, background) {
       </tbody>
     </table>`;
 }
+
+function resetSkillSelections(character) {
+  character.classSkillProficiencies = {};
+}
+
+function getClassSkillChoice(character) {
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  return characterClass ? characterClass.skillChoices || { choose: 0, options: [] } : { choose: 0, options: [] };
+}
+
+function getSelectedClassSkillNames(character) {
+  const allowedSkills = new Set(getClassSkillChoice(character).options);
+  return Object.entries(character.classSkillProficiencies || {})
+    .filter(([skillName, level]) => allowedSkills.has(skillName) && Number(level) > 0)
+    .map(([skillName]) => skillName);
+}
+
+function getGrantedSkillSources(skillName, race, background) {
+  const sources = [];
+  const raceSkills = [...(race ? race.skills || [] : []), ...Object.keys(normalizeSkillSource(race ? race.skillProficiencies : {}))];
+  const backgroundSkills = background ? background.skills || [] : [];
+  if (backgroundSkills.includes(skillName)) sources.push("Background");
+  if (raceSkills.includes(skillName)) sources.push("Race");
+  return sources;
+}
+
+function getSkillBonus(character, skill, proficiencyLevel = 0) {
+  return abilityModifierValue(character.abilities[skill.ability]) + getProficiencyBonus(character) * proficiencyLevel;
+}
+
+function formatSkillModifier(value) {
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function getSkillTags(character, skill, isAlreadyProficient) {
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const classFitSkills = {
+    fighter: ["Athletics", "Perception", "Intimidation", "Acrobatics"],
+    barbarian: ["Athletics", "Perception", "Survival", "Intimidation"],
+    rogue: ["Stealth", "Sleight of Hand", "Perception", "Investigation", "Deception"],
+    monk: ["Acrobatics", "Stealth", "Insight", "Athletics"],
+  };
+  const tags = [];
+  if (isAlreadyProficient) tags.push("Already Proficient");
+  if (characterClass && (classFitSkills[characterClass.id] || []).includes(skill.name)) tags.push("Class Fit");
+  return tags;
+}
+
+function hasCompleteSkillSelections(character) {
+  const choice = getClassSkillChoice(character);
+  return getSelectedClassSkillNames(character).length === choice.choose;
+}
+
+function setRandomClassSkillSelections(character) {
+  const choice = getClassSkillChoice(character);
+  const race = getById(DND_DATA.races, character.raceId);
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !getGrantedSkillSources(skillName, race, background).length));
+  character.classSkillProficiencies = {};
+  availableSkills.slice(0, choice.choose).forEach((skillName) => {
+    character.classSkillProficiencies[skillName] = 1;
+  });
+}
+
+function renderSkillCard(skillName, race, background, options = {}) {
+  const skill = DND_DATA.skills.find((item) => item.name === skillName);
+  if (!skill) return "";
+  const selectedSkills = getSelectedClassSkillNames(appState.character);
+  const isSelected = selectedSkills.includes(skillName);
+  const grantedSources = getGrantedSkillSources(skillName, race, background);
+  const isAlreadyProficient = grantedSources.length > 0;
+  const currentLevel = isAlreadyProficient || isSelected ? 1 : 0;
+  const totalBonus = getSkillBonus(appState.character, skill, currentLevel);
+  const choice = getClassSkillChoice(appState.character);
+  const isAtLimit = selectedSkills.length >= choice.choose && !isSelected;
+  const disabled = isAlreadyProficient || isAtLimit || options.informational;
+  const note = isAlreadyProficient ? `Already proficient from ${grantedSources.join(" and ")}` : "";
+  const tags = getSkillTags(appState.character, skill, isAlreadyProficient);
+  const classFitTag = !isAlreadyProficient && tags.includes("Class Fit") ? '<span class="skill-inline-tag">Class Fit</span>' : "";
+  const secondaryTags = tags.filter((tag) => tag !== "Class Fit");
+
+  return `
+    <button class="skill-choice-card ${isSelected ? "selected" : ""} ${isAlreadyProficient ? "already-proficient" : ""}" type="button" data-skill-choice="${skillName}" ${disabled ? "disabled" : ""} aria-pressed="${isSelected}">
+      <span class="skill-choice-main">
+        <strong>${skill.name}</strong>
+        <span class="skill-choice-spacer">${classFitTag}</span>
+        <span class="skill-modifier">${DND_DATA.abilityShortLabels[skill.ability]}: ${formatSkillModifier(totalBonus)}</span>
+      </span>
+      ${note ? `<span class="skill-choice-note">${note}</span>` : ""}
+      ${secondaryTags.length ? `<span class="skill-tags">${secondaryTags.map((tag) => `<span>${tag}</span>`).join("")}</span>` : ""}
+    </button>
+  `;
+}
+
 function getRollById(id) {
   return appState.abilityState.rolled.results.find((roll) => roll.id === id);
 }
@@ -922,6 +1043,129 @@ function renderPreviewCategory(title, entries) {
   }).join("")}</ul>`;
 }
 
+function getFinishingTouches(character) {
+  if (!character.finishingTouches) character.finishingTouches = { choices: {}, alignment: {}, personality: {} };
+  if (!character.finishingTouches.choices) character.finishingTouches.choices = {};
+  if (!character.finishingTouches.alignment) character.finishingTouches.alignment = {};
+  if (!character.finishingTouches.personality) character.finishingTouches.personality = {};
+  return character.finishingTouches;
+}
+
+function resetFinishingTouches(character) {
+  character.finishingTouches = { choices: {}, alignment: {}, personality: {} };
+}
+
+function finishingChoice(id, label, category, helper, extra = {}) {
+  return { id, label, category, helper, ...extra };
+}
+
+function getFinishingChoices(character) {
+  const race = getById(DND_DATA.races, character.raceId);
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const choices = [];
+
+  if (race && race.languageChoices) {
+    Array.from({ length: race.languageChoices.choose || 0 }, (_, index) => {
+      choices.push(finishingChoice(
+        `race-language-${index + 1}`,
+        "Choose 1 language",
+        "language",
+        "Pick a language your character can speak, read, and write.",
+        { note: "Ask your DM before choosing an exotic language." },
+      ));
+    });
+  }
+
+  const classToolDetail = characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools || "" : "";
+  if (classToolDetail.toLowerCase().includes("one artisan") && classToolDetail.toLowerCase().includes("musical instrument")) {
+    choices.push(finishingChoice("class-tool-1", "Choose 1 tool or instrument", "artisanOrMusical", "Tool proficiencies help with checks involving specialized equipment."));
+  }
+
+  (background ? background.tools || [] : []).forEach((tool, index) => {
+    const normalizedTool = tool.toLowerCase();
+    if (normalizedTool.includes("one gaming set")) choices.push(finishingChoice(`background-tool-${index}`, "Choose 1 gaming set", "gaming", "Tool proficiencies help with checks involving specialized equipment."));
+    if (normalizedTool.includes("one musical instrument")) choices.push(finishingChoice(`background-tool-${index}`, "Choose 1 musical instrument", "musical", "Tool proficiencies help with checks involving specialized equipment."));
+    if (normalizedTool.includes("one artisan")) choices.push(finishingChoice(`background-tool-${index}`, "Choose 1 artisan's tool", "artisan", "Tool proficiencies help with checks involving specialized equipment."));
+    if (normalizedTool.includes("vehicles") && normalizedTool.includes("land or water")) choices.push(finishingChoice(`background-tool-${index}`, "Choose vehicles: land or water", "vehicles", "Tool proficiencies help with checks involving specialized equipment."));
+    if (normalizedTool.includes("one other tool")) choices.push(finishingChoice(`background-tool-${index}`, "Choose 1 tool", "other", "Tool proficiencies help with checks involving specialized equipment."));
+  });
+
+  return choices;
+}
+
+function getChoiceOptions(choice) {
+  if (choice.category === "language") {
+    return [
+      ...DND_DATA.languages.standard.map((name) => ({ value: name, label: name })),
+      ...DND_DATA.languages.exotic.map((name) => ({ value: name, label: `${name} (exotic)` })),
+    ];
+  }
+  return (DND_DATA.toolOptions[choice.category] || []).map((name) => ({ value: name, label: name }));
+}
+
+function hasCompleteFinishingTouches(character) {
+  const selections = getFinishingTouches(character).choices;
+  return getFinishingChoices(character).every((choice) => selections[choice.id]);
+}
+
+function randomizeFinishingChoice(character, choiceId) {
+  const choice = getFinishingChoices(character).find((item) => item.id === choiceId);
+  if (!choice) return;
+  const options = getChoiceOptions(choice);
+  if (!options.length) return;
+  getFinishingTouches(character).choices[choiceId] = DND_DATA.randomChoice(options).value;
+}
+
+function randomizeAlignment(character) {
+  getFinishingTouches(character).alignment = { selected: DND_DATA.randomChoice(DND_DATA.alignments), skipped: false };
+}
+
+function randomizePersonalityField(character, field) {
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const options = background && background.personality ? background.personality[field] || [] : [];
+  if (!options.length) return;
+  getFinishingTouches(character).personality[field] = { selected: DND_DATA.randomChoice(options), custom: "", skipped: false };
+}
+
+function randomizeFinishingTouches(character) {
+  getFinishingChoices(character).forEach((choice) => randomizeFinishingChoice(character, choice.id));
+  randomizeAlignment(character);
+  ["trait", "ideal", "bond", "flaw"].forEach((field) => randomizePersonalityField(character, field));
+}
+
+function getPersonalityValue(character, field) {
+  const entry = getFinishingTouches(character).personality[field] || {};
+  return (entry.custom || entry.selected || "").trim();
+}
+
+function getAlignmentValue(character) {
+  return (getFinishingTouches(character).alignment.selected || "").trim();
+}
+
+function finishingChoiceEntries(character) {
+  const selections = getFinishingTouches(character).choices;
+  return getFinishingChoices(character)
+    .map((choice) => selections[choice.id])
+    .filter(Boolean)
+    .map((value) => ({ text: value }));
+}
+
+function personalityEntries(character) {
+  const labels = { trait: "Personality Trait", ideal: "Ideal", bond: "Bond", flaw: "Flaw" };
+  return [
+    { text: `Alignment: ${getAlignmentValue(character)}` },
+    ...Object.entries(labels).map(([field, label]) => ({ text: `${label}: ${getPersonalityValue(character, field)}` })),
+  ];
+}
+
+function renderFinishingTouchesPreview(character) {
+  return [
+    renderPreviewCategory("Languages & Tool Choices", finishingChoiceEntries(character)),
+    renderPreviewCategory("Background Details", personalityEntries(character)),
+  ].join("");
+}
+
 function renderArmorDefenseCategory(armorDefense) {
   if (!armorDefense.entries.length) return "";
   return `${renderPreviewCategory("Armor & Defense", armorDefense.entries)}${armorDefense.note ? `<p class="equipment-note">${armorDefense.note}</p>` : ""}`;
@@ -982,7 +1226,7 @@ function renderPreview(container, character) {
 
   container.innerHTML = `
     <div class="sheet-grid">
-      <div class="sheet-item"><span class="sheet-label">Name</span>${character.name || "Unnamed Hero"}</div>
+      <div class="sheet-item"><span class="sheet-label">Name</span>${character.name || ""}</div>
       <div class="sheet-item"><span class="sheet-label">Level</span>${character.level}</div>
       <div class="sheet-item"><span class="sheet-label">Class</span>${characterClass ? characterClass.name : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Race</span>${race ? race.name : "Not selected"}</div>
@@ -996,6 +1240,7 @@ function renderPreview(container, character) {
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
     ${renderSkillsTable(character, race, background)}
+    ${renderFinishingTouchesPreview(character)}
     ${renderPreviewEquipment(character)}`;
 }
 
@@ -1325,13 +1570,216 @@ function pointBuyControls() {
   }).join("")}</div><p class="point-buy-legend">Scores shown include racial bonuses. Point Buy costs use base scores. * = +1 racial bonus; ** = +2 racial bonus.</p>`;
 }
 
+function renderInlinePicker({ id, label, value, placeholder, options, helper = "", note = "", actionType, skipped = false }) {
+  const isOpen = appState.openFinishingPicker === id;
+  const selectedOption = options.find((option) => option.value === value);
+  const displayValue = skipped ? "Skipped for now" : selectedOption ? selectedOption.label : placeholder;
+  return `
+    <div class="inline-picker ${isOpen ? "open" : ""}">
+      <span class="inline-picker-label">${label}</span>
+      ${helper ? `<p>${helper}</p>` : ""}
+      <button class="inline-picker-trigger" type="button" data-picker-toggle="${id}" aria-expanded="${isOpen}">
+        <span>${displayValue}</span>
+      </button>
+      ${isOpen ? `<div class="inline-picker-options">${options.map((option) => `<button type="button" data-picker-option="${id}" data-picker-action="${actionType}" data-picker-value="${option.value}">${option.label}</button>`).join("")}</div>` : ""}
+      ${note || ""}
+    </div>
+  `;
+}
+
+function renderFinishingChoiceCard(choice) {
+  const selectedValue = getFinishingTouches(appState.character).choices[choice.id] || "";
+  const options = getChoiceOptions(choice);
+  const placeholder = {
+    language: "Choose a language",
+    gaming: "Choose a gaming set",
+    musical: "Choose a musical instrument",
+    artisan: "Choose an artisan's tool",
+    artisanOrMusical: "Choose a tool or instrument",
+    vehicles: "Choose a vehicle proficiency",
+    other: "Choose a tool",
+  }[choice.category] || "Choose an option";
+  const validation = selectedValue ? "" : `<p class="finishing-validation">${placeholder} before finishing.</p>`;
+  const note = `${choice.note ? `<p>${choice.note}</p>` : ""}${validation}`;
+  return `
+    <section class="finishing-card">
+      ${renderInlinePicker({
+        id: `choice:${choice.id}`,
+        label: choice.label,
+        value: selectedValue,
+        placeholder,
+        options,
+        helper: choice.helper,
+        note,
+        actionType: "finishing-choice",
+      })}
+      <div class="personality-actions">
+        <button class="secondary-button" type="button" data-random-finishing-choice="${choice.id}">Randomize</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderPersonalityField(field, label, options = []) {
+  const entry = getFinishingTouches(appState.character).personality[field] || {};
+  const placeholders = {
+    trait: "Choose a personality trait",
+    ideal: "Choose an ideal",
+    bond: "Choose a bond",
+    flaw: "Choose a flaw",
+  };
+  return `
+    <section class="finishing-card personality-card">
+      ${renderInlinePicker({
+        id: `personality:${field}`,
+        label,
+        value: entry.selected || "",
+        placeholder: placeholders[field],
+        options: options.map((option) => ({ value: option, label: option })),
+        actionType: "personality-select",
+        skipped: Boolean(entry.skipped),
+      })}
+      ${entry.skipped ? '<p>This will be left blank on your sheet.</p>' : ""}
+      <div class="personality-actions">
+        <button class="secondary-button" type="button" data-random-personality="${field}">Randomize</button>
+        <button class="secondary-button" type="button" data-skip-personality="${field}">Skip this for now</button>
+      </div>
+      <label class="custom-personality-label">Custom text
+        <textarea data-personality-custom="${field}" rows="2" placeholder="Optional custom ${label.toLowerCase()}">${escapeHtml(entry.custom || "")}</textarea>
+      </label>
+    </section>
+  `;
+}
+
+function renderAlignmentField() {
+  const entry = getFinishingTouches(appState.character).alignment || {};
+  return `
+    <section class="finishing-card personality-card">
+      ${renderInlinePicker({
+        id: "alignment",
+        label: "Alignment",
+        value: entry.selected || "",
+        placeholder: "Choose an alignment",
+        options: DND_DATA.alignments.map((alignment) => ({ value: alignment, label: alignment })),
+        helper: "Alignment is a roleplay guide for your character's general outlook.",
+        actionType: "alignment-select",
+        skipped: Boolean(entry.skipped),
+      })}
+      ${entry.skipped ? '<p>This will be left blank on your sheet.</p>' : ""}
+      <div class="personality-actions">
+        <button class="secondary-button" type="button" data-random-alignment>Randomize</button>
+        <button class="secondary-button" type="button" data-skip-alignment>Skip this for now</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderFinishingStep(step) {
+  const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  const choices = getFinishingChoices(appState.character);
+  const canFinish = hasValidAbilityAssignments()
+    && hasCompleteSkillSelections(appState.character)
+    && hasCompleteFinishingTouches(appState.character);
+  const personality = background ? background.personality || {} : {};
+  const shouldConfirmBlankName = canFinish && appState.confirmBlankName && !appState.character.name.trim();
+  const blankNameConfirmation = shouldConfirmBlankName
+    ? `
+      <section class="blank-name-confirmation" aria-live="polite">
+        <p>Your character does not have a name yet.</p>
+        <div class="blank-name-actions">
+          <button class="secondary-button" type="button" data-action="finish-without-name">Finish without a name</button>
+          <button class="secondary-button" type="button" data-action="focus-character-name">Add a name</button>
+        </div>
+      </section>
+    `
+    : "";
+
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.finishing)}
+    <section class="finishing-card">
+      <label>Character Name
+        <input type="text" data-character-name value="${escapeHtml(appState.character.name || "")}" placeholder="Enter character name" />
+      </label>
+      <p>You can name your character now or leave it blank.</p>
+    </section>
+    ${blankNameConfirmation}
+    <section class="finishing-section">
+      <h3>Remaining Choices</h3>
+      ${choices.length ? choices.map((choice) => renderFinishingChoiceCard(choice)).join("") : '<div class="finishing-empty">No required choices left. You can add optional background details or continue.</div>'}
+    </section>
+    <section class="finishing-section">
+      <div class="finishing-section-header">
+        <h3>Optional character details</h3>
+        <p>These help roleplay your character, but you can skip them for now.</p>
+      </div>
+      <div class="personality-grid">
+        ${renderAlignmentField()}
+        ${renderPersonalityField("trait", "Personality Trait", personality.trait || [])}
+        ${renderPersonalityField("ideal", "Ideal", personality.ideal || [])}
+        ${renderPersonalityField("bond", "Bond", personality.bond || [])}
+        ${renderPersonalityField("flaw", "Flaw", personality.flaw || [])}
+      </div>
+    </section>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-randomize-finishing>Randomize</button><button class="primary-button" type="button" data-action="finish" ${canFinish ? "" : "disabled"}>Finish</button></div>
+  `;
+}
+
 function renderAbilityStep(step) {
   const controls = appState.abilityMethod === ABILITY_METHODS.rolled ? rolledScoreControls() : appState.abilityMethod === ABILITY_METHODS.pointBuy ? pointBuyControls() : standardArrayControls();
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${renderAbilityScoreGuidancePanel()}${methodSelector()}<div class="method-content">${controls}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="primary-button" type="button" data-action="finish" ${hasValidAbilityAssignments() ? "" : "disabled"}>Finish Character</button></div>`;
+  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${renderAbilityScoreGuidancePanel()}${methodSelector()}<div class="method-content">${controls}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="primary-button" type="button" data-action="continue" ${hasValidAbilityAssignments() ? "" : "disabled"}>Continue</button></div>`;
+}
+
+function renderSkillsStep(step) {
+  const characterClass = getById(DND_DATA.classes, appState.character.classId);
+  const race = getById(DND_DATA.races, appState.character.raceId);
+  const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  const choice = getClassSkillChoice(appState.character);
+  const selectedCount = getSelectedClassSkillNames(appState.character).length;
+  const canFinish = hasValidAbilityAssignments() && hasCompleteSkillSelections(appState.character);
+  const progressText = choice.choose ? `${selectedCount} of ${choice.choose} selected` : "No class skill choices required";
+  const skillGroups = choice.options.reduce((groups, skillName) => {
+    if (getGrantedSkillSources(skillName, race, background).length) groups.alreadyProficient.push(skillName);
+    else groups.selectable.push(skillName);
+    return groups;
+  }, { selectable: [], alreadyProficient: [] });
+  const helperText = choice.choose && selectedCount === choice.choose
+    ? "Unselect one to choose a different skill."
+    : choice.choose
+      ? `Choose ${choice.choose} class skills.`
+      : progressText;
+
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.skills)}
+    <section class="skill-choice-summary">
+      <h3>${characterClass ? characterClass.name : "Class"} Skills</h3>
+      <p>Selected: ${choice.choose ? `${selectedCount} / ${choice.choose}` : "0 / 0"}</p>
+      <p class="skill-choice-helper">${helperText}</p>
+    </section>
+    <section class="skill-choice-section">
+      <h3>Class Skill Choices</h3>
+    <div class="skill-choice-grid">
+        ${skillGroups.selectable.length ? skillGroups.selectable.map((skillName) => renderSkillCard(skillName, race, background)).join("") : "<p>No selectable class skills available.</p>"}
+    </div>
+    </section>
+    ${skillGroups.alreadyProficient.length ? `
+      <section class="skill-choice-section already-proficient-section">
+        <h3>Already Proficient</h3>
+        <div class="skill-choice-grid">
+          ${skillGroups.alreadyProficient.map((skillName) => renderSkillCard(skillName, race, background, { informational: true })).join("")}
+        </div>
+      </section>
+    ` : ""}
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current" ${choice.choose ? "" : "disabled"}>Randomize</button><button class="primary-button" type="button" data-action="continue" ${canFinish ? "" : "disabled"}>Continue</button></div>
+  `;
 }
 function renderWizard() {
   const step = wizardSteps[appState.wizardStepIndex];
   views.build.classList.toggle("ability-step-active", step.key === "abilities");
+  views.build.classList.toggle("finishing-step-active", step.key === "finishing");
   syncAbilityScoresFromState();
   renderPreview(livePreview, appState.character);
   if (step.key === "class") renderClassStep(step);
@@ -1340,6 +1788,8 @@ function renderWizard() {
   if (step.key === "classFeature") renderClassFeatureStep(step);
   if (step.key === "equipment") renderEquipmentStep(step);
   if (step.key === "abilities") renderAbilityStep(step);
+  if (step.key === "skills") renderSkillsStep(step);
+  if (step.key === "finishing") renderFinishingStep(step);
   saveProgress();
 }
 
@@ -1348,6 +1798,7 @@ function startBuild(character = createBlankCharacter(), stepIndex = 0) {
   appState.abilityMethod = character.abilityScoreMethod || ABILITY_METHODS.standard;
   appState.abilityState = createAbilityState(character);
   appState.wizardStepIndex = stepIndex;
+  appState.confirmBlankName = false;
   renderWizard();
   showView("build");
 }
@@ -1412,18 +1863,31 @@ function randomizeCurrentStep() {
   if (step.key === "class") {
     appState.character.classId = randomChoiceExcept(DND_DATA.classes, appState.character.classId).id;
     resetEquipmentSelections(appState.character);
+    resetSkillSelections(appState.character);
+    resetFinishingTouches(appState.character);
   }
-  if (step.key === "race") appState.character.raceId = randomChoiceExcept(DND_DATA.races, appState.character.raceId).id;
-  if (step.key === "background") appState.character.backgroundId = randomChoiceExcept(DND_DATA.backgrounds, appState.character.backgroundId).id;
+  if (step.key === "race") {
+    appState.character.raceId = randomChoiceExcept(DND_DATA.races, appState.character.raceId).id;
+    resetSkillSelections(appState.character);
+    resetFinishingTouches(appState.character);
+  }
+  if (step.key === "background") {
+    appState.character.backgroundId = randomChoiceExcept(DND_DATA.backgrounds, appState.character.backgroundId).id;
+    resetSkillSelections(appState.character);
+    resetFinishingTouches(appState.character);
+  }
   if (step.key === "classFeature") {
     const choice = getClassFeatureChoice(appState.character);
     appState.character.classFeatures[choice.id] = randomChoiceExcept(choice.options, appState.character.classFeatures[choice.id]).id;
+    resetSkillSelections(appState.character);
   }
   if (step.key === "equipment") randomizeEquipmentSelections(appState.character);
+  if (step.key === "skills") setRandomClassSkillSelections(appState.character);
   renderWizard();
 }
 
 function randomizeAbilityScores() {
+  resetSkillSelections(appState.character);
   const scores = [...DND_DATA.standardArray].sort(() => Math.random() - 0.5);
   DND_DATA.abilities.forEach((ability, index) => {
     appState.abilityState.standard.assignments[ability] = scores[index];
@@ -1432,6 +1896,7 @@ function randomizeAbilityScores() {
 }
 
 function rollSixScores() {
+  resetSkillSelections(appState.character);
   appState.abilityState.rolled.results = DND_DATA.rollSixAbilityScores();
   appState.abilityState.rolled.assignments = emptyAbilityScores();
   renderWizard();
@@ -1439,11 +1904,13 @@ function rollSixScores() {
 
 function randomlyAssignRolledScores() {
   if (appState.abilityState.rolled.results.length !== 6) return;
+  resetSkillSelections(appState.character);
   appState.abilityState.rolled.assignments = DND_DATA.randomlyAssignRolls(appState.abilityState.rolled.results);
   renderWizard();
 }
 
 function adjustPointBuyScore(ability, direction) {
+  resetSkillSelections(appState.character);
   const pointBuy = appState.abilityState.pointBuy;
   const score = pointBuy.scores[ability];
   const nextScore = direction === "increase" ? score + 1 : score - 1;
@@ -1470,8 +1937,14 @@ function hasValidAbilityAssignments() {
   return false;
 }
 
-function finishCharacter() {
-  if (!hasValidAbilityAssignments()) return;
+function finishCharacter({ allowBlankName = false } = {}) {
+  if (!hasValidAbilityAssignments() || !hasCompleteSkillSelections(appState.character) || !hasCompleteFinishingTouches(appState.character)) return;
+  if (!allowBlankName && !appState.character.name.trim()) {
+    appState.confirmBlankName = true;
+    renderWizard();
+    return;
+  }
+  appState.confirmBlankName = false;
   if (appState.abilityMethod === ABILITY_METHODS.pointBuy) appState.abilityState.pointBuy.finalized = true;
   syncAbilityScoresFromState();
   renderPreview(randomPreview, appState.character);
@@ -1484,7 +1957,105 @@ wizardStep.addEventListener("click", (event) => {
   const methodButton = event.target.closest("[data-score-method]");
   const pointBuyButton = event.target.closest("[data-point-buy]");
   const equipmentChoiceButton = event.target.closest("[data-equipment-group]");
+  const skillChoiceButton = event.target.closest("[data-skill-choice]");
+  const pickerToggleButton = event.target.closest("[data-picker-toggle]");
+  const pickerOptionButton = event.target.closest("[data-picker-option]");
+  const randomFinishingButton = event.target.closest("[data-randomize-finishing]");
+  const randomFinishingChoiceButton = event.target.closest("[data-random-finishing-choice]");
+  const randomAlignmentButton = event.target.closest("[data-random-alignment]");
+  const skipAlignmentButton = event.target.closest("[data-skip-alignment]");
+  const randomPersonalityButton = event.target.closest("[data-random-personality]");
+  const skipPersonalityButton = event.target.closest("[data-skip-personality]");
   const actionButton = event.target.closest("[data-action]");
+
+  if (randomFinishingButton) {
+    randomizeFinishingTouches(appState.character);
+    appState.openFinishingPicker = "";
+    appState.confirmBlankName = false;
+    renderWizard();
+    return;
+  }
+
+  if (randomFinishingChoiceButton) {
+    randomizeFinishingChoice(appState.character, randomFinishingChoiceButton.dataset.randomFinishingChoice);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (randomAlignmentButton) {
+    randomizeAlignment(appState.character);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (skipAlignmentButton) {
+    getFinishingTouches(appState.character).alignment = { selected: "", skipped: true };
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (pickerToggleButton) {
+    const pickerId = pickerToggleButton.dataset.pickerToggle;
+    appState.openFinishingPicker = appState.openFinishingPicker === pickerId ? "" : pickerId;
+    renderWizard();
+    return;
+  }
+
+  if (pickerOptionButton) {
+    const pickerId = pickerOptionButton.dataset.pickerOption;
+    const value = pickerOptionButton.dataset.pickerValue;
+    const action = pickerOptionButton.dataset.pickerAction;
+    if (action === "finishing-choice") {
+      const choiceId = pickerId.replace("choice:", "");
+      getFinishingTouches(appState.character).choices[choiceId] = value;
+    }
+    if (action === "personality-select") {
+      const field = pickerId.replace("personality:", "");
+      getFinishingTouches(appState.character).personality[field] = { selected: value, custom: "", skipped: false };
+    }
+    if (action === "alignment-select") {
+      getFinishingTouches(appState.character).alignment = { selected: value, skipped: false };
+    }
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (skipPersonalityButton) {
+    const field = skipPersonalityButton.dataset.skipPersonality;
+    getFinishingTouches(appState.character).personality[field] = { selected: "", custom: "", skipped: true };
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (randomPersonalityButton) {
+    const field = randomPersonalityButton.dataset.randomPersonality;
+    const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+    const options = background && background.personality ? background.personality[field] || [] : [];
+    if (!options.length) return;
+    getFinishingTouches(appState.character).personality[field] = { selected: DND_DATA.randomChoice(options), custom: "", skipped: false };
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (skillChoiceButton) {
+    const skillName = skillChoiceButton.dataset.skillChoice;
+    const selectedSkills = getSelectedClassSkillNames(appState.character);
+    if (selectedSkills.includes(skillName)) {
+      delete appState.character.classSkillProficiencies[skillName];
+    } else {
+      const choice = getClassSkillChoice(appState.character);
+      if (selectedSkills.length >= choice.choose) return;
+      appState.character.classSkillProficiencies[skillName] = 1;
+    }
+    renderWizard();
+    return;
+  }
 
   if (equipmentChoiceButton) {
     if (event.target.closest("select")) return;
@@ -1504,15 +2075,29 @@ wizardStep.addEventListener("click", (event) => {
     if (optionType === "class") {
       appState.character.classId = appState.character.classId === optionId ? "" : optionId;
       resetEquipmentSelections(appState.character);
+      resetSkillSelections(appState.character);
+      resetFinishingTouches(appState.character);
     }
-    if (optionType === "race") appState.character.raceId = appState.character.raceId === optionId ? "" : optionId;
-    if (optionType === "background") appState.character.backgroundId = appState.character.backgroundId === optionId ? "" : optionId;
-    if (optionType === "fightingStyle") appState.character.classFeatures.fightingStyle = appState.character.classFeatures.fightingStyle === optionId ? "" : optionId;
+    if (optionType === "race") {
+      appState.character.raceId = appState.character.raceId === optionId ? "" : optionId;
+      resetSkillSelections(appState.character);
+      resetFinishingTouches(appState.character);
+    }
+    if (optionType === "background") {
+      appState.character.backgroundId = appState.character.backgroundId === optionId ? "" : optionId;
+      resetSkillSelections(appState.character);
+      resetFinishingTouches(appState.character);
+    }
+    if (optionType === "fightingStyle") {
+      appState.character.classFeatures.fightingStyle = appState.character.classFeatures.fightingStyle === optionId ? "" : optionId;
+      resetSkillSelections(appState.character);
+    }
     renderWizard();
     return;
   }
 
   if (methodButton) {
+    resetSkillSelections(appState.character);
     appState.abilityMethod = methodButton.dataset.scoreMethod;
     renderWizard();
     return;
@@ -1526,11 +2111,23 @@ wizardStep.addEventListener("click", (event) => {
   if (!actionButton) return;
   const action = actionButton.dataset.action;
   if (action === "back") {
+    appState.confirmBlankName = false;
     goToWizardStep(getPreviousStepIndex());
     return;
   }
   if (action === "continue") {
+    appState.confirmBlankName = false;
     goToWizardStep(getNextStepIndex());
+    return;
+  }
+  if (action === "focus-character-name") {
+    appState.confirmBlankName = false;
+    renderWizard();
+    requestAnimationFrame(() => wizardStep.querySelector("[data-character-name]")?.focus());
+    return;
+  }
+  if (action === "finish-without-name") {
+    finishCharacter({ allowBlankName: true });
     return;
   }
   if (action === "randomize-current") randomizeCurrentStep();
@@ -1555,7 +2152,27 @@ wizardStep.addEventListener("change", (event) => {
   const ability = event.target.dataset.ability;
   if (method === ABILITY_METHODS.standard) appState.abilityState.standard.assignments[ability] = event.target.value ? Number(event.target.value) : "";
   if (method === ABILITY_METHODS.rolled) appState.abilityState.rolled.assignments[ability] = event.target.value;
+  resetSkillSelections(appState.character);
   renderWizard();
+});
+
+wizardStep.addEventListener("input", (event) => {
+  if (event.target.matches("[data-character-name]")) {
+    appState.character.name = event.target.value;
+    appState.confirmBlankName = false;
+    wizardStep.querySelector(".blank-name-confirmation")?.remove();
+    saveProgress();
+    renderPreview(livePreview, appState.character);
+    return;
+  }
+
+  if (event.target.matches("[data-personality-custom]")) {
+    const field = event.target.dataset.personalityCustom;
+    const entry = getFinishingTouches(appState.character).personality[field] || {};
+    getFinishingTouches(appState.character).personality[field] = { ...entry, custom: event.target.value, skipped: false };
+    saveProgress();
+    renderPreview(livePreview, appState.character);
+  }
 });
 
 homeButton.addEventListener("click", restartCharacterCreation);

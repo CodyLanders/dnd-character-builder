@@ -22,7 +22,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -178,7 +179,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 40px;
   border: 1px solid var(--line);
@@ -437,6 +439,304 @@ select {
   border-radius: 8px;
   padding: 12px;
   background: #fafafa;
+}
+
+.skill-choice-summary {
+  display: grid;
+  gap: 5px;
+  border-left: 4px solid var(--button);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #f7f9fa;
+}
+
+.skill-choice-summary h3,
+.skill-choice-summary p {
+  margin: 0;
+}
+
+.skill-choice-summary h3 {
+  font-size: 0.98rem;
+}
+
+.skill-choice-summary p {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.skill-choice-helper {
+  min-height: 1.25em;
+  color: var(--text) !important;
+}
+
+.skill-choice-section {
+  display: grid;
+  gap: 10px;
+}
+
+.skill-choice-section h3 {
+  margin: 0;
+}
+
+.already-proficient-section {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.skill-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.skill-choice-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.skill-choice-card:not(:disabled) {
+  cursor: pointer;
+}
+
+.skill-choice-card.selected {
+  border-color: var(--button);
+  box-shadow: inset 0 0 0 2px var(--button);
+}
+
+.skill-choice-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.skill-choice-card.already-proficient:disabled {
+  opacity: 0.86;
+  background: #fafafa;
+}
+
+.skill-choice-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skill-choice-main strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-choice-spacer {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.skill-modifier,
+.skill-choice-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.skill-modifier {
+  white-space: nowrap;
+}
+
+.skill-inline-tag,
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.skill-inline-tag,
+.skill-tags span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: var(--muted);
+  background: #fafafa;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.skill-inline-tag {
+  display: inline-flex;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.finishing-section {
+  display: grid;
+  gap: 10px;
+}
+
+.finishing-section h3,
+.finishing-section p {
+  margin: 0;
+}
+
+.finishing-section-header {
+  display: grid;
+  gap: 4px;
+}
+
+.finishing-section-header p,
+.finishing-card p,
+.finishing-empty {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.finishing-card,
+.finishing-empty {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.blank-name-confirmation {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--button);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.blank-name-confirmation p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.blank-name-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.blank-name-actions .secondary-button {
+  flex: 1 1 160px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.inline-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inline-picker-label {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.inline-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.inline-picker-trigger::after {
+  content: "Open";
+  flex: 0 0 auto;
+  color: var(--button);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.inline-picker.open .inline-picker-trigger::after {
+  content: "Close";
+}
+
+.inline-picker-trigger span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.inline-picker-options {
+  display: grid;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  background: #fafafa;
+}
+
+.inline-picker-options button {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 7px 8px;
+  text-align: left;
+  color: var(--text);
+  background: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.inline-picker-options button:hover {
+  border-color: var(--button);
+}
+
+.finishing-validation {
+  color: var(--text) !important;
+}
+
+.finishing-empty {
+  background: #fafafa;
+}
+
+.personality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.personality-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.personality-actions .secondary-button {
+  flex: 1 1 140px;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.custom-personality-label textarea {
+  min-width: 0;
+  resize: vertical;
 }
 
 .wizard-actions {
@@ -793,6 +1093,26 @@ select {
 
   .option-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .skill-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .personality-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-choice-card {
+    padding: 10px;
+  }
+
+  .inline-picker-options {
+    max-height: 240px;
+  }
+
+  #buildView.finishing-step-active {
+    padding-bottom: 140px;
   }
 
   .preview-panel {

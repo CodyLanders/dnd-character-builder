@@ -55,6 +55,20 @@ DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
   };
 };
 
+DND_DATA.randomClassSkillProficiencies = function randomClassSkillProficiencies(characterClass, race, background) {
+  const skillChoices = characterClass.skillChoices || { choose: 0, options: [] };
+  const grantedSkills = new Set([
+    ...((race && race.skills) || []),
+    ...Object.keys((race && race.skillProficiencies) || {}),
+    ...((background && background.skills) || []),
+  ]);
+  const availableSkills = DND_DATA.shuffle(skillChoices.options.filter((skillName) => !grantedSkills.has(skillName)));
+  return availableSkills.slice(0, skillChoices.choose).reduce((proficiencies, skillName) => {
+    proficiencies[skillName] = 1;
+    return proficiencies;
+  }, {});
+};
+
 DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter() {
   const choices = DND_DATA.createRandomStarterChoices();
   const baseAbilities = DND_DATA.assignStandardArray(choices.characterClass.id);
@@ -66,6 +80,7 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     raceId: choices.race.id,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
+    classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
   });
 };
@@ -87,6 +102,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter() {
     raceId: choices.race.id,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
+    classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
     rolledScores,
     rolledAssignments,

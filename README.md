@@ -19,6 +19,20 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.3.2 — July 8, 2026 — Skills, Proficiencies, and Finishing Touches
+- Added a dedicated Skills & Proficiencies step after Ability Scores.
+- Added class skill selection with duplicate-proficiency prevention.
+- Displayed race and background skill proficiencies as already-proficient skills.
+- Added final skill bonus calculations using ability modifiers and proficiency bonus.
+- Improved the skill-selection UI with mobile-friendly cards, clearer selected states, and better max-selection handling.
+- Added a Finishing Touches step for remaining character-completion choices.
+- Added support for required language and tool choices, including artisan tools, gaming sets, instruments, vehicles, and miscellaneous tools.
+- Added optional character details including Character Name, Alignment, Personality Trait, Ideal, Bond, and Flaw.
+- Added inline picker panels to replace long dropdowns for better mobile usability.
+- Added Randomize support for Finishing Touches.
+- Added a soft confirmation when finishing with a blank character name.
+- Kept optional roleplay fields skippable while ensuring required language/tool choices must be completed before finishing.
+
 ### v0.3.1 — July 8, 2026 — UI Polish, Mobile UX, and Save Protection
 - Reworked parts of the Character Preview UI to be easier to read and less table-heavy.
 - Converted weapon/combat output from dense tables into cleaner card-style displays where appropriate.

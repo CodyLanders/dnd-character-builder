@@ -15,6 +15,10 @@ DND_DATA.classes = [
     },
     hitDie: 10,
     savingThrowProficiencies: ["Strength", "Constitution"],
+    skillChoices: {
+      choose: 2,
+      options: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
+    },
     primaryAbilities: ["Strength", "Constitution", "Dexterity", "Wisdom", "Charisma", "Intelligence"],
     proficiencies: ["Light armor", "Medium armor", "Heavy armor", "Shields", "Simple weapons", "Martial weapons"],
     features: ["Fighting Style", "Second Wind"],
@@ -33,6 +37,10 @@ DND_DATA.classes = [
     },
     hitDie: 12,
     savingThrowProficiencies: ["Strength", "Constitution"],
+    skillChoices: {
+      choose: 2,
+      options: ["Animal Handling", "Athletics", "Intimidation", "Nature", "Perception", "Survival"],
+    },
     primaryAbilities: ["Strength", "Constitution", "Dexterity", "Wisdom", "Charisma", "Intelligence"],
     proficiencies: ["Light armor", "Medium armor", "Shields", "Simple weapons", "Martial weapons"],
     features: ["Rage", "Unarmored Defense"],
@@ -51,6 +59,10 @@ DND_DATA.classes = [
     },
     hitDie: 8,
     savingThrowProficiencies: ["Dexterity", "Intelligence"],
+    skillChoices: {
+      choose: 4,
+      options: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
+    },
     primaryAbilities: ["Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma", "Strength"],
     proficiencies: ["Light armor", "Simple weapons", "Hand crossbows", "Longswords", "Rapiers", "Shortswords"],
     features: ["Expertise", "Sneak Attack", "Thieves' Cant"],
@@ -69,6 +81,10 @@ DND_DATA.classes = [
     },
     hitDie: 8,
     savingThrowProficiencies: ["Strength", "Dexterity"],
+    skillChoices: {
+      choose: 2,
+      options: ["Acrobatics", "Athletics", "History", "Insight", "Religion", "Stealth"],
+    },
     primaryAbilities: ["Dexterity", "Wisdom", "Constitution", "Strength", "Charisma", "Intelligence"],
     proficiencies: ["Simple weapons", "Shortswords"],
     features: ["Unarmored Defense", "Martial Arts"],
@@ -90,4 +106,3 @@ DND_DATA.classFeatureChoices = {
     ],
   },
 };
-

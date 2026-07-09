@@ -13,6 +13,7 @@ DND_DATA.races = [
       Charisma: 1,
     },
     speed: 30,
+    languageChoices: { choose: 1 },
     traits: ["Extra language"],
   },
   {
@@ -33,6 +34,7 @@ DND_DATA.races = [
       Wisdom: 1,
     },
     speed: 35,
+    skills: ["Perception"],
     traits: ["Darkvision", "Keen Senses", "Fleet of Foot"],
   },
   {
@@ -53,6 +55,7 @@ DND_DATA.races = [
       Constitution: 1,
     },
     speed: 30,
+    skills: ["Intimidation"],
     traits: ["Darkvision", "Relentless Endurance", "Savage Attacks"],
   },
 ];
