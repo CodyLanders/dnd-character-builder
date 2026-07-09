@@ -34,6 +34,9 @@ DND_DATA.equipmentItems = {
   javelins4: { id: "javelins4", name: "4 javelins", type: "weapon", category: "simple weapon", detail: "4 javelins - each 1d6 piercing, thrown" },
   handaxes2: { id: "handaxes2", name: "Two handaxes", type: "weapon", category: "simple weapon", detail: "Two handaxes - each 1d6 slashing, light, thrown" },
   daggers2: { id: "daggers2", name: "Two daggers", type: "weapon", category: "simple weapon", detail: "Two daggers - each 1d4 piercing, finesse, light, thrown" },
+  componentPouch: { id: "componentPouch", name: "Component pouch", type: "other", detail: "Component pouch - material components used to cast spells" },
+  arcaneFocus: { id: "arcaneFocus", name: "Arcane focus", type: "other", detail: "Arcane focus - an item used by arcane spellcasters as a spellcasting focus" },
+  spellbook: { id: "spellbook", name: "Spellbook", type: "other", detail: "Spellbook - the book where a wizard records spells" },
   thievesTools: {
     id: "thievesTools",
     name: "Thieves' tools",
@@ -57,6 +60,12 @@ DND_DATA.equipmentItems = {
     name: "Explorer's Pack",
     type: "pack",
     contents: ["backpack", "bedroll", "mess kit", "tinderbox", "10 torches", "10 days of rations", "waterskin", "50 feet of hempen rope"],
+  },
+  scholarsPack: {
+    id: "scholarsPack",
+    name: "Scholar's Pack",
+    type: "pack",
+    contents: ["backpack", "book of lore", "bottle of ink", "ink pen", "10 sheets of parchment", "little bag of sand", "small knife"],
   },
 };
 
@@ -199,6 +208,35 @@ DND_DATA.startingEquipment = {
       },
     ],
     fixed: ["darts10"],
+  },
+  wizard: {
+    choices: [
+      {
+        id: "weapon",
+        title: "Weapon",
+        options: [
+          { id: "quarterstaff", name: "Quarterstaff", items: ["quarterstaff"], details: ["Quarterstaff - 1d6 bludgeoning, versatile 1d8"] },
+          { id: "dagger", name: "Dagger", items: ["dagger"], details: ["Dagger - 1d4 piercing, finesse, light, thrown"] },
+        ],
+      },
+      {
+        id: "spellcastingFocus",
+        title: "Spellcasting focus",
+        options: [
+          { id: "component-pouch", name: "Component pouch", items: ["componentPouch"], details: ["Component pouch - material components used to cast spells"] },
+          { id: "arcane-focus", name: "Arcane focus", items: ["arcaneFocus"], details: ["Arcane focus - an item used by arcane spellcasters as a spellcasting focus"] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "scholars-pack", name: "Scholar's Pack", items: ["scholarsPack"] },
+          { id: "explorers-pack", name: "Explorer's Pack", items: ["explorersPack"] },
+        ],
+      },
+    ],
+    fixed: ["spellbook"],
   },
 };
 

@@ -33,6 +33,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId),
     equipmentSelections: overrides.equipmentSelections || DND_DATA.createRandomEquipmentSelections(classId),
     equipment: [],
+    spellcasting: overrides.spellcasting || { cantrips: [], spellbookSpells: [] },
     finishingTouches: overrides.finishingTouches || { choices: {}, alignment: {}, personality: {} },
     rolledScores: overrides.rolledScores || [],
     rolledAssignments: overrides.rolledAssignments || {},

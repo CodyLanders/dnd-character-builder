@@ -89,7 +89,96 @@ DND_DATA.classes = [
     proficiencies: ["Simple weapons", "Shortswords"],
     features: ["Unarmored Defense", "Martial Arts"],
   },
+  {
+    id: "wizard",
+    name: "Wizard",
+    cardDescription: "Studied arcane spellcaster",
+    detail:
+      "A Wizard studies magic through books, careful practice, and prepared spells. At level 1, you use Intelligence for spellcasting and keep your spells in a spellbook.",
+    proficiencyDetails: {
+      Armor: "None",
+      Weapons: "Daggers, darts, slings, quarterstaffs, light crossbows",
+      Tools: "None",
+      "Saving Throws": "Intelligence, Wisdom",
+    },
+    hitDie: 6,
+    savingThrowProficiencies: ["Intelligence", "Wisdom"],
+    skillChoices: {
+      choose: 2,
+      options: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
+    },
+    primaryAbilities: ["Intelligence", "Constitution", "Dexterity", "Wisdom", "Charisma", "Strength"],
+    proficiencies: ["Daggers", "Darts", "Slings", "Quarterstaffs", "Light crossbows"],
+    features: ["Arcane Recovery - Once per day after a short rest, you can recover some expended spell slots. At level 1, this lets you recover one level 1 spell slot."],
+  },
 ];
+
+DND_DATA.levelOneSpellcasting = {
+  bard: {
+    hasLevelOneSpellcasting: true,
+    ability: "Charisma",
+    cantripsKnown: 2,
+    levelOneSpellSlots: 2,
+    castingType: "known",
+    magicType: "spellcasting",
+    selectionRule: "4 known level 1 spells",
+  },
+  cleric: {
+    hasLevelOneSpellcasting: true,
+    ability: "Wisdom",
+    cantripsKnown: 3,
+    levelOneSpellSlots: 2,
+    castingType: "prepared",
+    magicType: "spellcasting",
+    selectionRule: "Prepared spells will be calculated in a later spell-selection phase",
+  },
+  druid: {
+    hasLevelOneSpellcasting: true,
+    ability: "Wisdom",
+    cantripsKnown: 2,
+    levelOneSpellSlots: 2,
+    castingType: "prepared",
+    magicType: "spellcasting",
+    selectionRule: "Prepared spells will be calculated in a later spell-selection phase",
+  },
+  sorcerer: {
+    hasLevelOneSpellcasting: true,
+    ability: "Charisma",
+    cantripsKnown: 4,
+    levelOneSpellSlots: 2,
+    castingType: "known",
+    magicType: "spellcasting",
+    selectionRule: "2 known level 1 spells",
+  },
+  warlock: {
+    hasLevelOneSpellcasting: true,
+    ability: "Charisma",
+    cantripsKnown: 2,
+    levelOneSpellSlots: 1,
+    castingType: "known",
+    magicType: "pact",
+    selectionRule: "2 known level 1 spells",
+  },
+  wizard: {
+    hasLevelOneSpellcasting: true,
+    ability: "Intelligence",
+    cantripsKnown: 3,
+    levelOneSpellSlots: 2,
+    castingType: "spellbook",
+    magicType: "spellcasting",
+    selectionRule: "Spellbook and prepared spells will be handled in a later spell-selection phase",
+  },
+  barbarian: { hasLevelOneSpellcasting: false },
+  fighter: { hasLevelOneSpellcasting: false },
+  monk: { hasLevelOneSpellcasting: false },
+  paladin: { hasLevelOneSpellcasting: false },
+  ranger: { hasLevelOneSpellcasting: false },
+  rogue: { hasLevelOneSpellcasting: false },
+};
+
+DND_DATA.classes.forEach((characterClass) => {
+  characterClass.spellcasting = DND_DATA.levelOneSpellcasting[characterClass.id] || { hasLevelOneSpellcasting: false };
+});
 
 DND_DATA.classFeatureChoices = {
   fighter: {

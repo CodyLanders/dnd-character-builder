@@ -19,6 +19,27 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.4.1 — Wizard Spellcasting, Spell Cards, and Blank-Name Confirmation Polish — July 9, 2026
+- Added the level 1 spellcasting foundation for spellcasting classes.
+- Added Wizard as the first selectable spellcasting class.
+- Added Wizard cantrip selection.
+- Added Wizard level 1 spellbook spell selection.
+- Added Wizard spell cards using the same card-style pattern as weapon cards.
+- Added spell quick info for Level, School, Range, and Casting Time.
+- Added expandable spell details for deeper spell information.
+- Added spell components display, including material component details where required.
+- Removed unnecessary visible selected-state text from spell cards.
+- Added selected cantrips and selected spellbook spells to the final character sheet.
+- Added a Wizard prepared-spell note instead of requiring prepared spell selection in v1.
+- Added Wizard spellcasting basics to the final sheet, including Intelligence casting, spell slots, spell save DC, and spell attack bonus.
+- Preserved non-spellcaster behavior by hiding spellcasting sections when they do not apply.
+- Planned Wizard class UX around the existing builder flow without adding extra steps.
+- Confirmed Wizard skills, proficiencies, starting equipment, and Arcane Recovery display cleanly for users.
+- Added a Wizard-focused test checklist for selection, randomize, equipment, final sheet display, and restart behavior.
+- Moved the blank-name finish confirmation near the top of the Finishing Touches step.
+- Added scroll-to-top behavior when the blank-name confirmation appears.
+- Kept Character Name optional while still requiring confirmation before finishing without one.
+
 ### v0.4.0 — Final Sheet Polish, Restart Flow, and Character Basics — July 8, 2026
 - Added level 1 Hit Points using maximum class Hit Die plus Constitution modifier.
 - Added Hit Dice, Passive Perception, and Proficiency Bonus to the final character sheet.

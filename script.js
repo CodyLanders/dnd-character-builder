@@ -1,12 +1,13 @@
 const wizardSteps = [
-  { key: "class", title: "Pick Your Class", progress: "Step 1 of 8 - Class" },
-  { key: "race", title: "Pick Your Race", progress: "Step 2 of 8 - Race" },
-  { key: "background", title: "Pick Your Background", progress: "Step 3 of 8 - Background" },
-  { key: "classFeature", title: "Choose Your Level 1 Class Choice", progress: "Step 4 of 8 - Level 1 Class Choice" },
-  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 8 - Starting Equipment" },
-  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 8 - Ability Scores" },
-  { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 7 of 8 - Skills & Proficiencies" },
-  { key: "finishing", title: "Finishing Touches", progress: "Step 8 of 8 - Finishing Touches" },
+  { key: "class", title: "Pick Your Class", progress: "Step 1 of 9 - Class" },
+  { key: "race", title: "Pick Your Race", progress: "Step 2 of 9 - Race" },
+  { key: "background", title: "Pick Your Background", progress: "Step 3 of 9 - Background" },
+  { key: "classFeature", title: "Choose Your Level 1 Class Choice", progress: "Step 4 of 9 - Level 1 Class Choice" },
+  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 9 - Starting Equipment" },
+  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 9 - Ability Scores" },
+  { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 7 of 9 - Skills & Proficiencies" },
+  { key: "spellSelection", title: "Choose Wizard Spells", progress: "Step 8 of 9 - Spell Selection" },
+  { key: "finishing", title: "Finishing Touches", progress: "Step 9 of 9 - Finishing Touches" },
 ];
 
 const stepGuidance = {
@@ -23,6 +24,7 @@ You will make more choices later, but your class is the foundation for how your 
   background: "Your background explains what your character did before adventuring. It provides skills, tools or languages, starting equipment, and a roleplaying hook.",
   equipment: "Choose the starting equipment granted by your class. Background equipment is added automatically.",
   skills: "Choose the skill proficiencies granted by your class. Skills from your race and background are already included and cannot be chosen again.",
+  spellSelection: "Choose the cantrips and level 1 spells written in your wizard's spellbook. Prepared spell selection will come later.",
   finishing: "Choose any remaining languages, tools, and character details before finishing.",
 };
 
@@ -78,6 +80,7 @@ function createBlankCharacter() {
     abilities: emptyAbilityScores(),
     equipmentSelections: {},
     equipment: [],
+    spellcasting: { cantrips: [], spellbookSpells: [] },
     finishingTouches: { choices: {}, alignment: {}, personality: {} },
     notes: "Stage 1 wizard character",
   };
@@ -147,6 +150,10 @@ function normalizeCharacter(savedCharacter = {}) {
     abilities: normalizeAbilityMap(savedCharacter.abilities),
     equipmentSelections: savedCharacter.equipmentSelections || {},
     equipment: Array.isArray(savedCharacter.equipment) ? savedCharacter.equipment : [],
+    spellcasting: {
+      cantrips: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.cantrips) ? savedCharacter.spellcasting.cantrips : [],
+      spellbookSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.spellbookSpells) ? savedCharacter.spellcasting.spellbookSpells : [],
+    },
     finishingTouches: {
       choices: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.choices) || {}) },
       alignment: { ...((savedCharacter.finishingTouches && savedCharacter.finishingTouches.alignment) || {}) },
@@ -193,6 +200,8 @@ function hasMeaningfulProgress() {
   const finishingChoices = Object.values(finishingTouches.choices || {}).some(Boolean);
   const alignmentChoice = finishingTouches.alignment && (finishingTouches.alignment.selected || finishingTouches.alignment.skipped);
   const personalityChoices = Object.values(finishingTouches.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped));
+  const spellcasting = character.spellcasting || {};
+  const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || [])].some(Boolean);
 
   return Boolean(
     character.classId
@@ -205,6 +214,7 @@ function hasMeaningfulProgress() {
     || rolledAssignments
     || pointBuyTouched
     || appState.abilityState.pointBuy.finalized
+    || spellChoices
     || finishingChoices
     || alignmentChoice
     || personalityChoices
@@ -486,6 +496,116 @@ function formatSpeed(race) {
 
 function getProficiencyBonus(character) {
   return character.level >= 1 ? 2 : 0;
+}
+
+function getLevelOneSpellcasting(character, characterClass = null) {
+  const classId = characterClass ? characterClass.id : character.classId;
+  const metadata = characterClass && characterClass.spellcasting
+    ? characterClass.spellcasting
+    : DND_DATA.levelOneSpellcasting[classId];
+  return metadata || { hasLevelOneSpellcasting: false };
+}
+
+function hasLevelOneSpellcasting(character, characterClass = null) {
+  return Boolean(getLevelOneSpellcasting(character, characterClass).hasLevelOneSpellcasting);
+}
+
+function getSpellcastingAbility(character, characterClass = null) {
+  return getLevelOneSpellcasting(character, characterClass).ability || "";
+}
+
+function getSpellcastingCantripCount(character, characterClass = null) {
+  return getLevelOneSpellcasting(character, characterClass).cantripsKnown || 0;
+}
+
+function getLevelOneSpellSlotCount(character, characterClass = null) {
+  return getLevelOneSpellcasting(character, characterClass).levelOneSpellSlots || 0;
+}
+
+function getSpellcastingMagicType(character, characterClass = null) {
+  return getLevelOneSpellcasting(character, characterClass).magicType || "";
+}
+
+function supportsSpellSelection(character, characterClass = null) {
+  const classId = characterClass ? characterClass.id : character.classId;
+  return hasLevelOneSpellcasting(character, characterClass) && DND_DATA.supportedSpellSelectionClasses.includes(classId);
+}
+
+function getSpellcastingSelections(character) {
+  if (!character.spellcasting) character.spellcasting = { cantrips: [], spellbookSpells: [] };
+  if (!Array.isArray(character.spellcasting.cantrips)) character.spellcasting.cantrips = [];
+  if (!Array.isArray(character.spellcasting.spellbookSpells)) character.spellcasting.spellbookSpells = [];
+  return character.spellcasting;
+}
+
+function resetSpellSelections(character) {
+  character.spellcasting = { cantrips: [], spellbookSpells: [] };
+}
+
+function getSpellSelectionRule(character) {
+  return DND_DATA.spellSelectionRules[character.classId] || { cantrips: 0, spellbookSpells: 0 };
+}
+
+function getSelectedSpellIds(character, selectionType) {
+  return getSpellcastingSelections(character)[selectionType] || [];
+}
+
+function getSpellOptionsForSelection(character, selectionType) {
+  const level = selectionType === "cantrips" ? 0 : 1;
+  return DND_DATA.getSpellsForClassLevel(character.classId, level);
+}
+
+function hasCompleteSpellSelection(character) {
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  if (!supportsSpellSelection(character, characterClass)) return true;
+  const rules = getSpellSelectionRule(character);
+  const selections = getSpellcastingSelections(character);
+  return selections.cantrips.length === rules.cantrips && selections.spellbookSpells.length === rules.spellbookSpells;
+}
+
+function spellSelectionValidationMessage(character) {
+  const rules = getSpellSelectionRule(character);
+  const selections = getSpellcastingSelections(character);
+  const missingCantrips = Math.max(rules.cantrips - selections.cantrips.length, 0);
+  const missingSpells = Math.max(rules.spellbookSpells - selections.spellbookSpells.length, 0);
+  const messages = [];
+  if (missingCantrips) messages.push(`${missingCantrips} more ${missingCantrips === 1 ? "cantrip" : "cantrips"}`);
+  if (missingSpells) messages.push(`${missingSpells} more spellbook ${missingSpells === 1 ? "spell" : "spells"}`);
+  return messages.length ? `Choose ${messages.join(" and ")}.` : "";
+}
+
+function setRandomSpellSelections(character) {
+  character.spellcasting = DND_DATA.randomSpellSelectionForClass(character.classId);
+}
+
+function toggleSpellSelection(character, selectionType, spellId) {
+  const rules = getSpellSelectionRule(character);
+  const limit = rules[selectionType] || 0;
+  const selections = getSpellcastingSelections(character);
+  const current = selections[selectionType] || [];
+  if (current.includes(spellId)) {
+    selections[selectionType] = current.filter((id) => id !== spellId);
+    return;
+  }
+  if (current.length >= limit) return;
+  const validIds = new Set(getSpellOptionsForSelection(character, selectionType).map((spell) => spell.id));
+  if (validIds.has(spellId)) selections[selectionType] = [...current, spellId];
+}
+
+function formatSpellAttackBonus(value) {
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function calculateSpellSaveDc(character, characterClass = null) {
+  const ability = getSpellcastingAbility(character, characterClass);
+  if (!ability || !hasAssignedAbilityScore(character, ability)) return "";
+  return 8 + getProficiencyBonus(character) + abilityModifierValue(character.abilities[ability]);
+}
+
+function calculateSpellAttackBonus(character, characterClass = null) {
+  const ability = getSpellcastingAbility(character, characterClass);
+  if (!ability || !hasAssignedAbilityScore(character, ability)) return "";
+  return formatSpellAttackBonus(getProficiencyBonus(character) + abilityModifierValue(character.abilities[ability]));
 }
 
 function calculateHitPoints(character, characterClass) {
@@ -1055,7 +1175,12 @@ function adventuringGearEntries(items) {
 }
 
 function otherEquipmentEntries(items) {
-  return items.filter((item) => typeof item === "string" && !isAdventuringGearString(item)).map((item) => ({ text: item }));
+  return items
+    .filter((item) => {
+      if (typeof item === "string") return !isAdventuringGearString(item);
+      return item.type === "other";
+    })
+    .map((item) => ({ text: typeof item === "string" ? item : formatEquipmentItem(item) }));
 }
 
 function renderPreviewCategory(title, entries) {
@@ -1138,6 +1263,117 @@ function renderKnownProficienciesPreview(character, characterClass, race, backgr
     renderPreviewCategory("Armor Proficiencies", proficiencyEntries(characterClass, race, "Armor")),
     renderPreviewCategory("Weapon Proficiencies", proficiencyEntries(characterClass, race, "Weapons")),
   ].join("");
+}
+
+function renderClassFeaturesPreview(characterClass) {
+  if (!characterClass || !characterClass.features || !characterClass.features.length) return "";
+  return renderPreviewCategory("Class Features", characterClass.features.map((feature) => ({ text: feature })));
+}
+
+function formatLevelOneSpellSlots(count) {
+  return `${count} level 1 ${count === 1 ? "slot" : "slots"}`;
+}
+
+function getSelectedSpells(character, selectionType) {
+  return getSelectedSpellIds(character, selectionType)
+    .map((spellId) => DND_DATA.getSpellById(spellId))
+    .filter(Boolean);
+}
+
+function renderSpellFactBoxes(spell) {
+  return `
+    <span><strong>Level</strong>${formatSpellLevel(spell)}</span>
+    <span><strong>School</strong>${spell.school}</span>
+    <span><strong>Range</strong>${spell.range}</span>
+    <span><strong>Casting Time</strong>${spell.castingTime}</span>
+  `;
+}
+
+function renderSpellDetailContent(spell) {
+  return `
+    <span><strong>Components:</strong> ${spell.components}</span>
+    ${spell.material ? `<span><strong>Material:</strong> ${spell.material}</span>` : ""}
+    <span><strong>Duration:</strong> ${spell.duration}</span>
+    ${spell.concentration ? "<span><strong>Concentration:</strong> Yes</span>" : ""}
+    ${spell.ritual ? "<span><strong>Ritual:</strong> Yes</span>" : ""}
+    <span><strong>Summary:</strong> ${spell.summary}</span>
+  `;
+}
+
+function renderSpellDisplayCard(spell) {
+  return `
+    <details class="spell-display-card">
+      <summary>
+        <span class="spell-card-main">
+          <span class="spell-card-heading">
+            <strong>${spell.name}</strong>
+            <span>${formatSpellLevel(spell)} - ${spell.school}</span>
+          </span>
+          <span class="spell-card-facts">
+            ${renderSpellFactBoxes(spell)}
+          </span>
+          <span class="spell-detail-label">Open details</span>
+        </span>
+      </summary>
+      <span class="spell-card-details">
+        ${renderSpellDetailContent(spell)}
+      </span>
+    </details>
+  `;
+}
+
+function renderSelectedSpellList(title, spells) {
+  if (!spells.length) return "";
+  return `
+    <section class="spell-display-section">
+      <h3>${title}</h3>
+      <div class="spell-card-list">
+        ${spells.map(renderSpellDisplayCard).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function getWizardPreparedSpellCount(character) {
+  if (!hasAssignedAbilityScore(character, "Intelligence")) return "";
+  return Math.max(1, abilityModifierValue(character.abilities.Intelligence) + 1);
+}
+
+function renderPreparedSpellNote(character, characterClass) {
+  if (!supportsSpellSelection(character, characterClass) || character.classId !== "wizard") return "";
+  const preparedCount = getWizardPreparedSpellCount(character);
+  const text = preparedCount === ""
+    ? "Prepared Spells: Assign Intelligence to calculate how many spells you can prepare from your spellbook."
+    : `Prepared Spells: You can prepare ${preparedCount} ${preparedCount === 1 ? "spell" : "spells"} from your spellbook.`;
+  return `<p class="spell-selection-note">${text}</p>`;
+}
+
+function renderSpellcastingPreview(character, characterClass) {
+  if (!hasLevelOneSpellcasting(character, characterClass)) return "";
+  const spellcasting = getLevelOneSpellcasting(character, characterClass);
+  const ability = getSpellcastingAbility(character, characterClass);
+  const saveDc = calculateSpellSaveDc(character, characterClass);
+  const attackBonus = calculateSpellAttackBonus(character, characterClass);
+  const slotLabel = getSpellcastingMagicType(character, characterClass) === "pact" ? "Pact Magic Slots" : "Spell Slots";
+  const slotCount = getLevelOneSpellSlotCount(character, characterClass);
+  const cantripSpells = getSelectedSpells(character, "cantrips");
+  const spellbookSpells = getSelectedSpells(character, "spellbookSpells");
+  const hasSpellSelection = supportsSpellSelection(character, characterClass);
+
+  return `
+    <h3>Spellcasting</h3>
+    <div class="sheet-grid spellcasting-grid">
+      <div class="sheet-item"><span class="sheet-label">Spellcasting Ability</span>${ability || "Not selected"}</div>
+      <div class="sheet-item"><span class="sheet-label">Spell Save DC</span>${saveDc === "" ? `Assign ${ability}` : saveDc}</div>
+      <div class="sheet-item"><span class="sheet-label">Spell Attack Bonus</span>${attackBonus === "" ? `Assign ${ability}` : attackBonus}</div>
+      <div class="sheet-item"><span class="sheet-label">${slotLabel}</span>${formatLevelOneSpellSlots(slotCount)}</div>
+      <div class="sheet-item"><span class="sheet-label">Cantrips</span>${hasSpellSelection ? `${cantripSpells.length} selected` : getSpellcastingCantripCount(character, characterClass)}</div>
+      <div class="sheet-item"><span class="sheet-label">${hasSpellSelection ? "Spellbook" : "Spell Selection"}</span>${hasSpellSelection ? `${spellbookSpells.length} spells selected` : spellcasting.selectionRule || "Handled in a later spell-selection phase"}</div>
+    </div>
+    ${renderSelectedSpellList("Cantrips", cantripSpells)}
+    ${renderSelectedSpellList("Spellbook Spells", spellbookSpells)}
+    ${renderPreparedSpellNote(character, characterClass)}
+  `;
 }
 
 function getFinishingTouches(character) {
@@ -1341,6 +1577,8 @@ function renderPreview(container, character) {
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
     ${renderSkillsTable(character, race, background)}
+    ${renderSpellcastingPreview(character, characterClass)}
+    ${renderClassFeaturesPreview(characterClass)}
     ${renderKnownProficienciesPreview(character, characterClass, race, background)}
     ${renderFinishingTouchesPreview(character)}
     ${renderPreviewEquipment(character)}`;
@@ -1781,16 +2019,18 @@ function renderFinishingStep(step) {
   const choices = getFinishingChoices(appState.character);
   const canFinish = hasValidAbilityAssignments()
     && hasCompleteSkillSelections(appState.character)
+    && hasCompleteSpellSelection(appState.character)
     && hasCompleteFinishingTouches(appState.character);
   const personality = background ? background.personality || {} : {};
   const shouldConfirmBlankName = canFinish && appState.confirmBlankName && !appState.character.name.trim();
   const blankNameConfirmation = shouldConfirmBlankName
     ? `
       <section class="blank-name-confirmation" aria-live="polite">
-        <p>Your character does not have a name yet.</p>
+        <strong>Finish without a character name?</strong>
+        <p>You can leave the name blank, but your final sheet will not show a character name.</p>
         <div class="blank-name-actions">
-          <button class="secondary-button" type="button" data-action="finish-without-name">Finish without a name</button>
-          <button class="secondary-button" type="button" data-action="focus-character-name">Add a name</button>
+          <button class="secondary-button" type="button" data-action="focus-character-name">Go Back</button>
+          <button class="primary-button" type="button" data-action="finish-without-name">Finish Without Name</button>
         </div>
       </section>
     `
@@ -1800,13 +2040,13 @@ function renderFinishingStep(step) {
     <p class="progress-text">${step.progress}</p>
     <h2>${step.title}</h2>
     ${guidancePanel(stepGuidance.finishing)}
+    ${blankNameConfirmation}
     <section class="finishing-card">
       <label>Character Name
         <input type="text" data-character-name value="${escapeHtml(appState.character.name || "")}" placeholder="Enter character name" />
       </label>
       <p>You can name your character now or leave it blank.</p>
     </section>
-    ${blankNameConfirmation}
     <section class="finishing-section">
       <h3>Remaining Choices</h3>
       ${choices.length ? choices.map((choice) => renderFinishingChoiceCard(choice)).join("") : '<div class="finishing-empty">No required choices left. You can add optional background details or continue.</div>'}
@@ -1878,6 +2118,70 @@ function renderSkillsStep(step) {
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current" ${choice.choose ? "" : "disabled"}>Randomize</button><button class="primary-button" type="button" data-action="continue" ${canFinish ? "" : "disabled"}>Continue</button></div>
   `;
 }
+
+function formatSpellLevel(spell) {
+  return spell.level === 0 ? "Cantrip" : `Level ${spell.level}`;
+}
+
+function renderSpellSelectionCard(spell, selectionType, selectedIds, limit) {
+  const isSelected = selectedIds.includes(spell.id);
+  const isAtLimit = selectedIds.length >= limit && !isSelected;
+  return `
+    <article class="spell-choice-card ${isSelected ? "selected" : ""} ${isAtLimit ? "disabled" : ""}">
+      <button class="spell-select-button" type="button" data-spell-selection="${selectionType}" data-spell-id="${spell.id}" ${isAtLimit ? "disabled" : ""} aria-pressed="${isSelected}">
+        <span class="spell-card-main">
+          <span class="spell-card-heading">
+            <strong>${spell.name}</strong>
+            <span>${formatSpellLevel(spell)} - ${spell.school}</span>
+          </span>
+          <span class="spell-card-facts">
+            ${renderSpellFactBoxes(spell)}
+          </span>
+        </span>
+      </button>
+      <details class="spell-card-detail-toggle">
+        <summary>Open details</summary>
+        <span class="spell-card-details">
+          ${renderSpellDetailContent(spell)}
+        </span>
+      </details>
+    </article>
+  `;
+}
+
+function renderSpellSelectionSection(title, helper, selectionType, spells, selectedIds, limit) {
+  return `
+    <section class="spell-selection-section">
+      <div class="spell-selection-header">
+        <h3>${title}</h3>
+        <span>${selectedIds.length} / ${limit} selected</span>
+      </div>
+      <p>${helper}</p>
+      <div class="spell-choice-grid">
+        ${spells.map((spell) => renderSpellSelectionCard(spell, selectionType, selectedIds, limit)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSpellSelectionStep(step) {
+  const rules = getSpellSelectionRule(appState.character);
+  const selections = getSpellcastingSelections(appState.character);
+  const cantrips = getSpellOptionsForSelection(appState.character, "cantrips");
+  const spellbookSpells = getSpellOptionsForSelection(appState.character, "spellbookSpells");
+  const canContinue = hasCompleteSpellSelection(appState.character);
+  const validationMessage = canContinue ? "" : spellSelectionValidationMessage(appState.character);
+
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.spellSelection)}
+    ${validationMessage ? `<p class="spell-selection-validation">${validationMessage}</p>` : ""}
+    ${renderSpellSelectionSection("Wizard Cantrips", `Choose ${rules.cantrips} cantrips.`, "cantrips", cantrips, selections.cantrips, rules.cantrips)}
+    ${renderSpellSelectionSection("Spellbook Spells", `Choose ${rules.spellbookSpells} level 1 spells for your spellbook.`, "spellbookSpells", spellbookSpells, selections.spellbookSpells, rules.spellbookSpells)}
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button></div>
+  `;
+}
 function renderWizard() {
   const step = wizardSteps[appState.wizardStepIndex];
   views.build.classList.toggle("ability-step-active", step.key === "abilities");
@@ -1891,6 +2195,7 @@ function renderWizard() {
   if (step.key === "equipment") renderEquipmentStep(step);
   if (step.key === "abilities") renderAbilityStep(step);
   if (step.key === "skills") renderSkillsStep(step);
+  if (step.key === "spellSelection") renderSpellSelectionStep(step);
   if (step.key === "finishing") renderFinishingStep(step);
   saveProgress();
 }
@@ -1940,15 +2245,23 @@ function randomChoiceExcept(items, currentId) {
 }
 
 function getNextStepIndex() {
-  const currentKey = wizardSteps[appState.wizardStepIndex].key;
-  if (currentKey === "background" && !getClassFeatureChoice(appState.character)) return wizardSteps.findIndex((step) => step.key === "equipment");
-  return appState.wizardStepIndex + 1;
+  for (let index = appState.wizardStepIndex + 1; index < wizardSteps.length; index += 1) {
+    if (isWizardStepAvailable(wizardSteps[index])) return index;
+  }
+  return appState.wizardStepIndex;
 }
 
 function getPreviousStepIndex() {
-  const currentKey = wizardSteps[appState.wizardStepIndex].key;
-  if (currentKey === "equipment" && !getClassFeatureChoice(appState.character)) return wizardSteps.findIndex((step) => step.key === "background");
-  return appState.wizardStepIndex - 1;
+  for (let index = appState.wizardStepIndex - 1; index >= 0; index -= 1) {
+    if (isWizardStepAvailable(wizardSteps[index])) return index;
+  }
+  return appState.wizardStepIndex;
+}
+
+function isWizardStepAvailable(step) {
+  if (step.key === "classFeature") return Boolean(getClassFeatureChoice(appState.character));
+  if (step.key === "spellSelection") return supportsSpellSelection(appState.character);
+  return true;
 }
 
 function randomizeEquipmentSelections(character) {
@@ -1974,6 +2287,7 @@ function randomizeCurrentStep() {
     appState.character.classId = randomChoiceExcept(DND_DATA.classes, appState.character.classId).id;
     resetEquipmentSelections(appState.character);
     resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
     resetFinishingTouches(appState.character);
   }
   if (step.key === "race") {
@@ -1993,6 +2307,7 @@ function randomizeCurrentStep() {
   }
   if (step.key === "equipment") randomizeEquipmentSelections(appState.character);
   if (step.key === "skills") setRandomClassSkillSelections(appState.character);
+  if (step.key === "spellSelection") setRandomSpellSelections(appState.character);
   renderWizard();
 }
 
@@ -2048,10 +2363,11 @@ function hasValidAbilityAssignments() {
 }
 
 function finishCharacter({ allowBlankName = false } = {}) {
-  if (!hasValidAbilityAssignments() || !hasCompleteSkillSelections(appState.character) || !hasCompleteFinishingTouches(appState.character)) return;
+  if (!hasValidAbilityAssignments() || !hasCompleteSkillSelections(appState.character) || !hasCompleteSpellSelection(appState.character) || !hasCompleteFinishingTouches(appState.character)) return;
   if (!allowBlankName && !appState.character.name.trim()) {
     appState.confirmBlankName = true;
     renderWizard();
+    scrollWindowToTop();
     return;
   }
   appState.confirmBlankName = false;
@@ -2068,6 +2384,7 @@ wizardStep.addEventListener("click", (event) => {
   const pointBuyButton = event.target.closest("[data-point-buy]");
   const equipmentChoiceButton = event.target.closest("[data-equipment-group]");
   const skillChoiceButton = event.target.closest("[data-skill-choice]");
+  const spellChoiceButton = event.target.closest("[data-spell-selection]");
   const pickerToggleButton = event.target.closest("[data-picker-toggle]");
   const pickerOptionButton = event.target.closest("[data-picker-option]");
   const randomFinishingButton = event.target.closest("[data-randomize-finishing]");
@@ -2167,6 +2484,12 @@ wizardStep.addEventListener("click", (event) => {
     return;
   }
 
+  if (spellChoiceButton) {
+    toggleSpellSelection(appState.character, spellChoiceButton.dataset.spellSelection, spellChoiceButton.dataset.spellId);
+    renderWizard();
+    return;
+  }
+
   if (equipmentChoiceButton) {
     if (event.target.closest("select")) return;
     const groupId = equipmentChoiceButton.dataset.equipmentGroup;
@@ -2186,6 +2509,7 @@ wizardStep.addEventListener("click", (event) => {
       appState.character.classId = appState.character.classId === optionId ? "" : optionId;
       resetEquipmentSelections(appState.character);
       resetSkillSelections(appState.character);
+      resetSpellSelections(appState.character);
       resetFinishingTouches(appState.character);
     }
     if (optionType === "race") {

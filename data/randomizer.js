@@ -82,6 +82,7 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     classFeatures: choices.classFeatures,
     classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
   });
 };
 
@@ -104,6 +105,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter() {
     classFeatures: choices.classFeatures,
     classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
     baseAbilities,
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
     rolledScores,
     rolledAssignments,
   });
