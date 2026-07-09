@@ -7,6 +7,7 @@ DND_DATA.backgrounds = [
     skills: ["Athletics", "Intimidation"],
     tools: ["One gaming set", "Vehicles (land)"],
     equipment: ["Insignia of rank", "Trophy from a fallen enemy", "Set of bone dice or deck of cards", "Common clothes"],
+    startingGoldGp: 10,
     personality: {
       trait: ["I'm always polite and respectful.", "I'm haunted by memories of war.", "I can stare down danger without flinching."],
       ideal: ["Greater Good. Our lot is to lay down our lives in defense of others.", "Responsibility. I do what I must and obey just authority.", "Independence. When people follow orders blindly, they embrace tyranny."],
@@ -20,6 +21,7 @@ DND_DATA.backgrounds = [
     skills: ["Athletics", "Survival"],
     tools: ["One musical instrument"],
     equipment: ["Staff", "Hunting trap", "Trophy from an animal you killed", "Traveler's clothes"],
+    startingGoldGp: 10,
     personality: {
       trait: ["I'm driven by wanderlust.", "I watch over my friends as if they were newborn cubs.", "I feel far more comfortable around animals than people."],
       ideal: ["Change. Life is like the seasons, in constant change.", "Greater Good. It is each person's responsibility to make the most happiness.", "Nature. The natural world is more important than civilization."],
@@ -33,6 +35,7 @@ DND_DATA.backgrounds = [
     skills: ["Deception", "Stealth"],
     tools: ["One gaming set", "Thieves' tools"],
     equipment: ["Crowbar", "Dark common clothes with hood"],
+    startingGoldGp: 15,
     personality: {
       trait: ["I always have a plan for what to do when things go wrong.", "I am always calm, no matter the situation.", "The first thing I do in a new place is note valuables and exits."],
       ideal: ["Honor. I don't steal from others in the trade.", "Freedom. Chains are meant to be broken.", "People. I'm loyal to my friends, not ideals."],
@@ -46,6 +49,7 @@ DND_DATA.backgrounds = [
     skills: ["Sleight of Hand", "Stealth"],
     tools: ["Disguise kit", "Thieves' tools"],
     equipment: ["Small knife", "Map of your home city", "Pet mouse", "Token from your parents", "Common clothes"],
+    startingGoldGp: 10,
     personality: {
       trait: ["I hide scraps of food and trinkets in my pockets.", "I ask a lot of questions.", "I bluntly say what other people only hint at."],
       ideal: ["Respect. All people deserve dignity.", "Community. We have to take care of each other.", "Retribution. The rich need to be shown what life is like in the gutters."],
@@ -59,6 +63,7 @@ DND_DATA.backgrounds = [
     skills: ["Animal Handling", "Survival"],
     tools: ["One artisan's tools", "Vehicles (land)"],
     equipment: ["Artisan's tools", "Shovel", "Iron pot", "Common clothes"],
+    startingGoldGp: 10,
     personality: {
       trait: ["I judge people by their actions, not words.", "If someone is in trouble, I'm always ready to lend help.", "I'm confident in my own abilities and do what I can to instill confidence in others."],
       ideal: ["Respect. People deserve to be treated with dignity.", "Fairness. No one should get special treatment before the law.", "Sincerity. There's no good in pretending to be something I'm not."],

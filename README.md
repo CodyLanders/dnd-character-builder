@@ -19,6 +19,20 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.4.0 — Final Sheet Polish, Restart Flow, and Character Basics — July 8, 2026
+- Added level 1 Hit Points using maximum class Hit Die plus Constitution modifier.
+- Added Hit Dice, Passive Perception, and Proficiency Bonus to the final character sheet.
+- Added Senses, including Darkvision where applicable.
+- Added Languages, Tool Proficiencies, Armor Proficiencies, and Weapon Proficiencies to the final sheet.
+- Improved final-sheet capitalization for values like Medium Armor, Shields, Simple Weapons, Martial Weapons, Disguise Kit, and Thieves’ Tools.
+- Cleaned up optional Background Details so blank roleplay fields no longer show empty rows.
+- Added simple background-based Starting Gold support using `startingGoldGp`.
+- Added Starting Gold display to the final sheet while keeping gold separate from equipment.
+- Kept gold shopping, buying/selling, and gold-instead-of-equipment flows out of v1 scope.
+- Kept HP rolling out of v1 because it belongs with a future level-up system.
+- Updated Restart behavior so it clears the current character and returns to the start page.
+- Improved navigation behavior so continuing to the next step scrolls back to the top of the page.
+
 ### v0.3.2 — July 8, 2026 — Skills, Proficiencies, and Finishing Touches
 - Added a dedicated Skills & Proficiencies step after Ability Scores.
 - Added class skill selection with duplicate-proficiency prevention.

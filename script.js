@@ -282,21 +282,18 @@ function showView(viewName) {
   scrollToCurrentViewTop();
 }
 
-function scrollToCurrentViewTop(behavior = "smooth") {
+function scrollWindowToTop() {
   requestAnimationFrame(() => {
-    const activeView = Object.values(views).find((view) => !view.classList.contains("hidden"));
-    const target = activeView || document.querySelector(".app-shell");
-    const top = target ? target.getBoundingClientRect().top + window.pageYOffset : 0;
-    window.scrollTo({ top: Math.max(top - 8, 0), behavior });
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   });
 }
 
-function scrollBuilderStepToTop(behavior = "smooth") {
-  requestAnimationFrame(() => {
-    const target = wizardStep.querySelector("h2") || wizardStep;
-    const top = target.getBoundingClientRect().top + window.pageYOffset;
-    window.scrollTo({ top: Math.max(top - 12, 0), behavior });
-  });
+function scrollToCurrentViewTop() {
+  scrollWindowToTop();
+}
+
+function scrollBuilderStepToTop() {
+  scrollWindowToTop();
 }
 
 function abilityModifier(score) {
@@ -489,6 +486,35 @@ function formatSpeed(race) {
 
 function getProficiencyBonus(character) {
   return character.level >= 1 ? 2 : 0;
+}
+
+function calculateHitPoints(character, characterClass) {
+  if (!characterClass) return "Not selected";
+  if (!hasAssignedAbilityScore(character, "Constitution")) return "Assign Constitution";
+  return characterClass.hitDie + abilityModifierValue(character.abilities.Constitution);
+}
+
+function formatHitDice(character, characterClass) {
+  if (!characterClass) return "Not selected";
+  return `${character.level || 1}d${characterClass.hitDie}`;
+}
+
+function calculatePassivePerception(character, race, background) {
+  if (!hasAssignedAbilityScore(character, "Wisdom")) return "Assign Wisdom";
+  const skillLevels = getSkillProficiencyLevels(character, race, background);
+  return 10 + abilityModifierValue(character.abilities.Wisdom) + getProficiencyBonus(character) * (skillLevels.Perception || 0);
+}
+
+function formatSenses(race) {
+  if (!race) return "Not selected";
+  if (race.senses && race.senses.length) return race.senses.join(", ");
+  return (race.traits || []).includes("Darkvision") ? "Darkvision 60 ft." : "Normal vision";
+}
+
+function getStartingGoldGp(character) {
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const startingGold = background ? Number(background.startingGoldGp) : 0;
+  return Number.isFinite(startingGold) && startingGold > 0 ? startingGold : 0;
 }
 
 function normalizeSkillSource(source, defaultLevel = 1) {
@@ -1043,6 +1069,77 @@ function renderPreviewCategory(title, entries) {
   }).join("")}</ul>`;
 }
 
+function uniqueTextEntries(values, emptyText = "None") {
+  const seen = new Set();
+  const entries = [];
+  values.forEach((value) => {
+    const text = String(value || "").trim();
+    if (!text || seen.has(text.toLowerCase())) return;
+    seen.add(text.toLowerCase());
+    entries.push({ text });
+  });
+  return entries.length ? entries : [{ text: emptyText }];
+}
+
+function splitProficiencyText(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isChoicePlaceholder(value) {
+  return /^one\b/i.test(String(value || "").trim());
+}
+
+function selectedFinishingChoices(character) {
+  const selections = getFinishingTouches(character).choices;
+  return getFinishingChoices(character)
+    .map((choice) => ({ ...choice, value: selections[choice.id] || "" }))
+    .filter((choice) => choice.value);
+}
+
+function languageEntries(character, race, background) {
+  const languages = [
+    ...(race ? race.languages || [] : []),
+    ...(background ? background.languages || [] : []),
+    ...selectedFinishingChoices(character)
+      .filter((choice) => choice.category === "language")
+      .map((choice) => choice.value),
+  ];
+  return uniqueTextEntries(languages);
+}
+
+function toolProficiencyEntries(character, characterClass, race, background) {
+  const tools = [
+    ...(race ? race.tools || [] : []),
+    ...(background ? background.tools || [] : []).filter((tool) => !isChoicePlaceholder(tool)),
+    ...splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools : "")
+      .filter((tool) => tool !== "None" && !isChoicePlaceholder(tool)),
+    ...selectedFinishingChoices(character)
+      .filter((choice) => choice.category !== "language")
+      .map((choice) => choice.value),
+  ];
+  return uniqueTextEntries(tools);
+}
+
+function proficiencyEntries(characterClass, race, label) {
+  const proficiencies = [
+    ...splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails[label] : ""),
+    ...splitProficiencyText(race && race.proficiencyDetails ? race.proficiencyDetails[label] : ""),
+  ].filter((item) => item !== "None");
+  return uniqueTextEntries(proficiencies);
+}
+
+function renderKnownProficienciesPreview(character, characterClass, race, background) {
+  return [
+    renderPreviewCategory("Languages", languageEntries(character, race, background)),
+    renderPreviewCategory("Tool Proficiencies", toolProficiencyEntries(character, characterClass, race, background)),
+    renderPreviewCategory("Armor Proficiencies", proficiencyEntries(characterClass, race, "Armor")),
+    renderPreviewCategory("Weapon Proficiencies", proficiencyEntries(characterClass, race, "Weapons")),
+  ].join("");
+}
+
 function getFinishingTouches(character) {
   if (!character.finishingTouches) character.finishingTouches = { choices: {}, alignment: {}, personality: {} };
   if (!character.finishingTouches.choices) character.finishingTouches.choices = {};
@@ -1161,7 +1258,6 @@ function personalityEntries(character) {
 
 function renderFinishingTouchesPreview(character) {
   return [
-    renderPreviewCategory("Languages & Tool Choices", finishingChoiceEntries(character)),
     renderPreviewCategory("Background Details", personalityEntries(character)),
   ].join("");
 }
@@ -1231,15 +1327,21 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Class</span>${characterClass ? characterClass.name : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Race</span>${race ? race.name : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Background</span>${background ? background.name : "Not selected"}</div>
-      <div class="sheet-item"><span class="sheet-label">Hit Die</span>${characterClass ? `d${characterClass.hitDie}` : "Not selected"}</div>
+      <div class="sheet-item"><span class="sheet-label">Hit Points</span>${calculateHitPoints(character, characterClass)}</div>
+      <div class="sheet-item"><span class="sheet-label">Hit Dice</span>${formatHitDice(character, characterClass)}</div>
+      <div class="sheet-item"><span class="sheet-label">Proficiency Bonus</span>${formatSignedModifier(getProficiencyBonus(character))}</div>
       <div class="sheet-item"><span class="sheet-label">Armor Class</span>${armorClass.total}${armorClass.defenseBonus ? " (Defense +1)" : ""}</div>
       <div class="sheet-item"><span class="sheet-label">Initiative</span>${calculateInitiative(character)}</div>
       <div class="sheet-item"><span class="sheet-label">Speed</span>${formatSpeed(race)}</div>
+      <div class="sheet-item"><span class="sheet-label">Passive Perception</span>${calculatePassivePerception(character, race, background)}</div>
+      <div class="sheet-item"><span class="sheet-label">Senses</span>${formatSenses(race)}</div>
+      <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${getStartingGoldGp(character)} gp</div>
       ${classChoice ? `<div class="sheet-item"><span class="sheet-label">Level 1 Class Choice</span>${fightingStyle ? `Fighting Style: ${fightingStyle.name}` : "Choose a Fighting Style"}</div>` : ""}
     </div>
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
     ${renderSkillsTable(character, race, background)}
+    ${renderKnownProficienciesPreview(character, characterClass, race, background)}
     ${renderFinishingTouchesPreview(character)}
     ${renderPreviewEquipment(character)}`;
 }
@@ -1259,12 +1361,12 @@ function defaultClassGuidancePanel() {
 
 function classInfoPanel(characterClass) {
   if (!characterClass) return defaultClassGuidancePanel();
-  return `<div class="class-info-panel selected"><p>${characterClass.detail}</p><div class="proficiency-block"><h3>Proficiencies</h3><div class="proficiency-list">${Object.entries(characterClass.proficiencyDetails).map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`).join("")}</div></div></div>`;
+  return `<div class="class-info-panel selected"><p>${characterClass.detail}</p><p><strong>Hit Die:</strong> d${characterClass.hitDie}</p><div class="proficiency-block"><h3>Proficiencies</h3><div class="proficiency-list">${Object.entries(characterClass.proficiencyDetails).map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`).join("")}</div></div></div>`;
 }
 
 function renderClassStep(step) {
   const selectedClass = getById(DND_DATA.classes, appState.character.classId);
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${classInfoPanel(selectedClass)}<div class="option-grid">${DND_DATA.classes.map((option) => optionCard(option, appState.character.classId, "class", option.cardDescription, "class-option-card")).join("")}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${appState.character.classId ? "" : "disabled"}>Continue</button></div>`;
+  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${classInfoPanel(selectedClass)}<div class="option-grid">${DND_DATA.classes.map((option) => optionCard(option, appState.character.classId, "class", `${option.cardDescription}. Hit Die: d${option.hitDie}`, "class-option-card")).join("")}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${appState.character.classId ? "" : "disabled"}>Continue</button></div>`;
 }
 
 function renderChoiceStep(step, options, selectedId, type, detailForOption) {
@@ -1812,7 +1914,15 @@ function goToWizardStep(stepIndex) {
 function restartCharacterCreation() {
   if (!window.confirm("Start over? This will clear your current character.")) return;
   clearSavedProgress();
-  startBuild(createBlankCharacter(), 0);
+  appState.character = createBlankCharacter();
+  appState.abilityMethod = ABILITY_METHODS.standard;
+  appState.abilityState = createAbilityState();
+  appState.wizardStepIndex = 0;
+  appState.openFinishingPicker = "";
+  appState.confirmBlankName = false;
+  syncAbilityScoresFromState();
+  renderPreview(livePreview, appState.character);
+  showView("home");
 }
 
 function previewRandomizedCharacter(character) {
