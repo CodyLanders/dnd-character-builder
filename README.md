@@ -19,6 +19,21 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.4.3 — Paladin, Ranger, and Class Choice Preview Cleanup — July 9, 2026
+- Added Paladin as a selectable level 1 class.
+- Added Ranger as a selectable level 1 class.
+- Confirmed Paladin and Ranger remain non-spellcasting at level 1.
+- Added Paladin skills, proficiencies, class features, starting equipment, and starting gold support.
+- Added Ranger skills, proficiencies, class features, starting equipment, and starting gold support.
+- Added required Ranger choices for Favored Enemy and Natural Explorer.
+- Added Humanoid Favored Enemy support with two humanoid race choices.
+- Updated Character Preview to show separate numbered Class Choice cards.
+- Added separate Ranger preview cards for Favored Enemy and Natural Explorer.
+- Improved Humanoid Favored Enemy display, such as `Humanoids — Goblins and Orcs`.
+- Kept Fighter showing one Class Choice card for Fighting Style.
+- Prevented fixed-feature classes like Paladin and Wizard from showing unnecessary Class Choice cards.
+- Confirmed validation checks passed.
+
 ### v0.4.2 — Friend Feedback, Rerolls, Starting Gold, and Trinkets — July 9, 2026
 - Added reroll support for rolled ability scores.
 - Added visible reroll attempt tracking for rolled ability scores.

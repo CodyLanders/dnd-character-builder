@@ -90,6 +90,56 @@ DND_DATA.classes = [
     features: ["Unarmored Defense", "Martial Arts"],
   },
   {
+    id: "paladin",
+    name: "Paladin",
+    cardDescription: "Armored holy warrior",
+    detail:
+      "A Paladin is a durable warrior sworn to a sacred cause. At level 1, Divine Sense helps you notice powerful supernatural presences, and Lay on Hands gives you a small pool of healing power.",
+    proficiencyDetails: {
+      Armor: "All armor, shields",
+      Weapons: "Simple weapons, martial weapons",
+      Tools: "None",
+      "Saving Throws": "Wisdom, Charisma",
+    },
+    hitDie: 10,
+    savingThrowProficiencies: ["Wisdom", "Charisma"],
+    skillChoices: {
+      choose: 2,
+      options: ["Athletics", "Insight", "Intimidation", "Medicine", "Persuasion", "Religion"],
+    },
+    primaryAbilities: ["Strength", "Charisma", "Constitution", "Wisdom", "Dexterity", "Intelligence"],
+    proficiencies: ["Light armor", "Medium armor", "Heavy armor", "Shields", "Simple weapons", "Martial weapons"],
+    features: [
+      "Divine Sense - You can sense strong celestial, fiend, or undead presence nearby a limited number of times per day.",
+      "Lay on Hands - You have a pool of healing power equal to 5 hit points at level 1. You can use it to heal a creature you touch.",
+    ],
+  },
+  {
+    id: "ranger",
+    name: "Ranger",
+    cardDescription: "Wilderness scout and hunter",
+    detail:
+      "A Ranger is a skilled explorer and hunter who thrives beyond settled lands. At level 1, Favored Enemy helps with a chosen type of foe, and Natural Explorer supports travel and survival in a chosen terrain.",
+    proficiencyDetails: {
+      Armor: "Light armor, medium armor, shields",
+      Weapons: "Simple weapons, martial weapons",
+      Tools: "None",
+      "Saving Throws": "Strength, Dexterity",
+    },
+    hitDie: 10,
+    savingThrowProficiencies: ["Strength", "Dexterity"],
+    skillChoices: {
+      choose: 3,
+      options: ["Animal Handling", "Athletics", "Insight", "Investigation", "Nature", "Perception", "Stealth", "Survival"],
+    },
+    primaryAbilities: ["Dexterity", "Wisdom", "Constitution", "Strength", "Intelligence", "Charisma"],
+    proficiencies: ["Light armor", "Medium armor", "Shields", "Simple weapons", "Martial weapons"],
+    features: [
+      "Favored Enemy - You have experience tracking, recalling information about, and understanding a chosen type of enemy.",
+      "Natural Explorer - You are especially skilled at traveling, navigating, and surviving in a chosen type of terrain.",
+    ],
+  },
+  {
     id: "wizard",
     name: "Wizard",
     cardDescription: "Studied arcane spellcaster",
@@ -192,6 +242,55 @@ DND_DATA.classFeatureChoices = {
       { id: "great-weapon-fighting", name: "Great Weapon Fighting" },
       { id: "protection", name: "Protection" },
       { id: "two-weapon-fighting", name: "Two-Weapon Fighting" },
+    ],
+  },
+  ranger: {
+    groups: [
+      {
+        id: "favoredEnemy",
+        title: "Favored Enemy",
+        previewLabel: "Favored Enemy",
+        description: "Choose one kind of enemy your ranger has studied and learned to track.",
+        options: [
+          { id: "aberrations", name: "Aberrations" },
+          { id: "beasts", name: "Beasts" },
+          { id: "celestials", name: "Celestials" },
+          { id: "constructs", name: "Constructs" },
+          { id: "dragons", name: "Dragons" },
+          { id: "elementals", name: "Elementals" },
+          { id: "fey", name: "Fey" },
+          { id: "fiends", name: "Fiends" },
+          { id: "giants", name: "Giants" },
+          { id: "monstrosities", name: "Monstrosities" },
+          { id: "oozes", name: "Oozes" },
+          { id: "plants", name: "Plants" },
+          { id: "undead", name: "Undead" },
+          { id: "humanoids", name: "Humanoids" },
+        ],
+        humanoidChoices: {
+          fields: [
+            { id: "favoredEnemyHumanoidOne", label: "First humanoid race" },
+            { id: "favoredEnemyHumanoidTwo", label: "Second humanoid race" },
+          ],
+          options: ["Bugbears", "Bullywugs", "Dwarves", "Elves", "Gnolls", "Gnomes", "Goblins", "Grimlocks", "Halflings", "Hobgoblins", "Humans", "Kobolds", "Lizardfolk", "Merfolk", "Orcs", "Sahuagin", "Troglodytes"],
+        },
+      },
+      {
+        id: "naturalExplorer",
+        title: "Natural Explorer",
+        previewLabel: "Natural Explorer",
+        description: "Choose one type of terrain where your ranger is especially skilled at travel and survival.",
+        options: [
+          { id: "arctic", name: "Arctic" },
+          { id: "coast", name: "Coast" },
+          { id: "desert", name: "Desert" },
+          { id: "forest", name: "Forest" },
+          { id: "grassland", name: "Grassland" },
+          { id: "mountain", name: "Mountain" },
+          { id: "swamp", name: "Swamp" },
+          { id: "underdark", name: "Underdark" },
+        ],
+      },
     ],
   },
 };

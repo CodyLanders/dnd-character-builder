@@ -27,16 +27,20 @@ DND_DATA.equipmentItems = {
   longbow: { id: "longbow", name: "Longbow", type: "weapon", category: "martial weapon", damage: "1d8", damageType: "piercing", properties: ["ranged", "two-handed"], range: "150/600" },
   chainMail: { id: "chainMail", name: "Chain mail", type: "armor", category: "heavy armor", armorClass: { base: 16, dex: false } },
   leatherArmor: { id: "leatherArmor", name: "Leather armor", type: "armor", category: "light armor", armorClass: { base: 11, dex: true } },
+  scaleMail: { id: "scaleMail", name: "Scale mail", type: "armor", category: "medium armor", armorClass: { base: 14, dex: true, dexMax: 2 } },
   shield: { id: "shield", name: "Shield", type: "shield", armorClass: { bonus: 2 } },
   arrows20: { id: "arrows20", name: "20 arrows", type: "ammunition" },
   bolts20: { id: "bolts20", name: "20 bolts", type: "ammunition" },
   darts10: { id: "darts10", name: "10 darts", type: "ammunition", detail: "10 darts - each 1d4 piercing, finesse, thrown" },
   javelins4: { id: "javelins4", name: "4 javelins", type: "weapon", category: "simple weapon", detail: "4 javelins - each 1d6 piercing, thrown" },
+  javelins5: { id: "javelins5", name: "5 javelins", type: "weapon", category: "simple weapon", detail: "5 javelins - each 1d6 piercing, thrown" },
   handaxes2: { id: "handaxes2", name: "Two handaxes", type: "weapon", category: "simple weapon", detail: "Two handaxes - each 1d6 slashing, light, thrown" },
   daggers2: { id: "daggers2", name: "Two daggers", type: "weapon", category: "simple weapon", detail: "Two daggers - each 1d4 piercing, finesse, light, thrown" },
+  shortswords2: { id: "shortswords2", name: "Two shortswords", type: "weapon", category: "martial weapon", detail: "Two shortswords - each 1d6 piercing, finesse, light" },
   componentPouch: { id: "componentPouch", name: "Component pouch", type: "other", detail: "Component pouch - material components used to cast spells" },
   arcaneFocus: { id: "arcaneFocus", name: "Arcane focus", type: "other", detail: "Arcane focus - an item used by arcane spellcasters as a spellcasting focus" },
   spellbook: { id: "spellbook", name: "Spellbook", type: "other", detail: "Spellbook - the book where a wizard records spells" },
+  holySymbol: { id: "holySymbol", name: "Holy symbol", type: "other", detail: "Holy symbol - a sacred emblem used by divine characters" },
   thievesTools: {
     id: "thievesTools",
     name: "Thieves' tools",
@@ -67,6 +71,12 @@ DND_DATA.equipmentItems = {
     type: "pack",
     contents: ["backpack", "book of lore", "bottle of ink", "ink pen", "10 sheets of parchment", "little bag of sand", "small knife"],
   },
+  priestsPack: {
+    id: "priestsPack",
+    name: "Priest's Pack",
+    type: "pack",
+    contents: ["backpack", "blanket", "10 candles", "tinderbox", "alms box", "2 blocks of incense", "censer", "vestments", "2 days of rations", "waterskin"],
+  },
 };
 
 DND_DATA.simpleWeaponIds = [
@@ -84,6 +94,19 @@ DND_DATA.simpleWeaponIds = [
   "shortbow",
   "sling",
   "dart",
+];
+
+DND_DATA.simpleMeleeWeaponIds = [
+  "club",
+  "dagger",
+  "greatclub",
+  "handaxe",
+  "javelin",
+  "lightHammer",
+  "mace",
+  "quarterstaff",
+  "sickle",
+  "spear",
 ];
 
 DND_DATA.martialWeaponIds = [
@@ -209,6 +232,64 @@ DND_DATA.startingEquipment = {
     ],
     fixed: ["darts10"],
   },
+  paladin: {
+    choices: [
+      {
+        id: "mainWeapons",
+        title: "Main weapons",
+        options: [
+          { id: "weapon-shield", name: "One martial weapon and a shield", items: ["shield"], helper: "Choose this option to pick one martial weapon.", includes: ["Shield (+2 AC)"], dropdowns: [{ id: "martialWeapon", label: "Martial weapon", list: "martial" }] },
+          { id: "two-weapons", name: "Two martial weapons", helper: "Choose this option to pick two martial weapons.", dropdowns: [{ id: "martialWeaponOne", label: "First martial weapon", list: "martial" }, { id: "martialWeaponTwo", label: "Second martial weapon", list: "martial" }] },
+        ],
+      },
+      {
+        id: "secondaryWeapons",
+        title: "Secondary weapons",
+        options: [
+          { id: "javelins", name: "Five javelins", items: ["javelins5"], details: ["Five javelins - each 1d6 piercing, thrown"] },
+          { id: "simple-melee", name: "Any simple melee weapon", dropdowns: [{ id: "simpleMeleeWeapon", label: "Simple melee weapon", list: "simpleMelee" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "priests-pack", name: "Priest's Pack", items: ["priestsPack"] },
+          { id: "explorers-pack", name: "Explorer's Pack", items: ["explorersPack"] },
+        ],
+      },
+    ],
+    fixed: ["chainMail", "holySymbol"],
+  },
+  ranger: {
+    choices: [
+      {
+        id: "armor",
+        title: "Armor",
+        options: [
+          { id: "scale-mail", name: "Scale mail", items: ["scaleMail"], details: ["Scale mail - AC 14 + Dex modifier (max 2)"] },
+          { id: "leather-armor", name: "Leather armor", items: ["leatherArmor"], details: ["Leather armor - AC 11 + Dex modifier"] },
+        ],
+      },
+      {
+        id: "mainWeapons",
+        title: "Main weapons",
+        options: [
+          { id: "shortswords", name: "Two shortswords", items: ["shortswords2"], details: ["Two shortswords - each 1d6 piercing, finesse, light"] },
+          { id: "two-simple-melee", name: "Two simple melee weapons", helper: "Choose this option to pick two simple melee weapons.", dropdowns: [{ id: "simpleMeleeWeaponOne", label: "First simple melee weapon", list: "simpleMelee" }, { id: "simpleMeleeWeaponTwo", label: "Second simple melee weapon", list: "simpleMelee" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "dungeoneers-pack", name: "Dungeoneer's Pack", items: ["dungeoneersPack"] },
+          { id: "explorers-pack", name: "Explorer's Pack", items: ["explorersPack"] },
+        ],
+      },
+    ],
+    fixed: ["longbow", "arrows20"],
+  },
   wizard: {
     choices: [
       {
@@ -276,6 +357,9 @@ DND_DATA.getEquipmentItem = function getEquipmentItem(itemId) {
 DND_DATA.getWeaponOptions = function getWeaponOptions(list) {
   if (list === "martialMelee") {
     return DND_DATA.martialWeaponIds.map((id) => DND_DATA.getEquipmentItem(id)).filter((item) => item && item.melee);
+  }
+  if (list === "simpleMelee") {
+    return DND_DATA.simpleMeleeWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
   }
   if (list === "martial") return DND_DATA.martialWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
   return DND_DATA.simpleWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));

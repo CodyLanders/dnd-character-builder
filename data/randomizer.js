@@ -47,6 +47,20 @@ DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
     classFeatures.fightingStyle = DND_DATA.randomChoice(DND_DATA.classFeatureChoices.fighter.options).id;
   }
 
+  if (characterClass.id === "ranger") {
+    const featureGroups = DND_DATA.classFeatureChoices.ranger.groups;
+    featureGroups.forEach((group) => {
+      const option = DND_DATA.randomChoice(group.options);
+      classFeatures[group.id] = option.id;
+      if (group.humanoidChoices && option.id === "humanoids") {
+        const humanoids = DND_DATA.shuffle(group.humanoidChoices.options).slice(0, group.humanoidChoices.fields.length);
+        group.humanoidChoices.fields.forEach((field, index) => {
+          classFeatures[field.id] = humanoids[index];
+        });
+      }
+    });
+  }
+
   return {
     characterClass,
     race: DND_DATA.randomChoice(DND_DATA.races),

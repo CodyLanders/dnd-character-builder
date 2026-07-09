@@ -432,9 +432,38 @@ function getClassFeatureChoice(character) {
   return DND_DATA.classFeatureChoices[character.classId] || null;
 }
 
+function getClassFeatureChoiceGroups(character) {
+  const choice = getClassFeatureChoice(character);
+  if (!choice) return [];
+  return Array.isArray(choice.groups) ? choice.groups : [choice];
+}
+
 function getSelectedFightingStyle(character) {
   const selectedId = character.classFeatures.fightingStyle;
   return DND_DATA.classFeatureChoices.fighter.options.find((option) => option.id === selectedId);
+}
+
+function resetClassFeatureSelections(character) {
+  character.classFeatures = { fightingStyle: "" };
+}
+
+function getSelectedClassFeatureOption(character, group) {
+  const selectedId = character.classFeatures[group.id];
+  return group.options.find((option) => option.id === selectedId) || null;
+}
+
+function hasCompleteClassFeatureGroup(character, group) {
+  const selectedOption = getSelectedClassFeatureOption(character, group);
+  if (!selectedOption) return false;
+  if (group.humanoidChoices && selectedOption.id === "humanoids") {
+    const selectedHumanoids = group.humanoidChoices.fields.map((field) => character.classFeatures[field.id]).filter(Boolean);
+    return selectedHumanoids.length === group.humanoidChoices.fields.length && new Set(selectedHumanoids).size === selectedHumanoids.length;
+  }
+  return true;
+}
+
+function hasCompleteClassFeatureChoices(character) {
+  return getClassFeatureChoiceGroups(character).every((group) => hasCompleteClassFeatureGroup(character, group));
 }
 
 function getEquipmentDefinition(classId) {
@@ -547,7 +576,7 @@ function hasCompleteEquipmentSelections(character) {
 
 function getArmorInfo(equipmentItems) {
   const armor = equipmentItems.find((item) => item && item.type === "armor" && item.armorClass);
-  if (armor) return { name: armor.name, baseAc: armor.armorClass.base, usesDex: armor.armorClass.dex, isArmor: true };
+  if (armor) return { name: armor.name, baseAc: armor.armorClass.base, usesDex: armor.armorClass.dex, dexMax: armor.armorClass.dexMax, isArmor: true };
   return { name: "None", baseAc: 10, usesDex: true, isArmor: false };
 }
 
@@ -556,7 +585,8 @@ function calculateArmorClass(character) {
   const armor = getArmorInfo(equipmentItems);
   const shieldBonus = equipmentItems.some((item) => item && item.type === "shield") ? 2 : 0;
   const defenseBonus = character.classFeatures.fightingStyle === "defense" && armor.isArmor ? 1 : 0;
-  const dexBonus = armor.usesDex ? abilityModifierValue(character.abilities.Dexterity) : 0;
+  const rawDexBonus = armor.usesDex ? abilityModifierValue(character.abilities.Dexterity) : 0;
+  const dexBonus = Number.isInteger(armor.dexMax) ? Math.min(rawDexBonus, armor.dexMax) : rawDexBonus;
   const conBonus = character.classId === "barbarian" && !armor.isArmor ? abilityModifierValue(character.abilities.Constitution) : 0;
   const wisBonus = character.classId === "monk" && !armor.isArmor ? abilityModifierValue(character.abilities.Wisdom) : 0;
   return { total: armor.baseAc + dexBonus + conBonus + wisBonus + shieldBonus + defenseBonus, defenseBonus };
@@ -839,6 +869,8 @@ function getSkillTags(character, skill, isAlreadyProficient) {
     barbarian: ["Athletics", "Perception", "Survival", "Intimidation"],
     rogue: ["Stealth", "Sleight of Hand", "Perception", "Investigation", "Deception"],
     monk: ["Acrobatics", "Stealth", "Insight", "Athletics"],
+    paladin: ["Athletics", "Persuasion", "Insight", "Religion"],
+    ranger: ["Perception", "Survival", "Stealth", "Nature"],
   };
   const tags = [];
   if (isAlreadyProficient) tags.push("Already Proficient");
@@ -1183,7 +1215,9 @@ function categorizedWeaponEntries(items, character) {
     daggers2: { sourceId: "dagger", label: "Dagger x2", isPaired: true, singularName: "dagger" },
     handaxes2: { sourceId: "handaxe", label: "Handaxe x2", isPaired: true, singularName: "handaxe" },
     javelins4: { sourceId: "javelin", label: "Javelin x4", role: "Backup / thrown weapon" },
+    javelins5: { sourceId: "javelin", label: "Javelin x5", role: "Backup / thrown weapon" },
     darts10: { sourceId: "dart", label: "Dart x10", role: "Backup / thrown weapon" },
+    shortswords2: { sourceId: "shortsword", label: "Shortsword x2", isPaired: true, singularName: "shortsword" },
   };
 
   combinedWeapons.forEach(({ weaponId, ammoId, label, ammunition }) => {
@@ -1236,6 +1270,7 @@ function armorDefenseEntries(items, character) {
   const entries = equipmentItems.filter((item) => item.type === "armor" || item.type === "shield").map((item) => {
     if (item.id === "chainMail") return "Chain mail &mdash; AC 16, no Dexterity bonus";
     if (item.id === "leatherArmor") return "Leather armor &mdash; AC 11 + Dex modifier";
+    if (item.id === "scaleMail") return "Scale mail &mdash; AC 14 + Dex modifier (max 2)";
     if (item.id === "shield") return "Shield &mdash; +2 AC";
     return item.name;
   });
@@ -1674,9 +1709,7 @@ function renderPreview(container, character) {
   const characterClass = getById(DND_DATA.classes, character.classId);
   const race = getById(DND_DATA.races, character.raceId);
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
-  const fightingStyle = getSelectedFightingStyle(character);
   const armorClass = calculateArmorClass(character);
-  const classChoice = getClassFeatureChoice(character);
 
   container.innerHTML = `
     <div class="sheet-grid">
@@ -1694,7 +1727,7 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Passive Perception</span>${calculatePassivePerception(character, race, background)}</div>
       <div class="sheet-item"><span class="sheet-label">Senses</span>${formatSenses(race)}</div>
       <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${usesRolledStartingGold(character) ? getRolledStartingGoldGp(character) : getStartingGoldGp(character)} gp${usesRolledStartingGold(character) ? `<span class="sheet-subnote">Reroll Attempts: ${getEquipmentSelections(character).startingGoldRerollCount}</span>` : ""}</div>
-      ${classChoice ? `<div class="sheet-item"><span class="sheet-label">Level 1 Class Choice</span>${fightingStyle ? `Fighting Style: ${fightingStyle.name}` : "Choose a Fighting Style"}</div>` : ""}
+      ${renderClassChoicePreviewItems(character)}
     </div>
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
@@ -1734,14 +1767,53 @@ function renderChoiceStep(step, options, selectedId, type, detailForOption) {
 }
 
 function renderClassFeatureStep(step) {
-  const choice = getClassFeatureChoice(appState.character);
-  if (!choice) {
+  const groups = getClassFeatureChoiceGroups(appState.character);
+  if (!groups.length) {
     appState.wizardStepIndex = getNextStepIndex();
     renderWizard();
     return;
   }
-  const selectedId = appState.character.classFeatures[choice.id];
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${guidancePanel(stepGuidance.classFeature)}<h3>${choice.title}</h3><div class="option-grid">${choice.options.map((option) => optionCard(option, selectedId, choice.id)).join("")}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${selectedId ? "" : "disabled"}>Continue</button></div>`;
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.classFeature)}
+    ${groups.map((group) => renderClassFeatureGroup(group)).join("")}
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteClassFeatureChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
+  `;
+}
+
+function renderClassFeatureGroup(group) {
+  const selectedId = appState.character.classFeatures[group.id] || "";
+  const selectedOption = group.options.find((option) => option.id === selectedId);
+  const needsHumanoids = group.humanoidChoices && selectedOption && selectedOption.id === "humanoids";
+  return `
+    <section class="equipment-choice-group">
+      <div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div>
+      ${group.description ? `<p class="equipment-note">${group.description}</p>` : ""}
+      <div class="option-grid">${group.options.map((option) => optionCard(option, selectedId, group.id)).join("")}</div>
+      ${needsHumanoids ? renderHumanoidEnemyPickers(group) : ""}
+      ${!hasCompleteClassFeatureGroup(appState.character, group) ? `<p class="finishing-validation">${classFeatureValidationMessage(group)}</p>` : ""}
+    </section>
+  `;
+}
+
+function renderHumanoidEnemyPickers(group) {
+  const selectedValues = group.humanoidChoices.fields.map((field) => appState.character.classFeatures[field.id] || "");
+  return `
+    <div class="equipment-dropdowns humanoid-enemy-pickers">
+      ${group.humanoidChoices.fields.map((field, index) => {
+        const selectedValue = appState.character.classFeatures[field.id] || "";
+        const blockedValues = selectedValues.filter((value, valueIndex) => value && valueIndex !== index);
+        return `<label class="equipment-select-label">${field.label}<select data-class-feature-extra="${field.id}"><option value="">Choose ${field.label.toLowerCase()}</option>${group.humanoidChoices.options.map((option) => `<option value="${option}" ${selectedValue === option ? "selected" : ""} ${blockedValues.includes(option) ? "disabled" : ""}>${option}</option>`).join("")}</select></label>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function classFeatureValidationMessage(group) {
+  const selectedOption = getSelectedClassFeatureOption(appState.character, group);
+  if (group.humanoidChoices && selectedOption && selectedOption.id === "humanoids") return "Choose two different humanoid races before continuing.";
+  return `Choose ${group.title} before continuing.`;
 }
 
 function renderPackDetails(items) {
@@ -1900,11 +1972,46 @@ function formatRaceBonusSummary(race) {
 }
 
 function getSelectedClassFeatureName(character) {
-  const choice = getClassFeatureChoice(character);
-  if (!choice) return "";
-  const selectedId = character.classFeatures[choice.id];
-  const selectedOption = choice.options.find((option) => option.id === selectedId);
-  return selectedOption ? selectedOption.name : "Not selected";
+  const summaries = selectedClassFeatureSummaries(character);
+  return summaries.length ? summaries.join("; ") : "Not selected";
+}
+
+function selectedClassFeatureSummaries(character) {
+  return getSelectedClassFeatureChoiceEntries(character).map((entry) => `${entry.label}: ${entry.value}`);
+}
+
+function getSelectedClassFeatureChoiceEntries(character) {
+  return getClassFeatureChoiceGroups(character)
+    .map((group) => {
+      const selectedOption = getSelectedClassFeatureOption(character, group);
+      if (!selectedOption || !hasCompleteClassFeatureGroup(character, group)) return null;
+      const label = group.previewLabel || group.title;
+      if (group.humanoidChoices && selectedOption.id === "humanoids") {
+        const humanoids = group.humanoidChoices.fields.map((field) => character.classFeatures[field.id]).filter(Boolean);
+        return {
+          label,
+          value: humanoids.length === group.humanoidChoices.fields.length
+            ? `Humanoids &mdash; ${humanoids.join(" and ")}`
+            : "Humanoids",
+        };
+      }
+      return { label, value: selectedOption.name };
+    })
+    .filter(Boolean);
+}
+
+function renderClassChoicePreviewItems(character) {
+  return getSelectedClassFeatureChoiceEntries(character)
+    .map((entry, index) => `
+      <div class="sheet-item class-choice-sheet-item">
+        <span class="sheet-label">${index + 1}. Class Choice</span>
+        <span class="class-choice-preview-body">
+          <strong>${entry.label}:</strong>
+          <span>${entry.value}</span>
+        </span>
+      </div>
+    `)
+    .join("");
 }
 
 function summarizeStarterEquipment(character) {
@@ -1988,6 +2095,22 @@ function getSimpleAbilityGuidance(character) {
       primary: "Dexterity",
       secondary: "Wisdom and Constitution",
       notes: ["Monk Unarmored Defense uses Dexterity and Wisdom.", ...equipmentNotes],
+    };
+  }
+
+  if (character.classId === "paladin") {
+    return {
+      primary: "Strength",
+      secondary: "Charisma and Constitution",
+      notes: equipmentNotes,
+    };
+  }
+
+  if (character.classId === "ranger") {
+    return {
+      primary: "Dexterity",
+      secondary: "Wisdom and Constitution",
+      notes: equipmentNotes,
     };
   }
 
@@ -2457,6 +2580,22 @@ function randomChoiceExcept(items, currentId) {
   return DND_DATA.randomChoice(otherItems.length ? otherItems : items);
 }
 
+function randomClassFeatureSelection(character, group) {
+  const option = DND_DATA.randomChoice(group.options);
+  character.classFeatures[group.id] = option.id;
+  if (group.humanoidChoices) {
+    group.humanoidChoices.fields.forEach((field) => {
+      delete character.classFeatures[field.id];
+    });
+    if (option.id === "humanoids") {
+      const humanoids = DND_DATA.shuffle(group.humanoidChoices.options).slice(0, group.humanoidChoices.fields.length);
+      group.humanoidChoices.fields.forEach((field, index) => {
+        character.classFeatures[field.id] = humanoids[index];
+      });
+    }
+  }
+}
+
 function getNextStepIndex() {
   for (let index = appState.wizardStepIndex + 1; index < wizardSteps.length; index += 1) {
     if (isWizardStepAvailable(wizardSteps[index])) return index;
@@ -2503,6 +2642,7 @@ function randomizeCurrentStep() {
   const step = wizardSteps[appState.wizardStepIndex];
   if (step.key === "class") {
     appState.character.classId = randomChoiceExcept(DND_DATA.classes, appState.character.classId).id;
+    resetClassFeatureSelections(appState.character);
     resetEquipmentSelections(appState.character);
     resetSkillSelections(appState.character);
     resetSpellSelections(appState.character);
@@ -2519,8 +2659,7 @@ function randomizeCurrentStep() {
     resetFinishingTouches(appState.character);
   }
   if (step.key === "classFeature") {
-    const choice = getClassFeatureChoice(appState.character);
-    appState.character.classFeatures[choice.id] = randomChoiceExcept(choice.options, appState.character.classFeatures[choice.id]).id;
+    getClassFeatureChoiceGroups(appState.character).forEach((group) => randomClassFeatureSelection(appState.character, group));
     resetSkillSelections(appState.character);
   }
   if (step.key === "equipment") randomizeEquipmentSelections(appState.character);
@@ -2762,6 +2901,7 @@ wizardStep.addEventListener("click", (event) => {
     const optionId = optionButton.dataset.optionId;
     if (optionType === "class") {
       appState.character.classId = appState.character.classId === optionId ? "" : optionId;
+      resetClassFeatureSelections(appState.character);
       resetEquipmentSelections(appState.character);
       resetSkillSelections(appState.character);
       resetSpellSelections(appState.character);
@@ -2779,6 +2919,16 @@ wizardStep.addEventListener("click", (event) => {
     }
     if (optionType === "fightingStyle") {
       appState.character.classFeatures.fightingStyle = appState.character.classFeatures.fightingStyle === optionId ? "" : optionId;
+      resetSkillSelections(appState.character);
+    }
+    const featureGroup = getClassFeatureChoiceGroups(appState.character).find((group) => group.id === optionType);
+    if (featureGroup && optionType !== "fightingStyle") {
+      appState.character.classFeatures[featureGroup.id] = appState.character.classFeatures[featureGroup.id] === optionId ? "" : optionId;
+      if (featureGroup.humanoidChoices) {
+        featureGroup.humanoidChoices.fields.forEach((field) => {
+          delete appState.character.classFeatures[field.id];
+        });
+      }
       resetSkillSelections(appState.character);
     }
     renderWizard();
@@ -2832,6 +2982,14 @@ wizardStep.addEventListener("click", (event) => {
 });
 
 wizardStep.addEventListener("change", (event) => {
+  if (event.target.matches("[data-class-feature-extra]")) {
+    const fieldId = event.target.dataset.classFeatureExtra;
+    appState.character.classFeatures[fieldId] = event.target.value;
+    resetSkillSelections(appState.character);
+    renderWizard();
+    return;
+  }
+
   if (event.target.matches("[data-equipment-dropdown]")) {
     const groupId = event.target.dataset.equipmentGroupId;
     const dropdownId = event.target.dataset.equipmentDropdown;
