@@ -112,6 +112,32 @@ DND_DATA.classes = [
     features: ["Spellcasting", "Divine Domain"],
   },
   {
+    id: "druid",
+    name: "Druid",
+    cardDescription: "Nature-focused prepared spellcaster",
+    detail:
+      "A Druid draws magic from nature and primal forces. At level 1, you know Druidic and prepare spells with Wisdom.",
+    proficiencyDetails: {
+      Armor: "Light armor, medium armor, shields",
+      Weapons: "Clubs, daggers, darts, javelins, maces, quarterstaffs, scimitars, sickles, slings, spears",
+      Tools: "Herbalism Kit",
+      "Saving Throws": "Intelligence, Wisdom",
+    },
+    proficiencyNotes: ["Druids will not wear armor or use shields made of metal."],
+    hitDie: 8,
+    savingThrowProficiencies: ["Intelligence", "Wisdom"],
+    skillChoices: {
+      choose: 2,
+      options: ["Arcana", "Animal Handling", "Insight", "Medicine", "Nature", "Perception", "Religion", "Survival"],
+    },
+    primaryAbilities: ["Wisdom", "Dexterity", "Constitution", "Intelligence", "Charisma", "Strength"],
+    proficiencies: ["Light armor", "Medium armor", "Shields", "Clubs", "Daggers", "Darts", "Javelins", "Maces", "Quarterstaffs", "Scimitars", "Sickles", "Slings", "Spears"],
+    features: [
+      "Druidic - You know Druidic, the secret language of druids. You can speak it and use it to leave hidden messages.",
+      "Spellcasting",
+    ],
+  },
+  {
     id: "paladin",
     name: "Paladin",
     cardDescription: "Armored holy warrior",

@@ -29,6 +29,7 @@ DND_DATA.equipmentItems = {
   leatherArmor: { id: "leatherArmor", name: "Leather armor", type: "armor", category: "light armor", armorClass: { base: 11, dex: true } },
   scaleMail: { id: "scaleMail", name: "Scale mail", type: "armor", category: "medium armor", armorClass: { base: 14, dex: true, dexMax: 2 } },
   shield: { id: "shield", name: "Shield", type: "shield", armorClass: { bonus: 2 } },
+  woodenShield: { id: "woodenShield", name: "Wooden shield", type: "shield", armorClass: { bonus: 2 }, detail: "Wooden shield - +2 AC" },
   arrows20: { id: "arrows20", name: "20 arrows", type: "ammunition" },
   bolts20: { id: "bolts20", name: "20 bolts", type: "ammunition" },
   darts10: { id: "darts10", name: "10 darts", type: "ammunition", detail: "10 darts - each 1d4 piercing, finesse, thrown" },
@@ -41,6 +42,16 @@ DND_DATA.equipmentItems = {
   arcaneFocus: { id: "arcaneFocus", name: "Arcane focus", type: "other", detail: "Arcane focus - an item used by arcane spellcasters as a spellcasting focus" },
   spellbook: { id: "spellbook", name: "Spellbook", type: "other", detail: "Spellbook - the book where a wizard records spells" },
   holySymbol: { id: "holySymbol", name: "Holy symbol", type: "other", detail: "Holy symbol - a sacred emblem used by divine characters" },
+  sprigMistletoe: { id: "sprigMistletoe", name: "Sprig of mistletoe", type: "other", detail: "Sprig of mistletoe - Druidic Focus, used to cast Druid spells that require material components" },
+  totem: { id: "totem", name: "Totem", type: "other", detail: "Totem - Druidic Focus, used to cast Druid spells that require material components" },
+  woodenStaffFocus: { id: "woodenStaffFocus", name: "Wooden staff", type: "other", detail: "Wooden staff - Druidic Focus, used to cast Druid spells that require material components" },
+  yewWand: { id: "yewWand", name: "Yew wand", type: "other", detail: "Yew wand - Druidic Focus, used to cast Druid spells that require material components" },
+  herbalismKit: {
+    id: "herbalismKit",
+    name: "Herbalism Kit",
+    type: "tool",
+    contents: ["pouches for herbs", "clippers", "mortar and pestle", "vials"],
+  },
   thievesTools: {
     id: "thievesTools",
     name: "Thieves' tools",
@@ -103,6 +114,28 @@ DND_DATA.simpleMeleeWeaponIds = [
   "handaxe",
   "javelin",
   "lightHammer",
+  "mace",
+  "quarterstaff",
+  "sickle",
+  "spear",
+];
+
+DND_DATA.druidSimpleWeaponIds = [
+  "club",
+  "dagger",
+  "dart",
+  "javelin",
+  "mace",
+  "quarterstaff",
+  "sickle",
+  "sling",
+  "spear",
+];
+
+DND_DATA.druidSimpleMeleeWeaponIds = [
+  "club",
+  "dagger",
+  "javelin",
   "mace",
   "quarterstaff",
   "sickle",
@@ -270,6 +303,38 @@ DND_DATA.startingEquipment = {
     ],
     fixed: ["shield", "holySymbol"],
   },
+  druid: {
+    choices: [
+      {
+        id: "shieldOrWeapon",
+        title: "Shield or weapon",
+        options: [
+          { id: "wooden-shield", name: "Wooden shield", items: ["woodenShield"], details: ["Wooden shield - +2 AC"] },
+          { id: "simple-weapon", name: "Any simple weapon", dropdowns: [{ id: "druidSimpleWeapon", label: "Simple weapon", list: "druidSimple" }] },
+        ],
+      },
+      {
+        id: "mainWeapon",
+        title: "Main weapon",
+        options: [
+          { id: "scimitar", name: "Scimitar", items: ["scimitar"], details: ["Scimitar - 1d6 slashing, finesse, light"] },
+          { id: "simple-melee-weapon", name: "Any simple melee weapon", dropdowns: [{ id: "druidSimpleMeleeWeapon", label: "Simple melee weapon", list: "druidSimpleMelee" }] },
+        ],
+      },
+      {
+        id: "druidicFocus",
+        title: "Druidic Focus",
+        description: "Choose what your Druid uses as a spellcasting focus. A Druidic Focus helps you cast Druid spells that require material components.",
+        options: [
+          { id: "sprig-mistletoe", name: "Sprig of mistletoe", items: ["sprigMistletoe"], details: ["Druidic Focus - used to cast Druid spells that require material components."] },
+          { id: "totem", name: "Totem", items: ["totem"], details: ["Druidic Focus - used to cast Druid spells that require material components."] },
+          { id: "wooden-staff", name: "Wooden staff", items: ["woodenStaffFocus"], details: ["Druidic Focus - used to cast Druid spells that require material components."] },
+          { id: "yew-wand", name: "Yew wand", items: ["yewWand"], details: ["Druidic Focus - used to cast Druid spells that require material components."] },
+        ],
+      },
+    ],
+    fixed: ["leatherArmor", "explorersPack"],
+  },
   paladin: {
     choices: [
       {
@@ -393,6 +458,12 @@ DND_DATA.getEquipmentItem = function getEquipmentItem(itemId) {
 };
 
 DND_DATA.getWeaponOptions = function getWeaponOptions(list) {
+  if (list === "druidSimple") {
+    return DND_DATA.druidSimpleWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
+  }
+  if (list === "druidSimpleMelee") {
+    return DND_DATA.druidSimpleMeleeWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
+  }
   if (list === "martialMelee") {
     return DND_DATA.martialWeaponIds.map((id) => DND_DATA.getEquipmentItem(id)).filter((item) => item && item.melee);
   }

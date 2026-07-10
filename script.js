@@ -743,7 +743,8 @@ function getSpellSelectionRule(character) {
 }
 
 function getPreparedSpellLimit(character) {
-  if (character.classId !== "cleric") return 0;
+  const spellcasting = getLevelOneSpellcasting(character);
+  if (spellcasting.castingType !== "prepared") return 0;
   return DND_DATA.getPreparedSpellLimit
     ? DND_DATA.getPreparedSpellLimit(character.classId, character.abilities, character.level)
     : Math.max(1, abilityModifierValue(character.abilities.Wisdom) + character.level);
@@ -1041,6 +1042,7 @@ function getSkillTags(character, skill, isAlreadyProficient) {
     monk: ["Acrobatics", "Stealth", "Insight", "Athletics"],
     paladin: ["Athletics", "Persuasion", "Insight", "Religion"],
     ranger: ["Perception", "Survival", "Stealth", "Nature"],
+    druid: ["Nature", "Animal Handling", "Survival", "Perception"],
   };
   const tags = [];
   if (isAlreadyProficient) tags.push("Already Proficient");
@@ -1513,6 +1515,7 @@ function armorDefenseEntries(items, character) {
     if (item.id === "leatherArmor") return "Leather armor &mdash; AC 11 + Dex modifier";
     if (item.id === "scaleMail") return "Scale mail &mdash; AC 14 + Dex modifier (max 2)";
     if (item.id === "shield") return "Shield &mdash; +2 AC";
+    if (item.type === "shield") return `${item.name} &mdash; +2 AC`;
     return item.name;
   });
   if (!armor.isArmor && character.classId === "monk") entries.push("Unarmored Defense &mdash; AC 10 + Dex modifier + Wis modifier");
@@ -1596,6 +1599,7 @@ function languageEntries(character, race, background) {
   const languages = [
     ...(race ? race.languages || [] : []),
     ...(background ? background.languages || [] : []),
+    ...(character.classId === "druid" ? ["Druidic"] : []),
     ...selectedFinishingChoices(character)
       .filter((choice) => choice.category === "language")
       .map((choice) => choice.value),
@@ -1636,6 +1640,7 @@ function renderKnownProficienciesPreview(character, characterClass, race, backgr
     renderPreviewCategory("Tool Proficiencies", toolProficiencyEntries(character, characterClass, race, background)),
     renderPreviewCategory("Armor Proficiencies", proficiencyEntries(character, characterClass, race, "Armor")),
     renderPreviewCategory("Weapon Proficiencies", proficiencyEntries(character, characterClass, race, "Weapons")),
+    characterClass && characterClass.proficiencyNotes ? renderPreviewCategory("Proficiency Notes", characterClass.proficiencyNotes.map((text) => ({ text }))) : "",
   ].join("");
 }
 
@@ -1739,8 +1744,9 @@ function renderSpellcastingPreview(character, characterClass) {
   const domainSpells = getClericDomainSpells(character);
   const bonusCantrips = getBonusCantripSpells(character);
   const hasSpellSelection = supportsSpellSelection(character, characterClass);
-  const spellSelectionLabel = character.classId === "cleric" ? "Prepared Spells" : "Spellbook";
-  const spellSelectionCount = character.classId === "cleric"
+  const isPreparedCaster = spellcasting.castingType === "prepared";
+  const spellSelectionLabel = isPreparedCaster ? "Prepared Spells" : "Spellbook";
+  const spellSelectionCount = isPreparedCaster
     ? `${preparedSpells.length} / ${getPreparedSpellLimit(character)} prepared`
     : `${spellbookSpells.length} spells selected`;
 
@@ -1758,7 +1764,7 @@ function renderSpellcastingPreview(character, characterClass) {
     </div>
     ${renderSelectedSpellList("Cantrips", cantripSpells)}
     ${character.classId === "cleric" ? renderSelectedSpellList("Bonus Cantrips", bonusCantrips) : ""}
-    ${character.classId === "cleric" ? renderSelectedSpellList("Prepared Spells", preparedSpells) : renderSelectedSpellList("Spellbook Spells", spellbookSpells)}
+    ${isPreparedCaster ? renderSelectedSpellList("Prepared Spells", preparedSpells) : renderSelectedSpellList("Spellbook Spells", spellbookSpells)}
     ${character.classId === "cleric" ? renderSelectedSpellList("Domain Spells", domainSpells) : ""}
     ${renderPreparedSpellNote(character, characterClass)}
   `;
@@ -2050,7 +2056,8 @@ function defaultClassGuidancePanel() {
 
 function classInfoPanel(characterClass) {
   if (!characterClass) return defaultClassGuidancePanel();
-  return `<div class="class-info-panel selected"><p>${characterClass.detail}</p><p><strong>Hit Die:</strong> d${characterClass.hitDie}</p><div class="proficiency-block"><h3>Proficiencies</h3><div class="proficiency-list">${Object.entries(characterClass.proficiencyDetails).map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`).join("")}</div></div></div>`;
+  const notes = characterClass.proficiencyNotes || [];
+  return `<div class="class-info-panel selected"><p>${characterClass.detail}</p><p><strong>Hit Die:</strong> d${characterClass.hitDie}</p><div class="proficiency-block"><h3>Proficiencies</h3><div class="proficiency-list">${Object.entries(characterClass.proficiencyDetails).map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`).join("")}${notes.map((note) => `<p><strong>Note:</strong> ${note}</p>`).join("")}</div></div></div>`;
 }
 
 function renderClassStep(step) {
@@ -2162,7 +2169,7 @@ function renderEquipmentOption(group, option, selectedChoice = {}, character = a
 function renderEquipmentGroup(group, selections) {
   const selectedChoice = selections.choices[group.id] || {};
   const options = getVisibleEquipmentOptions(group, appState.character);
-  return `<section class="equipment-choice-group"><div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div><div class="equipment-options">${options.map((option) => renderEquipmentOption(group, option, selectedChoice, appState.character)).join("")}</div></section>`;
+  return `<section class="equipment-choice-group"><div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div>${group.description ? `<p class="equipment-note">${group.description}</p>` : ""}<div class="equipment-options">${options.map((option) => renderEquipmentOption(group, option, selectedChoice, appState.character)).join("")}</div></section>`;
 }
 
 function renderEquipmentMethodSelector(character) {
@@ -2423,6 +2430,14 @@ function getSimpleAbilityGuidance(character) {
     };
   }
 
+  if (character.classId === "druid") {
+    return {
+      primary: "Wisdom",
+      secondary: "Dexterity and Constitution",
+      notes: ["Druids will not wear armor or use shields made of metal.", ...equipmentNotes],
+    };
+  }
+
   if (character.classId === "paladin") {
     return {
       primary: "Strength",
@@ -2481,7 +2496,8 @@ function standardArrayControls() {
     const selectedScore = appState.abilityState.standard.assignments[ability];
     const blockedScores = getUsedStandardScores(ability);
     const racialBonus = getRaceAbilityBonus(race, ability);
-    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.standard}" data-ability="${ability}"><option value="">Score</option>${DND_DATA.standardArray.map((score) => `<option value="${score}" ${Number(selectedScore) === score ? "selected" : ""} ${blockedScores.includes(score) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(score, racialBonus)}</option>`).join("")}</select></label>`;
+    const availableStandardScores = DND_DATA.standardArray.filter((score) => Number(selectedScore) === score || !blockedScores.includes(score));
+    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.standard}" data-ability="${ability}"><option value="">Score</option>${availableStandardScores.map((score) => `<option value="${score}" ${Number(selectedScore) === score ? "selected" : ""}>${formatRacialAdjustedScoreOption(score, racialBonus)}</option>`).join("")}</select></label>`;
   }).join("")}</div>${scoreAssignmentLegend()}<button class="secondary-button assignment-button" type="button" data-action="randomize-abilities">Random Assign</button>`;
 }
 
@@ -2497,7 +2513,10 @@ function rolledScoreControls() {
     const selectedRollId = rolled.assignments[ability];
     const blockedRollIds = getUsedRollIds(ability);
     const racialBonus = getRaceAbilityBonus(race, ability);
-    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.rolled}" data-ability="${ability}" ${hasRolledScores ? "" : "disabled"}><option value="">Score</option>${rolled.results.map((roll, index) => `<option value="${roll.id}" ${selectedRollId === roll.id ? "selected" : ""} ${blockedRollIds.includes(roll.id) ? "disabled" : ""}>${formatRacialAdjustedScoreOption(roll.total, racialBonus)} (Roll ${index + 1})</option>`).join("")}</select></label>`;
+    const availableRolls = rolled.results
+      .map((roll, index) => ({ ...roll, label: `Roll ${index + 1}` }))
+      .filter((roll) => roll.id === selectedRollId || !blockedRollIds.includes(roll.id));
+    return `<label>${ability}${raceAbilityMarker(racialBonus)}<select data-ability-method="${ABILITY_METHODS.rolled}" data-ability="${ability}" ${hasRolledScores ? "" : "disabled"}><option value="">Score</option>${availableRolls.map((roll) => `<option value="${roll.id}" ${selectedRollId === roll.id ? "selected" : ""}>${formatRacialAdjustedScoreOption(roll.total, racialBonus)} (${roll.label})</option>`).join("")}</select></label>`;
   }).join("")}</div>${scoreAssignmentLegend()}${hasRolledScores ? "" : '<button class="secondary-button assignment-button" type="button" data-action="roll-scores">Roll Six Scores</button>'}${hasRolledScores ? '<div class="assignment-actions"><button class="secondary-button assignment-button" type="button" data-action="randomly-assign-rolled">Random Assign</button><button class="secondary-button assignment-button" type="button" data-action="reroll-stats">Reroll Stats</button></div>' : ""}`;
 }
 
@@ -2864,8 +2883,10 @@ function renderBonusCantripSelectionSection(character) {
 }
 
 function spellSelectionSectionHelper(character, section) {
-  if (character.classId === "cleric" && section.id === "preparedSpells") {
-    return `Prepare ${section.limit} level 1 Cleric ${section.limit === 1 ? "spell" : "spells"}. Domain spells are always prepared and do not count.`;
+  if ((character.classId === "cleric" || character.classId === "druid") && section.id === "preparedSpells") {
+    const className = character.classId === "druid" ? "Druid" : "Cleric";
+    const domainNote = character.classId === "cleric" ? " Domain spells are always prepared and do not count." : "";
+    return `Prepare ${section.limit} level 1 ${className} ${section.limit === 1 ? "spell" : "spells"}.${domainNote}`;
   }
   return section.helper;
 }

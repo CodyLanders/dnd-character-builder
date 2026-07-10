@@ -19,6 +19,22 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.5.1 — Druid Spellcasting and Ability Score Dropdown Cleanup — July 10, 2026
+- Added Druid as a selectable level 1 class.
+- Added Druid skills, proficiencies, class features, starting equipment, and starting gold support.
+- Added Druidic as both a class feature and language.
+- Added Druid spellcasting using the existing reusable spell selection system.
+- Added Druid cantrip selection and level 1 prepared spell support.
+- Added Druid cantrips and level 1 Druid spell data.
+- Added Druid starting equipment, including leather armor, explorer’s pack, weapon choices, and Druidic Focus choice.
+- Improved Druidic Focus descriptions so users understand it is used for spellcasting.
+- Limited Druid simple weapon dropdowns to weapons Druids are proficient with.
+- Confirmed Wild Shape and Druid Circle do not appear at level 1.
+- Updated rolled ability score dropdowns so assigned rolls disappear from the other ability dropdowns.
+- Updated Standard Array dropdowns to hide already-used scores from other ability dropdowns.
+- Kept each ability dropdown’s current selection visible while hiding used scores from the other abilities.
+- Preserved Point Buy, randomize, and restart behavior.
+
 ### v0.5.0 — Cleric Domains, Spellcasting, and Domain-Based Choices — July 10, 2026
 - Added Cleric as a selectable class.
 - Added Divine Domain selection with all 7 PHB Cleric domains.
