@@ -232,6 +232,44 @@ DND_DATA.startingEquipment = {
     ],
     fixed: ["darts10"],
   },
+  cleric: {
+    choices: [
+      {
+        id: "mainWeapon",
+        title: "Main weapon",
+        options: [
+          { id: "mace", name: "Mace", items: ["mace"] },
+          { id: "warhammer", name: "Warhammer", items: ["warhammer"], requiresProficiency: "Martial Weapons", details: ["Warhammer - 1d8 bludgeoning, versatile 1d10"] },
+        ],
+      },
+      {
+        id: "armor",
+        title: "Armor",
+        options: [
+          { id: "scale-mail", name: "Scale mail", items: ["scaleMail"], details: ["Scale mail - AC 14 + Dex modifier (max 2)"] },
+          { id: "leather-armor", name: "Leather armor", items: ["leatherArmor"], details: ["Leather armor - AC 11 + Dex modifier"] },
+          { id: "chain-mail", name: "Chain mail", items: ["chainMail"], requiresProficiency: "Heavy Armor", details: ["Chain mail - AC 16, no Dexterity bonus"] },
+        ],
+      },
+      {
+        id: "secondaryWeapon",
+        title: "Secondary weapon",
+        options: [
+          { id: "crossbow", name: "Light crossbow and 20 bolts", items: ["lightCrossbow", "bolts20"], details: ["Light crossbow - 1d8 piercing, ranged, two-handed", "20 bolts"] },
+          { id: "simple-weapon", name: "Any simple weapon", dropdowns: [{ id: "simpleWeapon", label: "Simple weapon", list: "simple" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "priests-pack", name: "Priest's Pack", items: ["priestsPack"] },
+          { id: "explorers-pack", name: "Explorer's Pack", items: ["explorersPack"] },
+        ],
+      },
+    ],
+    fixed: ["shield", "holySymbol"],
+  },
   paladin: {
     choices: [
       {
@@ -365,13 +403,17 @@ DND_DATA.getWeaponOptions = function getWeaponOptions(list) {
   return DND_DATA.simpleWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
 };
 
-DND_DATA.createRandomEquipmentSelections = function createRandomEquipmentSelections(classId) {
+DND_DATA.createRandomEquipmentSelections = function createRandomEquipmentSelections(classId, context = {}) {
   const definition = DND_DATA.startingEquipment[classId];
   const selections = { classId, method: "take-equipment", choices: {}, rolledGold: null, startingGoldRerollCount: 0 };
   if (!definition) return selections;
+  const domainProficiencies = classId === "cleric" && DND_DATA.clericDomainMechanics && context.domainId
+    ? (DND_DATA.clericDomainMechanics[context.domainId].proficiencies || []).map((proficiency) => proficiency.toLowerCase())
+    : [];
 
   definition.choices.forEach((group) => {
-    const option = DND_DATA.randomChoice(group.options);
+    const availableOptions = group.options.filter((option) => !option.requiresProficiency || domainProficiencies.includes(option.requiresProficiency.toLowerCase()));
+    const option = DND_DATA.randomChoice(availableOptions.length ? availableOptions : group.options);
     const selectedChoice = { optionId: option.id };
     (option.dropdowns || []).forEach((dropdown) => {
       selectedChoice[dropdown.id] = DND_DATA.randomChoice(DND_DATA.getWeaponOptions(dropdown.list)).id;

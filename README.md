@@ -19,6 +19,22 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.5.0 — Cleric Domains, Spellcasting, and Domain-Based Choices — July 10, 2026
+- Added Cleric as a selectable class.
+- Added Divine Domain selection with all 7 PHB Cleric domains.
+- Cleaned up Divine Domain names for better display.
+- Added optional Deity, Faith, or Philosophy support for Cleric flavor.
+- Added Cleric spell selection support.
+- Added Cleric cantrip, prepared spell, and domain spell handling.
+- Added automatic Light cantrip support for the Light Domain.
+- Added Nature Domain bonus skill and bonus Druid cantrip support.
+- Added Knowledge Domain bonus skills and bonus languages.
+- Added domain-based proficiency handling for Heavy Armor where appropriate.
+- Added domain-based Martial Weapon proficiency for Tempest and War domains.
+- Updated conditional equipment so Cleric only shows valid domain-based options.
+- Updated random character generation to support Cleric domain mechanics.
+- Updated the final sheet to show Cleric features, proficiencies, equipment, spells, and domain choices correctly.
+
 ### v0.4.3 — Paladin, Ranger, and Class Choice Preview Cleanup — July 9, 2026
 - Added Paladin as a selectable level 1 class.
 - Added Ranger as a selectable level 1 class.
@@ -67,7 +83,7 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 - Added scroll-to-top behavior when the blank-name confirmation appears.
 - Kept Character Name optional while still requiring confirmation before finishing without one.
 
-### v0.4.0 — Final Sheet Polish, Restart Flow, and Character Basics — July 8, 2026
+### v0.4.0 — Final Sheet Polish, Restart Flow, and Character Basics — July 9, 2026
 - Added level 1 Hit Points using maximum class Hit Die plus Constitution modifier.
 - Added Hit Dice, Passive Perception, and Proficiency Bonus to the final character sheet.
 - Added Senses, including Darkvision where applicable.

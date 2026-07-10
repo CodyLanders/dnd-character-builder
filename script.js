@@ -6,7 +6,7 @@ const wizardSteps = [
   { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 9 - Starting Equipment" },
   { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 9 - Ability Scores" },
   { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 7 of 9 - Skills & Proficiencies" },
-  { key: "spellSelection", title: "Choose Wizard Spells", progress: "Step 8 of 9 - Spell Selection" },
+  { key: "spellSelection", title: "Choose Spells", progress: "Step 8 of 9 - Spell Selection" },
   { key: "finishing", title: "Finishing Touches", progress: "Step 9 of 9 - Finishing Touches" },
 ];
 
@@ -24,7 +24,7 @@ You will make more choices later, but your class is the foundation for how your 
   background: "Your background explains what your character did before adventuring. It provides skills, tools or languages, starting equipment, and a roleplaying hook.",
   equipment: "Choose the starting equipment granted by your class. Background equipment is added automatically.",
   skills: "Choose the skill proficiencies granted by your class. Skills from your race and background are already included and cannot be chosen again.",
-  spellSelection: "Choose the cantrips and level 1 spells written in your wizard's spellbook. Prepared spell selection will come later.",
+  spellSelection: "Choose the level 1 spells your class grants now. Some classes also receive automatic spells from a feature such as a Divine Domain.",
   finishing: "Choose any remaining languages, tools, and character details before finishing.",
 };
 
@@ -80,6 +80,7 @@ function createBlankCharacter() {
     classFeatures: { fightingStyle: "" },
     skillProficiencies: {},
     classSkillProficiencies: {},
+    domainSkillProficiencies: {},
     expertise: {},
     savingThrowProficiencies: {},
     savingThrowExpertise: {},
@@ -87,7 +88,7 @@ function createBlankCharacter() {
     abilities: emptyAbilityScores(),
     equipmentSelections: { classId: "", method: EQUIPMENT_METHODS.take, choices: {}, rolledGold: null, startingGoldRerollCount: 0 },
     equipment: [],
-    spellcasting: { cantrips: [], spellbookSpells: [] },
+    spellcasting: { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] },
     abilityScoreRerollCount: 0,
     finishingTouches: { choices: {}, alignment: {}, personality: {}, trinket: {} },
     notes: "Stage 1 wizard character",
@@ -155,6 +156,7 @@ function normalizeCharacter(savedCharacter = {}) {
     classFeatures: { ...blank.classFeatures, ...(savedCharacter.classFeatures || {}) },
     skillProficiencies: { ...blank.skillProficiencies, ...(savedCharacter.skillProficiencies || {}) },
     classSkillProficiencies: { ...blank.classSkillProficiencies, ...(savedCharacter.classSkillProficiencies || {}) },
+    domainSkillProficiencies: { ...blank.domainSkillProficiencies, ...(savedCharacter.domainSkillProficiencies || {}) },
     expertise: { ...blank.expertise, ...(savedCharacter.expertise || {}) },
     savingThrowProficiencies: { ...blank.savingThrowProficiencies, ...(savedCharacter.savingThrowProficiencies || {}) },
     savingThrowExpertise: { ...blank.savingThrowExpertise, ...(savedCharacter.savingThrowExpertise || {}) },
@@ -171,6 +173,8 @@ function normalizeCharacter(savedCharacter = {}) {
     spellcasting: {
       cantrips: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.cantrips) ? savedCharacter.spellcasting.cantrips : [],
       spellbookSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.spellbookSpells) ? savedCharacter.spellcasting.spellbookSpells : [],
+      preparedSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.preparedSpells) ? savedCharacter.spellcasting.preparedSpells : [],
+      natureBonusCantrip: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.natureBonusCantrip) ? savedCharacter.spellcasting.natureBonusCantrip : [],
     },
     abilityScoreRerollCount: Number.isInteger(savedCharacter.abilityScoreRerollCount) ? savedCharacter.abilityScoreRerollCount : 0,
     finishingTouches: {
@@ -224,7 +228,7 @@ function hasMeaningfulProgress() {
   const personalityChoices = Object.values(finishingTouches.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped));
   const trinketChoice = finishingTouches.trinket && finishingTouches.trinket.id;
   const spellcasting = character.spellcasting || {};
-  const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || [])].some(Boolean);
+  const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || []), ...(spellcasting.preparedSpells || []), ...(spellcasting.natureBonusCantrip || [])].some(Boolean);
 
   return Boolean(
     character.classId
@@ -443,8 +447,70 @@ function getSelectedFightingStyle(character) {
   return DND_DATA.classFeatureChoices.fighter.options.find((option) => option.id === selectedId);
 }
 
+function getSelectedClericDomainId(character) {
+  return character.classId === "cleric" && character.classFeatures ? character.classFeatures.divineDomain || "" : "";
+}
+
+function getSelectedClericDomain(character) {
+  const domainId = getSelectedClericDomainId(character);
+  const domainGroup = DND_DATA.classFeatureChoices.cleric && DND_DATA.classFeatureChoices.cleric.groups[0];
+  const option = domainGroup ? domainGroup.options.find((item) => item.id === domainId) : null;
+  const mechanics = DND_DATA.clericDomainMechanics ? DND_DATA.clericDomainMechanics[domainId] : null;
+  return option ? { ...option, mechanics: mechanics || {} } : null;
+}
+
+function getClericDomainProficiencies(character) {
+  const domain = getSelectedClericDomain(character);
+  return domain && domain.mechanics.proficiencies ? domain.mechanics.proficiencies : [];
+}
+
+function hasCharacterProficiency(character, proficiency) {
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const staticProficiencies = characterClass ? [
+    ...(characterClass.proficiencies || []),
+    ...splitProficiencyText(characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Armor : ""),
+    ...splitProficiencyText(characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Weapons : ""),
+  ] : [];
+  return [...staticProficiencies, ...getClericDomainProficiencies(character)]
+    .some((item) => item.toLowerCase() === proficiency.toLowerCase());
+}
+
+function getClericDomainFeatures(character) {
+  const domain = getSelectedClericDomain(character);
+  return domain && domain.mechanics.features ? domain.mechanics.features : [];
+}
+
+function sanitizeDomainTriggeredChoices(character) {
+  if (!character.domainSkillProficiencies) character.domainSkillProficiencies = {};
+  const domainId = getSelectedClericDomainId(character);
+  const domainSkillChoice = getDomainSkillChoice(character);
+  if (domainId !== "knowledge") {
+    const finishing = getFinishingTouches(character);
+    delete finishing.choices["knowledge-language-1"];
+    delete finishing.choices["knowledge-language-2"];
+  }
+  if (!domainSkillChoice) {
+    character.domainSkillProficiencies = {};
+  } else {
+    const allowedSkills = new Set(domainSkillChoice.options);
+    const race = getById(DND_DATA.races, character.raceId);
+    const background = getById(DND_DATA.backgrounds, character.backgroundId);
+    Object.keys(character.domainSkillProficiencies).forEach((skillName) => {
+      if (!allowedSkills.has(skillName) || getUnavailableDomainSkillSources(skillName, character, race, background).length) delete character.domainSkillProficiencies[skillName];
+    });
+  }
+  if (domainId !== "nature") {
+    if (character.spellcasting && Array.isArray(character.spellcasting.natureBonusCantrip)) character.spellcasting.natureBonusCantrip = [];
+  }
+  if (domainId === "light" && character.spellcasting && Array.isArray(character.spellcasting.cantrips)) {
+    character.spellcasting.cantrips = character.spellcasting.cantrips.filter((spellId) => spellId !== "light");
+  }
+}
+
 function resetClassFeatureSelections(character) {
   character.classFeatures = { fightingStyle: "" };
+  character.domainSkillProficiencies = {};
+  if (character.spellcasting) character.spellcasting.natureBonusCantrip = [];
 }
 
 function getSelectedClassFeatureOption(character, group) {
@@ -510,6 +576,26 @@ function getSelectedEquipmentOption(group, selections) {
   return group.options.find((option) => option.id === selected.optionId) || null;
 }
 
+function isEquipmentOptionAvailable(character, option) {
+  return !option.requiresProficiency || hasCharacterProficiency(character, option.requiresProficiency);
+}
+
+function getVisibleEquipmentOptions(group, character) {
+  return group.options.filter((option) => isEquipmentOptionAvailable(character, option));
+}
+
+function clearInvalidEquipmentSelections(character) {
+  const definition = getEquipmentDefinition(character.classId);
+  if (!definition || usesRolledStartingGold(character)) return;
+  const selections = getEquipmentSelections(character);
+  definition.choices.forEach((group) => {
+    const selectedChoice = selections.choices[group.id];
+    if (!selectedChoice) return;
+    const option = group.options.find((item) => item.id === selectedChoice.optionId);
+    if (option && !isEquipmentOptionAvailable(character, option)) delete selections.choices[group.id];
+  });
+}
+
 function formatEquipmentItem(item) {
   if (!item) return "";
   if (item.detail) return item.detail;
@@ -541,7 +627,7 @@ function getClassEquipmentItems(character, requireComplete = false) {
   definition.choices.forEach((group) => {
     const selectedChoice = selections.choices[group.id] || {};
     const option = getSelectedEquipmentOption(group, selections);
-    if (!option) return;
+    if (!option || !isEquipmentOptionAvailable(character, option)) return;
     selectedItems.push(...getOptionItems(option, selectedChoice));
   });
 
@@ -570,6 +656,7 @@ function hasCompleteEquipmentSelections(character) {
     if (!selectedChoice || !selectedChoice.optionId) return false;
     const option = group.options.find((item) => item.id === selectedChoice.optionId);
     if (!option) return false;
+    if (!isEquipmentOptionAvailable(character, option)) return false;
     return (option.dropdowns || []).every((dropdown) => selectedChoice[dropdown.id]);
   });
 }
@@ -639,55 +726,122 @@ function supportsSpellSelection(character, characterClass = null) {
 }
 
 function getSpellcastingSelections(character) {
-  if (!character.spellcasting) character.spellcasting = { cantrips: [], spellbookSpells: [] };
+  if (!character.spellcasting) character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] };
   if (!Array.isArray(character.spellcasting.cantrips)) character.spellcasting.cantrips = [];
   if (!Array.isArray(character.spellcasting.spellbookSpells)) character.spellcasting.spellbookSpells = [];
+  if (!Array.isArray(character.spellcasting.preparedSpells)) character.spellcasting.preparedSpells = [];
+  if (!Array.isArray(character.spellcasting.natureBonusCantrip)) character.spellcasting.natureBonusCantrip = [];
   return character.spellcasting;
 }
 
 function resetSpellSelections(character) {
-  character.spellcasting = { cantrips: [], spellbookSpells: [] };
+  character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] };
 }
 
 function getSpellSelectionRule(character) {
-  return DND_DATA.spellSelectionRules[character.classId] || { cantrips: 0, spellbookSpells: 0 };
+  return DND_DATA.spellSelectionRules[character.classId] || { sections: [] };
+}
+
+function getPreparedSpellLimit(character) {
+  if (character.classId !== "cleric") return 0;
+  return DND_DATA.getPreparedSpellLimit
+    ? DND_DATA.getPreparedSpellLimit(character.classId, character.abilities, character.level)
+    : Math.max(1, abilityModifierValue(character.abilities.Wisdom) + character.level);
+}
+
+function getSpellSelectionSections(character) {
+  const rule = getSpellSelectionRule(character);
+  return (rule.sections || []).map((section) => ({
+    ...section,
+    limit: section.limit === "prepared" ? getPreparedSpellLimit(character) : section.limit,
+  }));
 }
 
 function getSelectedSpellIds(character, selectionType) {
   return getSpellcastingSelections(character)[selectionType] || [];
 }
 
+function getClericDomainSpellIds(character) {
+  if (character.classId !== "cleric" || !DND_DATA.getClericDomainSpellIds) return [];
+  return DND_DATA.getClericDomainSpellIds(character.classFeatures.divineDomain);
+}
+
+function getClericDomainSpells(character) {
+  return getClericDomainSpellIds(character).map((spellId) => DND_DATA.getSpellById(spellId)).filter(Boolean);
+}
+
+function getGrantedBonusCantripIds(character) {
+  const domain = getSelectedClericDomain(character);
+  return domain && domain.mechanics.bonusCantrips ? domain.mechanics.bonusCantrips : [];
+}
+
+function getSelectedBonusCantripIds(character) {
+  return [...getGrantedBonusCantripIds(character), ...getSelectedSpellIds(character, "natureBonusCantrip")];
+}
+
+function getBonusCantripSpells(character) {
+  return getSelectedBonusCantripIds(character).map((spellId) => DND_DATA.getSpellById(spellId)).filter(Boolean);
+}
+
+function getNatureBonusCantripChoice(character) {
+  const domain = getSelectedClericDomain(character);
+  return domain && domain.mechanics.bonusCantripChoice ? domain.mechanics.bonusCantripChoice : null;
+}
+
 function getSpellOptionsForSelection(character, selectionType) {
-  const level = selectionType === "cantrips" ? 0 : 1;
-  return DND_DATA.getSpellsForClassLevel(character.classId, level);
+  const section = getSpellSelectionSections(character).find((item) => item.id === selectionType);
+  const natureChoice = getNatureBonusCantripChoice(character);
+  const level = section ? section.level : natureChoice && selectionType === natureChoice.id ? natureChoice.level : selectionType === "cantrips" ? 0 : 1;
+  const classId = natureChoice && selectionType === natureChoice.id ? natureChoice.classId : character.classId;
+  const domainSpellIds = new Set(getClericDomainSpellIds(character));
+  const bonusCantripIds = new Set(getSelectedBonusCantripIds(character));
+  return DND_DATA.getSpellsForClassLevel(classId, level)
+    .filter((spell) => selectionType !== "preparedSpells" || !domainSpellIds.has(spell.id))
+    .filter((spell) => selectionType !== "cantrips" || !bonusCantripIds.has(spell.id))
+    .filter((spell) => selectionType !== "natureBonusCantrip" || !getSelectedSpellIds(character, "cantrips").includes(spell.id));
 }
 
 function hasCompleteSpellSelection(character) {
   const characterClass = getById(DND_DATA.classes, character.classId);
   if (!supportsSpellSelection(character, characterClass)) return true;
-  const rules = getSpellSelectionRule(character);
   const selections = getSpellcastingSelections(character);
-  return selections.cantrips.length === rules.cantrips && selections.spellbookSpells.length === rules.spellbookSpells;
+  const sectionsComplete = getSpellSelectionSections(character).every((section) => selections[section.id].length === section.limit);
+  const natureChoice = getNatureBonusCantripChoice(character);
+  const natureComplete = !natureChoice || selections[natureChoice.id].length === natureChoice.choose;
+  return sectionsComplete && natureComplete;
 }
 
 function spellSelectionValidationMessage(character) {
-  const rules = getSpellSelectionRule(character);
   const selections = getSpellcastingSelections(character);
-  const missingCantrips = Math.max(rules.cantrips - selections.cantrips.length, 0);
-  const missingSpells = Math.max(rules.spellbookSpells - selections.spellbookSpells.length, 0);
-  const messages = [];
-  if (missingCantrips) messages.push(`${missingCantrips} more ${missingCantrips === 1 ? "cantrip" : "cantrips"}`);
-  if (missingSpells) messages.push(`${missingSpells} more spellbook ${missingSpells === 1 ? "spell" : "spells"}`);
+  const messages = getSpellSelectionSections(character)
+    .map((section) => {
+      const missing = Math.max(section.limit - selections[section.id].length, 0);
+      if (!missing) return "";
+      if (section.id === "cantrips") return `${missing} more ${missing === 1 ? "cantrip" : "cantrips"}`;
+      if (section.id === "preparedSpells") return `${missing} more prepared ${missing === 1 ? "spell" : "spells"}`;
+      return `${missing} more spellbook ${missing === 1 ? "spell" : "spells"}`;
+    })
+    .filter(Boolean);
+  const natureChoice = getNatureBonusCantripChoice(character);
+  if (natureChoice) {
+    const missingNature = Math.max(natureChoice.choose - getSelectedSpellIds(character, natureChoice.id).length, 0);
+    if (missingNature) messages.push(`${missingNature} Nature Domain bonus ${missingNature === 1 ? "cantrip" : "cantrips"}`);
+  }
   return messages.length ? `Choose ${messages.join(" and ")}.` : "";
 }
 
 function setRandomSpellSelections(character) {
-  character.spellcasting = DND_DATA.randomSpellSelectionForClass(character.classId);
+  character.spellcasting = DND_DATA.randomSpellSelectionForClass(character.classId, {
+    abilities: character.abilities,
+    level: character.level,
+    domainId: character.classFeatures.divineDomain,
+  });
 }
 
 function toggleSpellSelection(character, selectionType, spellId) {
-  const rules = getSpellSelectionRule(character);
-  const limit = rules[selectionType] || 0;
+  const section = getSpellSelectionSections(character).find((item) => item.id === selectionType);
+  const natureChoice = getNatureBonusCantripChoice(character);
+  const limit = section ? section.limit : natureChoice && selectionType === natureChoice.id ? natureChoice.choose : 0;
   const selections = getSpellcastingSelections(character);
   const current = selections[selectionType] || [];
   if (current.includes(spellId)) {
@@ -774,6 +928,7 @@ function getSkillProficiencyLevels(character, race, background) {
   mergeSkillLevels(levels, race ? race.skills : []);
   mergeSkillLevels(levels, race ? race.skillProficiencies : {});
   mergeSkillLevels(levels, character.classSkillProficiencies || {});
+  mergeSkillLevels(levels, character.domainSkillProficiencies || {});
   mergeSkillLevels(levels, character.skillProficiencies || {});
   mergeSkillLevels(levels, character.expertise || {}, 2);
   return levels;
@@ -831,6 +986,7 @@ function renderSkillsTable(character, race, background) {
 
 function resetSkillSelections(character) {
   character.classSkillProficiencies = {};
+  character.domainSkillProficiencies = {};
 }
 
 function getClassSkillChoice(character) {
@@ -841,6 +997,20 @@ function getClassSkillChoice(character) {
 function getSelectedClassSkillNames(character) {
   const allowedSkills = new Set(getClassSkillChoice(character).options);
   return Object.entries(character.classSkillProficiencies || {})
+    .filter(([skillName, level]) => allowedSkills.has(skillName) && Number(level) > 0)
+    .map(([skillName]) => skillName);
+}
+
+function getDomainSkillChoice(character) {
+  const domain = getSelectedClericDomain(character);
+  return domain && domain.mechanics.skillChoices ? domain.mechanics.skillChoices : null;
+}
+
+function getSelectedDomainSkillNames(character) {
+  const choice = getDomainSkillChoice(character);
+  if (!choice) return [];
+  const allowedSkills = new Set(choice.options);
+  return Object.entries(character.domainSkillProficiencies || {})
     .filter(([skillName, level]) => allowedSkills.has(skillName) && Number(level) > 0)
     .map(([skillName]) => skillName);
 }
@@ -880,7 +1050,10 @@ function getSkillTags(character, skill, isAlreadyProficient) {
 
 function hasCompleteSkillSelections(character) {
   const choice = getClassSkillChoice(character);
-  return getSelectedClassSkillNames(character).length === choice.choose;
+  const domainChoice = getDomainSkillChoice(character);
+  const hasClassSkills = getSelectedClassSkillNames(character).length === choice.choose;
+  const hasDomainSkills = !domainChoice || getSelectedDomainSkillNames(character).length === domainChoice.choose;
+  return hasClassSkills && hasDomainSkills;
 }
 
 function setRandomClassSkillSelections(character) {
@@ -891,6 +1064,25 @@ function setRandomClassSkillSelections(character) {
   character.classSkillProficiencies = {};
   availableSkills.slice(0, choice.choose).forEach((skillName) => {
     character.classSkillProficiencies[skillName] = 1;
+  });
+  setRandomDomainSkillSelections(character);
+}
+
+function getUnavailableDomainSkillSources(skillName, character, race, background) {
+  const sources = getGrantedSkillSources(skillName, race, background);
+  if (character.classSkillProficiencies && character.classSkillProficiencies[skillName]) sources.push("Class Skills");
+  return sources;
+}
+
+function setRandomDomainSkillSelections(character) {
+  const choice = getDomainSkillChoice(character);
+  character.domainSkillProficiencies = {};
+  if (!choice) return;
+  const race = getById(DND_DATA.races, character.raceId);
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !getUnavailableDomainSkillSources(skillName, character, race, background).length));
+  availableSkills.slice(0, choice.choose).forEach((skillName) => {
+    character.domainSkillProficiencies[skillName] = choice.expertise ? 2 : 1;
   });
 }
 
@@ -921,6 +1113,53 @@ function renderSkillCard(skillName, race, background, options = {}) {
       ${note ? `<span class="skill-choice-note">${note}</span>` : ""}
       ${secondaryTags.length ? `<span class="skill-tags">${secondaryTags.map((tag) => `<span>${tag}</span>`).join("")}</span>` : ""}
     </button>
+  `;
+}
+
+function renderDomainSkillCard(skillName, race, background) {
+  const skill = DND_DATA.skills.find((item) => item.name === skillName);
+  if (!skill) return "";
+  const choice = getDomainSkillChoice(appState.character);
+  const selectedSkills = getSelectedDomainSkillNames(appState.character);
+  const isSelected = selectedSkills.includes(skillName);
+  const blockedSources = getUnavailableDomainSkillSources(skillName, appState.character, race, background);
+  const proficiencyLevel = isSelected ? (choice.expertise ? 2 : 1) : 0;
+  const totalBonus = getSkillBonus(appState.character, skill, proficiencyLevel || 0);
+  const isAtLimit = selectedSkills.length >= choice.choose && !isSelected;
+  const disabled = Boolean(blockedSources.length) || isAtLimit;
+  const note = blockedSources.length ? `Already proficient from ${blockedSources.join(" and ")}` : choice.expertise ? "Doubled proficiency for this domain skill." : "";
+
+  return `
+    <button class="skill-choice-card ${isSelected ? "selected" : ""} ${blockedSources.length ? "already-proficient" : ""}" type="button" data-domain-skill-choice="${skillName}" ${disabled ? "disabled" : ""} aria-pressed="${isSelected}">
+      <span class="skill-choice-main">
+        <strong>${skill.name}</strong>
+        <span class="skill-choice-spacer"></span>
+        <span class="skill-modifier">${DND_DATA.abilityShortLabels[skill.ability]}: ${formatSkillModifier(totalBonus)}</span>
+      </span>
+      ${note ? `<span class="skill-choice-note">${note}</span>` : ""}
+    </button>
+  `;
+}
+
+function renderDomainSkillSection(race, background) {
+  const choice = getDomainSkillChoice(appState.character);
+  if (!choice) return "";
+  const selectedCount = getSelectedDomainSkillNames(appState.character).length;
+  const helper = selectedCount === choice.choose
+    ? "Unselect one to choose a different domain skill."
+    : `Choose ${choice.choose} bonus ${choice.choose === 1 ? "skill" : "skills"}.`;
+  return `
+    <section class="skill-choice-summary">
+      <h3>${choice.label}</h3>
+      <p>Selected: ${selectedCount} / ${choice.choose}</p>
+      <p class="skill-choice-helper">${helper}${choice.expertise ? " Selected Knowledge skills get doubled proficiency." : ""}</p>
+    </section>
+    <section class="skill-choice-section">
+      <h3>${choice.label}</h3>
+      <div class="skill-choice-grid">
+        ${choice.options.map((skillName) => renderDomainSkillCard(skillName, race, background)).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -967,6 +1206,8 @@ function syncAbilityScoresFromState() {
 function recomputeCharacter() {
   appState.character.abilities = DND_DATA.applyRaceIncreases(appState.character.baseAbilities, appState.character.raceId);
   if (appState.character.classId !== "fighter") appState.character.classFeatures.fightingStyle = "";
+  sanitizeDomainTriggeredChoices(appState.character);
+  clearInvalidEquipmentSelections(appState.character);
   getEquipmentSelections(appState.character);
   appState.character.equipment = getAllEquipmentItems(appState.character).map((item) => typeof item === "string" ? item : item.name);
 }
@@ -1375,10 +1616,16 @@ function toolProficiencyEntries(character, characterClass, race, background) {
   return uniqueTextEntries(tools);
 }
 
-function proficiencyEntries(characterClass, race, label) {
+function proficiencyEntries(character, characterClass, race, label) {
+  const classId = characterClass ? characterClass.id : "";
+  const domainProficiencies = classId === "cleric" ? getClericDomainProficiencies(character) : [];
+  const domainArmor = domainProficiencies.filter((item) => /armor|shield/i.test(item));
+  const domainWeapons = domainProficiencies.filter((item) => /weapon/i.test(item));
   const proficiencies = [
     ...splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails[label] : ""),
     ...splitProficiencyText(race && race.proficiencyDetails ? race.proficiencyDetails[label] : ""),
+    ...(label === "Armor" ? domainArmor : []),
+    ...(label === "Weapons" ? domainWeapons : []),
   ].filter((item) => item !== "None");
   return uniqueTextEntries(proficiencies);
 }
@@ -1387,14 +1634,17 @@ function renderKnownProficienciesPreview(character, characterClass, race, backgr
   return [
     renderPreviewCategory("Languages", languageEntries(character, race, background)),
     renderPreviewCategory("Tool Proficiencies", toolProficiencyEntries(character, characterClass, race, background)),
-    renderPreviewCategory("Armor Proficiencies", proficiencyEntries(characterClass, race, "Armor")),
-    renderPreviewCategory("Weapon Proficiencies", proficiencyEntries(characterClass, race, "Weapons")),
+    renderPreviewCategory("Armor Proficiencies", proficiencyEntries(character, characterClass, race, "Armor")),
+    renderPreviewCategory("Weapon Proficiencies", proficiencyEntries(character, characterClass, race, "Weapons")),
   ].join("");
 }
 
-function renderClassFeaturesPreview(characterClass) {
-  if (!characterClass || !characterClass.features || !characterClass.features.length) return "";
-  return renderPreviewCategory("Class Features", characterClass.features.map((feature) => ({ text: feature })));
+function renderClassFeaturesPreview(character, characterClass) {
+  const classFeatures = characterClass && characterClass.features ? characterClass.features.map((feature) => ({ text: feature })) : [];
+  const domainFeatures = getClericDomainFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
+  const features = [...classFeatures, ...domainFeatures];
+  if (!features.length) return "";
+  return renderPreviewCategory("Class Features", features);
 }
 
 function formatLevelOneSpellSlots(count) {
@@ -1485,7 +1735,14 @@ function renderSpellcastingPreview(character, characterClass) {
   const slotCount = getLevelOneSpellSlotCount(character, characterClass);
   const cantripSpells = getSelectedSpells(character, "cantrips");
   const spellbookSpells = getSelectedSpells(character, "spellbookSpells");
+  const preparedSpells = getSelectedSpells(character, "preparedSpells");
+  const domainSpells = getClericDomainSpells(character);
+  const bonusCantrips = getBonusCantripSpells(character);
   const hasSpellSelection = supportsSpellSelection(character, characterClass);
+  const spellSelectionLabel = character.classId === "cleric" ? "Prepared Spells" : "Spellbook";
+  const spellSelectionCount = character.classId === "cleric"
+    ? `${preparedSpells.length} / ${getPreparedSpellLimit(character)} prepared`
+    : `${spellbookSpells.length} spells selected`;
 
   return `
     <h3>Spellcasting</h3>
@@ -1495,10 +1752,14 @@ function renderSpellcastingPreview(character, characterClass) {
       <div class="sheet-item"><span class="sheet-label">Spell Attack Bonus</span>${attackBonus === "" ? `Assign ${ability}` : attackBonus}</div>
       <div class="sheet-item"><span class="sheet-label">${slotLabel}</span>${formatLevelOneSpellSlots(slotCount)}</div>
       <div class="sheet-item"><span class="sheet-label">Cantrips</span>${hasSpellSelection ? `${cantripSpells.length} selected` : getSpellcastingCantripCount(character, characterClass)}</div>
-      <div class="sheet-item"><span class="sheet-label">${hasSpellSelection ? "Spellbook" : "Spell Selection"}</span>${hasSpellSelection ? `${spellbookSpells.length} spells selected` : spellcasting.selectionRule || "Handled in a later spell-selection phase"}</div>
+      <div class="sheet-item"><span class="sheet-label">${hasSpellSelection ? spellSelectionLabel : "Spell Selection"}</span>${hasSpellSelection ? spellSelectionCount : spellcasting.selectionRule || "Handled in a later spell-selection phase"}</div>
+      ${character.classId === "cleric" && bonusCantrips.length ? `<div class="sheet-item"><span class="sheet-label">Bonus Cantrips</span>${bonusCantrips.map((spell) => spell.name).join(", ")}</div>` : ""}
+      ${character.classId === "cleric" ? `<div class="sheet-item"><span class="sheet-label">Domain Spells</span>${domainSpells.length ? `${domainSpells.length} always prepared` : "Choose a Divine Domain"}</div>` : ""}
     </div>
     ${renderSelectedSpellList("Cantrips", cantripSpells)}
-    ${renderSelectedSpellList("Spellbook Spells", spellbookSpells)}
+    ${character.classId === "cleric" ? renderSelectedSpellList("Bonus Cantrips", bonusCantrips) : ""}
+    ${character.classId === "cleric" ? renderSelectedSpellList("Prepared Spells", preparedSpells) : renderSelectedSpellList("Spellbook Spells", spellbookSpells)}
+    ${character.classId === "cleric" ? renderSelectedSpellList("Domain Spells", domainSpells) : ""}
     ${renderPreparedSpellNote(character, characterClass)}
   `;
 }
@@ -1552,6 +1813,18 @@ function getFinishingChoices(character) {
     });
   }
 
+  if (getSelectedClericDomainId(character) === "knowledge") {
+    Array.from({ length: 2 }, (_, index) => {
+      choices.push(finishingChoice(
+        `knowledge-language-${index + 1}`,
+        `Knowledge Domain Bonus Language ${index + 1}`,
+        "language",
+        "Pick a bonus language granted by Blessings of Knowledge.",
+        { note: "Ask your DM before choosing an exotic language.", preventDuplicates: true },
+      ));
+    });
+  }
+
   const classToolDetail = characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools || "" : "";
   if (classToolDetail.toLowerCase().includes("one artisan") && classToolDetail.toLowerCase().includes("musical instrument")) {
     choices.push(finishingChoice("class-tool-1", "Choose 1 tool or instrument", "artisanOrMusical", "Tool proficiencies help with checks involving specialized equipment."));
@@ -1569,25 +1842,47 @@ function getFinishingChoices(character) {
   return choices;
 }
 
-function getChoiceOptions(choice) {
+function getChoiceOptions(choice, character = appState.character) {
   if (choice.category === "language") {
+    const selectedChoices = getFinishingTouches(character).choices || {};
+    const blockedLanguages = new Set([
+      ...(getById(DND_DATA.races, character.raceId)?.languages || []),
+      ...(getById(DND_DATA.backgrounds, character.backgroundId)?.languages || []),
+      ...Object.entries(selectedChoices)
+        .filter(([choiceId]) => choiceId !== choice.id)
+        .map(([, value]) => value),
+    ].map((value) => String(value || "").toLowerCase()));
     return [
       ...DND_DATA.languages.standard.map((name) => ({ value: name, label: name })),
       ...DND_DATA.languages.exotic.map((name) => ({ value: name, label: `${name} (exotic)` })),
-    ];
+    ].filter((option) => !choice.preventDuplicates || !blockedLanguages.has(option.value.toLowerCase()));
   }
   return (DND_DATA.toolOptions[choice.category] || []).map((name) => ({ value: name, label: name }));
 }
 
-function hasCompleteFinishingTouches(character) {
+function isFinishingChoiceComplete(character, choice) {
   const selections = getFinishingTouches(character).choices;
-  return getFinishingChoices(character).every((choice) => selections[choice.id]);
+  const selectedValue = String(selections[choice.id] || "");
+  if (!selectedValue) return false;
+  if (!choice.preventDuplicates) return true;
+  const blockedValues = new Set([
+    ...(getById(DND_DATA.races, character.raceId)?.languages || []),
+    ...(getById(DND_DATA.backgrounds, character.backgroundId)?.languages || []),
+    ...Object.entries(selections)
+      .filter(([choiceId]) => choiceId !== choice.id)
+      .map(([, value]) => value),
+  ].map((value) => String(value || "").toLowerCase()));
+  return !blockedValues.has(selectedValue.toLowerCase());
+}
+
+function hasCompleteFinishingTouches(character) {
+  return getFinishingChoices(character).every((choice) => isFinishingChoiceComplete(character, choice));
 }
 
 function randomizeFinishingChoice(character, choiceId) {
   const choice = getFinishingChoices(character).find((item) => item.id === choiceId);
   if (!choice) return;
-  const options = getChoiceOptions(choice);
+  const options = getChoiceOptions(choice, character);
   if (!options.length) return;
   getFinishingTouches(character).choices[choiceId] = DND_DATA.randomChoice(options).value;
 }
@@ -1728,12 +2023,13 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Senses</span>${formatSenses(race)}</div>
       <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${usesRolledStartingGold(character) ? getRolledStartingGoldGp(character) : getStartingGoldGp(character)} gp${usesRolledStartingGold(character) ? `<span class="sheet-subnote">Reroll Attempts: ${getEquipmentSelections(character).startingGoldRerollCount}</span>` : ""}</div>
       ${renderClassChoicePreviewItems(character)}
+      ${renderClassFaithPreviewItem(character)}
     </div>
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
     ${renderSkillsTable(character, race, background)}
     ${renderSpellcastingPreview(character, characterClass)}
-    ${renderClassFeaturesPreview(characterClass)}
+    ${renderClassFeaturesPreview(character, characterClass)}
     ${renderKnownProficienciesPreview(character, characterClass, race, background)}
     ${renderFinishingTouchesPreview(character)}
     ${renderPreviewEquipment(character)}`;
@@ -1778,6 +2074,7 @@ function renderClassFeatureStep(step) {
     <h2>${step.title}</h2>
     ${guidancePanel(stepGuidance.classFeature)}
     ${groups.map((group) => renderClassFeatureGroup(group)).join("")}
+    ${renderClassFeatureExtraFields(appState.character)}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteClassFeatureChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
   `;
 }
@@ -1790,9 +2087,22 @@ function renderClassFeatureGroup(group) {
     <section class="equipment-choice-group">
       <div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div>
       ${group.description ? `<p class="equipment-note">${group.description}</p>` : ""}
-      <div class="option-grid">${group.options.map((option) => optionCard(option, selectedId, group.id)).join("")}</div>
+      <div class="option-grid">${group.options.map((option) => optionCard(option, selectedId, group.id, option.description || "")).join("")}</div>
       ${needsHumanoids ? renderHumanoidEnemyPickers(group) : ""}
       ${!hasCompleteClassFeatureGroup(appState.character, group) ? `<p class="finishing-validation">${classFeatureValidationMessage(group)}</p>` : ""}
+    </section>
+  `;
+}
+
+function renderClassFeatureExtraFields(character) {
+  if (character.classId !== "cleric") return "";
+  return `
+    <section class="equipment-choice-group">
+      <div class="equipment-group-header"><h3>Cleric Faith</h3><span>Optional</span></div>
+      <label class="custom-personality-label">Deity, Faith, or Philosophy
+        <input type="text" data-cleric-faith value="${escapeHtml(character.classFeatures.clericFaith || "")}" placeholder="Optional faith, deity, or philosophy" />
+      </label>
+      <p class="equipment-note">Optional. Clerics often serve a deity, faith, cosmic force, or philosophy. You can choose one, make one up, or ask your DM / Player's Handbook for examples.</p>
     </section>
   `;
 }
@@ -1826,7 +2136,7 @@ function renderWeaponSelect(groupId, dropdown, selectedValue = "") {
   return `<label class="equipment-select-label">${dropdown.label}<select data-equipment-group-id="${groupId}" data-equipment-dropdown="${dropdown.id}"><option value="">Choose ${dropdown.label.toLowerCase()}</option>${options.map((item) => `<option value="${item.id}" ${selectedValue === item.id ? "selected" : ""}>${formatEquipmentItem(item)}</option>`).join("")}</select></label>`;
 }
 
-function renderEquipmentOption(group, option, selectedChoice = {}) {
+function renderEquipmentOption(group, option, selectedChoice = {}, character = appState.character) {
   const isSelected = selectedChoice.optionId === option.id;
   const optionItems = getOptionItems(option, selectedChoice);
   const packDetails = renderPackDetails((option.items || []).map((itemId) => DND_DATA.getEquipmentItem(itemId)).filter(Boolean));
@@ -1851,7 +2161,8 @@ function renderEquipmentOption(group, option, selectedChoice = {}) {
 
 function renderEquipmentGroup(group, selections) {
   const selectedChoice = selections.choices[group.id] || {};
-  return `<section class="equipment-choice-group"><div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div><div class="equipment-options">${group.options.map((option) => renderEquipmentOption(group, option, selectedChoice)).join("")}</div></section>`;
+  const options = getVisibleEquipmentOptions(group, appState.character);
+  return `<section class="equipment-choice-group"><div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div><div class="equipment-options">${options.map((option) => renderEquipmentOption(group, option, selectedChoice, appState.character)).join("")}</div></section>`;
 }
 
 function renderEquipmentMethodSelector(character) {
@@ -2014,6 +2325,12 @@ function renderClassChoicePreviewItems(character) {
     .join("");
 }
 
+function renderClassFaithPreviewItem(character) {
+  const faith = (character.classFeatures && character.classFeatures.clericFaith ? character.classFeatures.clericFaith : "").trim();
+  if (character.classId !== "cleric" || !faith) return "";
+  return `<div class="sheet-item"><span class="sheet-label">Deity, Faith, or Philosophy</span>${escapeHtml(faith)}</div>`;
+}
+
 function summarizeStarterEquipment(character) {
   if (!hasCompleteEquipmentSelections(character)) return "Choose starting equipment.";
   const names = getClassEquipmentItems(character).map((item) => item.name);
@@ -2095,6 +2412,14 @@ function getSimpleAbilityGuidance(character) {
       primary: "Dexterity",
       secondary: "Wisdom and Constitution",
       notes: ["Monk Unarmored Defense uses Dexterity and Wisdom.", ...equipmentNotes],
+    };
+  }
+
+  if (character.classId === "cleric") {
+    return {
+      primary: "Wisdom",
+      secondary: "Constitution or Strength",
+      notes: equipmentNotes,
     };
   }
 
@@ -2245,7 +2570,9 @@ function renderFinishingChoiceCard(choice) {
     vehicles: "Choose a vehicle proficiency",
     other: "Choose a tool",
   }[choice.category] || "Choose an option";
-  const validation = selectedValue ? "" : `<p class="finishing-validation">${placeholder} before finishing.</p>`;
+  const validation = isFinishingChoiceComplete(appState.character, choice)
+    ? ""
+    : `<p class="finishing-validation">${selectedValue ? "Choose a different option before finishing." : `${placeholder} before finishing.`}</p>`;
   const note = `${choice.note ? `<p>${choice.note}</p>` : ""}${validation}`;
   return `
     <section class="finishing-card">
@@ -2451,6 +2778,7 @@ function renderSkillsStep(step) {
         </div>
       </section>
     ` : ""}
+    ${renderDomainSkillSection(race, background)}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current" ${choice.choose ? "" : "disabled"}>Randomize</button><button class="primary-button" type="button" data-action="continue" ${canFinish ? "" : "disabled"}>Continue</button></div>
   `;
 }
@@ -2500,11 +2828,52 @@ function renderSpellSelectionSection(title, helper, selectionType, spells, selec
   `;
 }
 
+function renderDomainSpellSelectionSection(character) {
+  const domainSpells = getClericDomainSpells(character);
+  if (character.classId !== "cleric") return "";
+  return `
+    <section class="spell-selection-section">
+      <div class="spell-selection-header">
+        <h3>Domain Spells</h3>
+        <span>Always prepared</span>
+      </div>
+      <p>These spells come from your Divine Domain and do not count against prepared spells.</p>
+      <div class="spell-card-list">
+        ${domainSpells.length ? domainSpells.map(renderSpellDisplayCard).join("") : "<p>Choose a Divine Domain to see domain spells.</p>"}
+      </div>
+    </section>
+  `;
+}
+
+function renderBonusCantripSelectionSection(character) {
+  const grantedCantrips = getGrantedBonusCantripIds(character).map((spellId) => DND_DATA.getSpellById(spellId)).filter(Boolean);
+  const natureChoice = getNatureBonusCantripChoice(character);
+  const selectedNatureIds = natureChoice ? getSelectedSpellIds(character, natureChoice.id) : [];
+  const natureOptions = natureChoice ? getSpellOptionsForSelection(character, natureChoice.id) : [];
+  if (!grantedCantrips.length && !natureChoice) return "";
+  return `
+    <section class="spell-selection-section">
+      <div class="spell-selection-header">
+        <h3>Bonus Cantrips</h3>
+        <span>${natureChoice ? `${selectedNatureIds.length} / ${natureChoice.choose} selected` : "Granted"}</span>
+      </div>
+      ${grantedCantrips.length ? `<p>These cantrips are granted by your Divine Domain and do not count against Cleric cantrips.</p><div class="spell-card-list">${grantedCantrips.map(renderSpellDisplayCard).join("")}</div>` : ""}
+      ${natureChoice ? `<p>Choose 1 Druid cantrip from Acolyte of Nature. It does not count against Cleric cantrips.</p><div class="spell-choice-grid">${natureOptions.map((spell) => renderSpellSelectionCard(spell, natureChoice.id, selectedNatureIds, natureChoice.choose)).join("")}</div>` : ""}
+    </section>
+  `;
+}
+
+function spellSelectionSectionHelper(character, section) {
+  if (character.classId === "cleric" && section.id === "preparedSpells") {
+    return `Prepare ${section.limit} level 1 Cleric ${section.limit === 1 ? "spell" : "spells"}. Domain spells are always prepared and do not count.`;
+  }
+  return section.helper;
+}
+
 function renderSpellSelectionStep(step) {
-  const rules = getSpellSelectionRule(appState.character);
+  const characterClass = getById(DND_DATA.classes, appState.character.classId);
+  const sections = getSpellSelectionSections(appState.character);
   const selections = getSpellcastingSelections(appState.character);
-  const cantrips = getSpellOptionsForSelection(appState.character, "cantrips");
-  const spellbookSpells = getSpellOptionsForSelection(appState.character, "spellbookSpells");
   const canContinue = hasCompleteSpellSelection(appState.character);
   const validationMessage = canContinue ? "" : spellSelectionValidationMessage(appState.character);
 
@@ -2513,8 +2882,16 @@ function renderSpellSelectionStep(step) {
     <h2>${step.title}</h2>
     ${guidancePanel(stepGuidance.spellSelection)}
     ${validationMessage ? `<p class="spell-selection-validation">${validationMessage}</p>` : ""}
-    ${renderSpellSelectionSection("Wizard Cantrips", `Choose ${rules.cantrips} cantrips.`, "cantrips", cantrips, selections.cantrips, rules.cantrips)}
-    ${renderSpellSelectionSection("Spellbook Spells", `Choose ${rules.spellbookSpells} level 1 spells for your spellbook.`, "spellbookSpells", spellbookSpells, selections.spellbookSpells, rules.spellbookSpells)}
+    ${sections.map((section) => renderSpellSelectionSection(
+      section.title,
+      spellSelectionSectionHelper(appState.character, section),
+      section.id,
+      getSpellOptionsForSelection(appState.character, section.id),
+      selections[section.id] || [],
+      section.limit,
+    )).join("")}
+    ${renderBonusCantripSelectionSection(appState.character)}
+    ${renderDomainSpellSelectionSection(appState.character)}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button></div>
   `;
 }
@@ -2628,7 +3005,8 @@ function randomizeEquipmentSelections(character) {
   selections.choices = {};
 
   definition.choices.forEach((group) => {
-    const option = DND_DATA.randomChoice(group.options);
+    const availableOptions = group.options.filter((option) => isEquipmentOptionAvailable(character, option));
+    const option = DND_DATA.randomChoice(availableOptions.length ? availableOptions : group.options);
     const selectedChoice = { optionId: option.id };
     (option.dropdowns || []).forEach((dropdown) => {
       selectedChoice[dropdown.id] = DND_DATA.randomChoice(DND_DATA.getWeaponOptions(dropdown.list)).id;
@@ -2651,6 +3029,7 @@ function randomizeCurrentStep() {
   if (step.key === "race") {
     appState.character.raceId = randomChoiceExcept(DND_DATA.races, appState.character.raceId).id;
     resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
     resetFinishingTouches(appState.character);
   }
   if (step.key === "background") {
@@ -2661,6 +3040,7 @@ function randomizeCurrentStep() {
   if (step.key === "classFeature") {
     getClassFeatureChoiceGroups(appState.character).forEach((group) => randomClassFeatureSelection(appState.character, group));
     resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
   }
   if (step.key === "equipment") randomizeEquipmentSelections(appState.character);
   if (step.key === "skills") setRandomClassSkillSelections(appState.character);
@@ -2670,6 +3050,7 @@ function randomizeCurrentStep() {
 
 function randomizeAbilityScores() {
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   const scores = [...DND_DATA.standardArray].sort(() => Math.random() - 0.5);
   DND_DATA.abilities.forEach((ability, index) => {
     appState.abilityState.standard.assignments[ability] = scores[index];
@@ -2679,6 +3060,7 @@ function randomizeAbilityScores() {
 
 function rollSixScores() {
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   appState.abilityState.rolled.results = DND_DATA.rollSixAbilityScores();
   appState.abilityState.rolled.assignments = emptyAbilityScores();
   appState.abilityState.rolled.rerollCount = 0;
@@ -2687,6 +3069,7 @@ function rollSixScores() {
 
 function rerollRolledAbilityScores() {
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   appState.abilityState.rolled.results = DND_DATA.rollSixAbilityScores();
   appState.abilityState.rolled.assignments = emptyAbilityScores();
   appState.abilityState.rolled.rerollCount += 1;
@@ -2696,12 +3079,14 @@ function rerollRolledAbilityScores() {
 function randomlyAssignRolledScores() {
   if (appState.abilityState.rolled.results.length !== 6) return;
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   appState.abilityState.rolled.assignments = DND_DATA.randomlyAssignRolls(appState.abilityState.rolled.results);
   renderWizard();
 }
 
 function adjustPointBuyScore(ability, direction) {
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   const pointBuy = appState.abilityState.pointBuy;
   const score = pointBuy.scores[ability];
   const nextScore = direction === "increase" ? score + 1 : score - 1;
@@ -2751,6 +3136,7 @@ wizardStep.addEventListener("click", (event) => {
   const equipmentMethodButton = event.target.closest("[data-equipment-method]");
   const equipmentChoiceButton = event.target.closest("[data-equipment-group]");
   const skillChoiceButton = event.target.closest("[data-skill-choice]");
+  const domainSkillChoiceButton = event.target.closest("[data-domain-skill-choice]");
   const spellChoiceButton = event.target.closest("[data-spell-selection]");
   const pickerToggleButton = event.target.closest("[data-picker-toggle]");
   const pickerOptionButton = event.target.closest("[data-picker-option]");
@@ -2870,6 +3256,24 @@ wizardStep.addEventListener("click", (event) => {
     return;
   }
 
+  if (domainSkillChoiceButton) {
+    const skillName = domainSkillChoiceButton.dataset.domainSkillChoice;
+    const choice = getDomainSkillChoice(appState.character);
+    if (!choice) return;
+    const selectedSkills = getSelectedDomainSkillNames(appState.character);
+    if (selectedSkills.includes(skillName)) {
+      delete appState.character.domainSkillProficiencies[skillName];
+    } else {
+      if (selectedSkills.length >= choice.choose) return;
+      const race = getById(DND_DATA.races, appState.character.raceId);
+      const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+      if (getUnavailableDomainSkillSources(skillName, appState.character, race, background).length) return;
+      appState.character.domainSkillProficiencies[skillName] = choice.expertise ? 2 : 1;
+    }
+    renderWizard();
+    return;
+  }
+
   if (spellChoiceButton) {
     toggleSpellSelection(appState.character, spellChoiceButton.dataset.spellSelection, spellChoiceButton.dataset.spellId);
     renderWizard();
@@ -2890,6 +3294,10 @@ wizardStep.addEventListener("click", (event) => {
     const optionId = equipmentChoiceButton.dataset.equipmentOption;
     const selections = getEquipmentSelections(appState.character);
     if (!groupId || !optionId) return;
+    const definition = getEquipmentDefinition(appState.character.classId);
+    const group = definition ? definition.choices.find((item) => item.id === groupId) : null;
+    const option = group ? group.options.find((item) => item.id === optionId) : null;
+    if (option && !isEquipmentOptionAvailable(appState.character, option)) return;
     if (selections.choices[groupId] && selections.choices[groupId].optionId === optionId) return;
     selections.choices[groupId] = { optionId };
     renderWizard();
@@ -2910,6 +3318,7 @@ wizardStep.addEventListener("click", (event) => {
     if (optionType === "race") {
       appState.character.raceId = appState.character.raceId === optionId ? "" : optionId;
       resetSkillSelections(appState.character);
+      resetSpellSelections(appState.character);
       resetFinishingTouches(appState.character);
     }
     if (optionType === "background") {
@@ -2930,6 +3339,7 @@ wizardStep.addEventListener("click", (event) => {
         });
       }
       resetSkillSelections(appState.character);
+      resetSpellSelections(appState.character);
     }
     renderWizard();
     return;
@@ -2937,6 +3347,7 @@ wizardStep.addEventListener("click", (event) => {
 
   if (methodButton) {
     resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
     appState.abilityMethod = methodButton.dataset.scoreMethod;
     renderWizard();
     return;
@@ -2986,6 +3397,7 @@ wizardStep.addEventListener("change", (event) => {
     const fieldId = event.target.dataset.classFeatureExtra;
     appState.character.classFeatures[fieldId] = event.target.value;
     resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
     renderWizard();
     return;
   }
@@ -3005,10 +3417,18 @@ wizardStep.addEventListener("change", (event) => {
   if (method === ABILITY_METHODS.standard) appState.abilityState.standard.assignments[ability] = event.target.value ? Number(event.target.value) : "";
   if (method === ABILITY_METHODS.rolled) appState.abilityState.rolled.assignments[ability] = event.target.value;
   resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
   renderWizard();
 });
 
 wizardStep.addEventListener("input", (event) => {
+  if (event.target.matches("[data-cleric-faith]")) {
+    appState.character.classFeatures.clericFaith = event.target.value;
+    saveProgress();
+    renderPreview(livePreview, appState.character);
+    return;
+  }
+
   if (event.target.matches("[data-character-name]")) {
     appState.character.name = event.target.value;
     appState.confirmBlankName = false;

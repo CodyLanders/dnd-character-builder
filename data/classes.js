@@ -90,6 +90,28 @@ DND_DATA.classes = [
     features: ["Unarmored Defense", "Martial Arts"],
   },
   {
+    id: "cleric",
+    name: "Cleric",
+    cardDescription: "Divine spellcaster and healer",
+    detail:
+      "A Cleric draws divine magic from a deity, faith, cosmic force, or philosophy. At level 1, you cast spells with Wisdom and choose a Divine Domain that shapes the kind of sacred power you serve.",
+    proficiencyDetails: {
+      Armor: "Light armor, medium armor, shields",
+      Weapons: "Simple weapons",
+      Tools: "None",
+      "Saving Throws": "Wisdom, Charisma",
+    },
+    hitDie: 8,
+    savingThrowProficiencies: ["Wisdom", "Charisma"],
+    skillChoices: {
+      choose: 2,
+      options: ["History", "Insight", "Medicine", "Persuasion", "Religion"],
+    },
+    primaryAbilities: ["Wisdom", "Constitution", "Strength", "Dexterity", "Charisma", "Intelligence"],
+    proficiencies: ["Light armor", "Medium armor", "Shields", "Simple weapons"],
+    features: ["Spellcasting", "Divine Domain"],
+  },
+  {
     id: "paladin",
     name: "Paladin",
     cardDescription: "Armored holy warrior",
@@ -291,6 +313,79 @@ DND_DATA.classFeatureChoices = {
           { id: "underdark", name: "Underdark" },
         ],
       },
+    ],
+  },
+  cleric: {
+    groups: [
+      {
+        id: "divineDomain",
+        title: "Divine Domain",
+        previewLabel: "Divine Domain",
+        description: "Choose the divine focus that shapes your cleric's level 1 features and future magic.",
+        options: [
+          { id: "knowledge", name: "Knowledge", description: "You serve a divine source of learning, truth, and understanding." },
+          { id: "life", name: "Life", description: "You focus on healing, protection, and preserving life." },
+          { id: "light", name: "Light", description: "You draw on divine light, fire, truth, and warding power." },
+          { id: "nature", name: "Nature", description: "You serve a divine force tied to animals, plants, and the natural world." },
+          { id: "tempest", name: "Tempest", description: "You channel divine power through storms, thunder, lightning, and battle." },
+          { id: "trickery", name: "Trickery", description: "You follow a divine force of deception, misdirection, and cleverness." },
+          { id: "war", name: "War", description: "You serve a divine force of battle, courage, weapons, and victory." },
+        ],
+      },
+    ],
+  },
+};
+
+DND_DATA.clericDomainMechanics = {
+  knowledge: {
+    proficiencies: [],
+    skillChoices: { choose: 2, options: ["Arcana", "History", "Nature", "Religion"], expertise: true, label: "Knowledge Domain Bonus Skills" },
+    languageChoices: { choose: 2, label: "Knowledge Domain Bonus Language" },
+    features: [
+      { name: "Blessings of Knowledge", description: "You learn two languages and gain proficiency in two knowledge skills. Your proficiency bonus is doubled for checks using those selected skills." },
+    ],
+  },
+  life: {
+    proficiencies: ["Heavy Armor"],
+    features: [
+      { name: "Disciple of Life", description: "Your healing spells restore extra hit points equal to 2 + the spell's level." },
+    ],
+  },
+  light: {
+    proficiencies: [],
+    bonusCantrips: ["light"],
+    features: [
+      { name: "Bonus Cantrip", description: "You know the Light cantrip automatically. It does not count against your Cleric cantrips." },
+      { name: "Warding Flare", description: "When a creature you can see attacks you, you can use your reaction to impose disadvantage a limited number of times per day." },
+    ],
+  },
+  nature: {
+    proficiencies: ["Heavy Armor"],
+    skillChoices: { choose: 1, options: ["Animal Handling", "Nature", "Survival"], label: "Nature Domain Bonus Skill" },
+    bonusCantripChoice: { id: "natureBonusCantrip", choose: 1, classId: "druid", level: 0, label: "Nature Domain Bonus Cantrip" },
+    features: [
+      { name: "Acolyte of Nature", description: "You learn one Druid cantrip and gain one nature-related skill proficiency." },
+      { name: "Bonus Proficiency", description: "You gain Heavy Armor proficiency." },
+    ],
+  },
+  tempest: {
+    proficiencies: ["Martial Weapons", "Heavy Armor"],
+    features: [
+      { name: "Bonus Proficiencies", description: "You gain Martial Weapons and Heavy Armor proficiency." },
+      { name: "Wrath of the Storm", description: "When a nearby creature hits you, you can use your reaction to deal thunder or lightning damage a limited number of times per day." },
+    ],
+  },
+  trickery: {
+    proficiencies: [],
+    features: [
+      { name: "Blessing of the Trickster", description: "You can give one creature advantage on Dexterity (Stealth) checks for 1 hour." },
+    ],
+  },
+  war: {
+    proficiencies: ["Martial Weapons", "Heavy Armor"],
+    features: [
+      { name: "Bonus Proficiencies", description: "You gain Martial Weapons and Heavy Armor proficiency." },
+      { name: "War Priest", description: "When you take the Attack action, you can make one weapon attack as a bonus action a limited number of times per day." },
     ],
   },
 };

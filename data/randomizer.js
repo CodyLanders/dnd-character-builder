@@ -42,24 +42,21 @@ DND_DATA.randomlyAssignRolls = function randomlyAssignRolls(rolls) {
 DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
   const characterClass = DND_DATA.randomChoice(DND_DATA.classes);
   const classFeatures = { fightingStyle: "" };
+  const classFeatureChoice = DND_DATA.classFeatureChoices[characterClass.id];
+  const featureGroups = classFeatureChoice
+    ? (Array.isArray(classFeatureChoice.groups) ? classFeatureChoice.groups : [classFeatureChoice])
+    : [];
 
-  if (characterClass.id === "fighter") {
-    classFeatures.fightingStyle = DND_DATA.randomChoice(DND_DATA.classFeatureChoices.fighter.options).id;
-  }
-
-  if (characterClass.id === "ranger") {
-    const featureGroups = DND_DATA.classFeatureChoices.ranger.groups;
-    featureGroups.forEach((group) => {
-      const option = DND_DATA.randomChoice(group.options);
-      classFeatures[group.id] = option.id;
-      if (group.humanoidChoices && option.id === "humanoids") {
-        const humanoids = DND_DATA.shuffle(group.humanoidChoices.options).slice(0, group.humanoidChoices.fields.length);
-        group.humanoidChoices.fields.forEach((field, index) => {
-          classFeatures[field.id] = humanoids[index];
-        });
-      }
-    });
-  }
+  featureGroups.forEach((group) => {
+    const option = DND_DATA.randomChoice(group.options);
+    classFeatures[group.id] = option.id;
+    if (group.humanoidChoices && option.id === "humanoids") {
+      const humanoids = DND_DATA.shuffle(group.humanoidChoices.options).slice(0, group.humanoidChoices.fields.length);
+      group.humanoidChoices.fields.forEach((field, index) => {
+        classFeatures[field.id] = humanoids[index];
+      });
+    }
+  });
 
   return {
     characterClass,
@@ -83,7 +80,47 @@ DND_DATA.randomClassSkillProficiencies = function randomClassSkillProficiencies(
   }, {});
 };
 
-function randomEquipmentSelections(classId, equipmentMethod) {
+DND_DATA.randomDomainSkillProficiencies = function randomDomainSkillProficiencies(characterClass, race, background, classSkillProficiencies, classFeatures) {
+  const domain = characterClass.id === "cleric" && DND_DATA.clericDomainMechanics
+    ? DND_DATA.clericDomainMechanics[classFeatures.divineDomain]
+    : null;
+  const choice = domain ? domain.skillChoices : null;
+  if (!choice) return {};
+  const unavailableSkills = new Set([
+    ...((race && race.skills) || []),
+    ...Object.keys((race && race.skillProficiencies) || {}),
+    ...((background && background.skills) || []),
+    ...Object.keys(classSkillProficiencies || {}),
+  ]);
+  const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !unavailableSkills.has(skillName)));
+  return availableSkills.slice(0, choice.choose).reduce((proficiencies, skillName) => {
+    proficiencies[skillName] = choice.expertise ? 2 : 1;
+    return proficiencies;
+  }, {});
+};
+
+DND_DATA.randomFinishingTouchesForCharacter = function randomFinishingTouchesForCharacter(characterClass, race, background, classFeatures) {
+  const finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
+  const domain = characterClass.id === "cleric" && DND_DATA.clericDomainMechanics
+    ? DND_DATA.clericDomainMechanics[classFeatures.divineDomain]
+    : null;
+  if (domain && domain.languageChoices) {
+    const blockedLanguages = new Set([
+      ...((race && race.languages) || []),
+      ...((background && background.languages) || []),
+    ].map((language) => language.toLowerCase()));
+    const languageOptions = DND_DATA.shuffle([
+      ...DND_DATA.languages.standard,
+      ...DND_DATA.languages.exotic,
+    ].filter((language) => !blockedLanguages.has(language.toLowerCase())));
+    languageOptions.slice(0, domain.languageChoices.choose).forEach((language, index) => {
+      finishingTouches.choices[`knowledge-language-${index + 1}`] = language;
+    });
+  }
+  return finishingTouches;
+};
+
+function randomEquipmentSelections(classId, equipmentMethod, context = {}) {
   if (equipmentMethod === "rolled-starting-gold") {
     return {
       classId,
@@ -93,13 +130,17 @@ function randomEquipmentSelections(classId, equipmentMethod) {
       startingGoldRerollCount: 0,
     };
   }
-  return DND_DATA.createRandomEquipmentSelections(classId);
+  return DND_DATA.createRandomEquipmentSelections(classId, context);
 }
 
 DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter(options = {}) {
   const choices = DND_DATA.createRandomStarterChoices();
   const baseAbilities = DND_DATA.assignStandardArray(choices.characterClass.id);
+  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id);
   const equipmentMethod = options.equipmentMethod || "take-equipment";
+  const classSkillProficiencies = DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background);
+  const domainSkillProficiencies = DND_DATA.randomDomainSkillProficiencies(choices.characterClass, choices.race, choices.background, classSkillProficiencies, choices.classFeatures);
+  const finishingTouches = DND_DATA.randomFinishingTouchesForCharacter(choices.characterClass, choices.race, choices.background, choices.classFeatures);
 
   return DND_DATA.createCharacter({
     name: "Random Starter",
@@ -108,10 +149,12 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     raceId: choices.race.id,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
-    classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
+    classSkillProficiencies,
+    domainSkillProficiencies,
     baseAbilities,
-    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod),
-    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
+    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod, { domainId: choices.classFeatures.divineDomain }),
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain }),
+    finishingTouches,
   });
 };
 
@@ -125,6 +168,10 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     scores[ability] = roll.total;
     return scores;
   }, {});
+  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id);
+  const classSkillProficiencies = DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background);
+  const domainSkillProficiencies = DND_DATA.randomDomainSkillProficiencies(choices.characterClass, choices.race, choices.background, classSkillProficiencies, choices.classFeatures);
+  const finishingTouches = DND_DATA.randomFinishingTouchesForCharacter(choices.characterClass, choices.race, choices.background, choices.classFeatures);
 
   return DND_DATA.createCharacter({
     name: "Random Starter",
@@ -133,10 +180,12 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     raceId: choices.race.id,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
-    classSkillProficiencies: DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.race, choices.background),
+    classSkillProficiencies,
+    domainSkillProficiencies,
     baseAbilities,
-    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod),
-    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id),
+    equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod, { domainId: choices.classFeatures.divineDomain }),
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain }),
+    finishingTouches,
     rolledScores,
     rolledAssignments,
   });
