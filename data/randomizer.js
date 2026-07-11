@@ -56,6 +56,9 @@ DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
         classFeatures[field.id] = humanoids[index];
       });
     }
+    if (group.dragonAncestorChoices && option.id === "draconic-bloodline") {
+      classFeatures[group.dragonAncestorChoices.field.id] = DND_DATA.randomChoice(group.dragonAncestorChoices.options).id;
+    }
   });
 
   return {
@@ -101,6 +104,11 @@ DND_DATA.randomDomainSkillProficiencies = function randomDomainSkillProficiencie
 
 DND_DATA.randomFinishingTouchesForCharacter = function randomFinishingTouchesForCharacter(characterClass, race, background, classFeatures) {
   const finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
+  if (characterClass.id === "bard") {
+    DND_DATA.shuffle(DND_DATA.toolOptions.musical).slice(0, 3).forEach((instrument, index) => {
+      finishingTouches.choices[`bard-instrument-${index + 1}`] = instrument;
+    });
+  }
   const domain = characterClass.id === "cleric" && DND_DATA.clericDomainMechanics
     ? DND_DATA.clericDomainMechanics[classFeatures.divineDomain]
     : null;

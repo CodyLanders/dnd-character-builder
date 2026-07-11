@@ -40,8 +40,23 @@ DND_DATA.equipmentItems = {
   shortswords2: { id: "shortswords2", name: "Two shortswords", type: "weapon", category: "martial weapon", detail: "Two shortswords - each 1d6 piercing, finesse, light" },
   componentPouch: { id: "componentPouch", name: "Component pouch", type: "other", detail: "Component pouch - material components used to cast spells" },
   arcaneFocus: { id: "arcaneFocus", name: "Arcane focus", type: "other", detail: "Arcane focus - an item used by arcane spellcasters as a spellcasting focus" },
+  crystalFocus: { id: "crystalFocus", name: "Crystal", type: "other", detail: "Crystal - Arcane Focus, used to cast arcane spells that require material components" },
+  orbFocus: { id: "orbFocus", name: "Orb", type: "other", detail: "Orb - Arcane Focus, used to cast arcane spells that require material components" },
+  rodFocus: { id: "rodFocus", name: "Rod", type: "other", detail: "Rod - Arcane Focus, used to cast arcane spells that require material components" },
+  staffFocus: { id: "staffFocus", name: "Staff", type: "other", detail: "Staff - Arcane Focus, used to cast arcane spells that require material components" },
+  wandFocus: { id: "wandFocus", name: "Wand", type: "other", detail: "Wand - Arcane Focus, used to cast arcane spells that require material components" },
   spellbook: { id: "spellbook", name: "Spellbook", type: "other", detail: "Spellbook - the book where a wizard records spells" },
   holySymbol: { id: "holySymbol", name: "Holy symbol", type: "other", detail: "Holy symbol - a sacred emblem used by divine characters" },
+  bagpipes: { id: "bagpipes", name: "Bagpipes", type: "tool", detail: "Bagpipes - musical instrument" },
+  drum: { id: "drum", name: "Drum", type: "tool", detail: "Drum - musical instrument" },
+  dulcimer: { id: "dulcimer", name: "Dulcimer", type: "tool", detail: "Dulcimer - musical instrument" },
+  flute: { id: "flute", name: "Flute", type: "tool", detail: "Flute - musical instrument" },
+  lute: { id: "lute", name: "Lute", type: "tool", detail: "Lute - musical instrument" },
+  lyre: { id: "lyre", name: "Lyre", type: "tool", detail: "Lyre - musical instrument" },
+  horn: { id: "horn", name: "Horn", type: "tool", detail: "Horn - musical instrument" },
+  panFlute: { id: "panFlute", name: "Pan flute", type: "tool", detail: "Pan flute - musical instrument" },
+  shawm: { id: "shawm", name: "Shawm", type: "tool", detail: "Shawm - musical instrument" },
+  viol: { id: "viol", name: "Viol", type: "tool", detail: "Viol - musical instrument" },
   sprigMistletoe: { id: "sprigMistletoe", name: "Sprig of mistletoe", type: "other", detail: "Sprig of mistletoe - Druidic Focus, used to cast Druid spells that require material components" },
   totem: { id: "totem", name: "Totem", type: "other", detail: "Totem - Druidic Focus, used to cast Druid spells that require material components" },
   woodenStaffFocus: { id: "woodenStaffFocus", name: "Wooden staff", type: "other", detail: "Wooden staff - Druidic Focus, used to cast Druid spells that require material components" },
@@ -87,6 +102,18 @@ DND_DATA.equipmentItems = {
     name: "Priest's Pack",
     type: "pack",
     contents: ["backpack", "blanket", "10 candles", "tinderbox", "alms box", "2 blocks of incense", "censer", "vestments", "2 days of rations", "waterskin"],
+  },
+  diplomatsPack: {
+    id: "diplomatsPack",
+    name: "Diplomat's Pack",
+    type: "pack",
+    contents: ["chest", "2 cases for maps and scrolls", "fine clothes", "bottle of ink", "ink pen", "lamp", "2 flasks of oil", "5 sheets of paper", "vial of perfume", "sealing wax", "soap"],
+  },
+  entertainersPack: {
+    id: "entertainersPack",
+    name: "Entertainer's Pack",
+    type: "pack",
+    contents: ["backpack", "bedroll", "2 costumes", "5 candles", "5 days of rations", "waterskin", "disguise kit"],
   },
 };
 
@@ -153,6 +180,27 @@ DND_DATA.martialWeaponIds = [
   "shortsword",
   "warhammer",
   "longbow",
+];
+
+DND_DATA.musicalInstrumentItemIds = [
+  "bagpipes",
+  "drum",
+  "dulcimer",
+  "flute",
+  "lute",
+  "lyre",
+  "horn",
+  "panFlute",
+  "shawm",
+  "viol",
+];
+
+DND_DATA.arcaneFocusItemIds = [
+  "crystalFocus",
+  "orbFocus",
+  "rodFocus",
+  "staffFocus",
+  "wandFocus",
 ];
 
 DND_DATA.startingEquipment = {
@@ -302,6 +350,64 @@ DND_DATA.startingEquipment = {
       },
     ],
     fixed: ["shield", "holySymbol"],
+  },
+  bard: {
+    choices: [
+      {
+        id: "weapon",
+        title: "Weapon",
+        options: [
+          { id: "rapier", name: "Rapier", items: ["rapier"], details: ["Rapier - 1d8 piercing, finesse"] },
+          { id: "longsword", name: "Longsword", items: ["longsword"], details: ["Longsword - 1d8 slashing, versatile 1d10"] },
+          { id: "simple-weapon", name: "Any simple weapon", dropdowns: [{ id: "simpleWeapon", label: "Simple weapon", list: "simple" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "diplomats-pack", name: "Diplomat's Pack", items: ["diplomatsPack"] },
+          { id: "entertainers-pack", name: "Entertainer's Pack", items: ["entertainersPack"] },
+        ],
+      },
+      {
+        id: "instrument",
+        title: "Musical instrument",
+        options: [
+          { id: "musical-instrument", name: "Choose one musical instrument", helper: "This is the instrument your Bard owns. It can match one of your instrument proficiencies.", dropdowns: [{ id: "musicalInstrument", label: "Musical instrument", list: "musicalInstrument" }] },
+        ],
+      },
+    ],
+    fixed: ["leatherArmor", "dagger"],
+  },
+  sorcerer: {
+    choices: [
+      {
+        id: "weapon",
+        title: "Weapon",
+        options: [
+          { id: "crossbow", name: "Light crossbow and 20 bolts", items: ["lightCrossbow", "bolts20"], details: ["Light crossbow - 1d8 piercing, ranged, two-handed", "20 bolts"] },
+          { id: "simple-weapon", name: "Any simple weapon", dropdowns: [{ id: "simpleWeapon", label: "Simple weapon", list: "simple" }] },
+        ],
+      },
+      {
+        id: "spellcastingFocus",
+        title: "Spellcasting focus",
+        options: [
+          { id: "component-pouch", name: "Component pouch", items: ["componentPouch"], details: ["Component pouch - material components used to cast spells"] },
+          { id: "arcane-focus", name: "Arcane focus", helper: "Choose what your Sorcerer uses as a spellcasting focus.", dropdowns: [{ id: "arcaneFocusType", label: "Arcane focus", list: "arcaneFocus" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "dungeoneers-pack", name: "Dungeoneer's Pack", items: ["dungeoneersPack"] },
+          { id: "explorers-pack", name: "Explorer's Pack", items: ["explorersPack"] },
+        ],
+      },
+    ],
+    fixed: ["daggers2"],
   },
   druid: {
     choices: [
@@ -463,6 +569,12 @@ DND_DATA.getWeaponOptions = function getWeaponOptions(list) {
   }
   if (list === "druidSimpleMelee") {
     return DND_DATA.druidSimpleMeleeWeaponIds.map((id) => DND_DATA.getEquipmentItem(id));
+  }
+  if (list === "musicalInstrument") {
+    return DND_DATA.musicalInstrumentItemIds.map((id) => DND_DATA.getEquipmentItem(id));
+  }
+  if (list === "arcaneFocus") {
+    return DND_DATA.arcaneFocusItemIds.map((id) => DND_DATA.getEquipmentItem(id));
   }
   if (list === "martialMelee") {
     return DND_DATA.martialWeaponIds.map((id) => DND_DATA.getEquipmentItem(id)).filter((item) => item && item.melee);

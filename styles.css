@@ -1189,6 +1189,68 @@ textarea {
   cursor: not-allowed;
 }
 
+.wizard-prepare-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--button);
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.wizard-prepare-guidance p {
+  margin: 0;
+}
+
+.wizard-prepare-guidance strong {
+  color: var(--text);
+}
+
+.wizard-prepare-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f9fa;
+}
+
+.wizard-prepare-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 1px solid var(--button);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: var(--button);
+  background: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.wizard-prepare-button.prepared {
+  color: #ffffff;
+  background: var(--button);
+}
+
+.wizard-prepare-button:disabled {
+  border-color: var(--line);
+  color: var(--muted);
+  background: #f0f2f3;
+  cursor: not-allowed;
+}
+
+.wizard-prepare-row span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .spell-card-main,
 .spell-card-heading,
 .spell-card-details {
@@ -1429,6 +1491,11 @@ textarea {
 
   .spell-card-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wizard-prepare-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   #buildView.finishing-step-active {

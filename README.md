@@ -19,6 +19,26 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 
 ## Project Evolution
 
+### v0.5.2 — Bard Spellcasting, Wizard Preparation, and Sorcerer Start — July 10, 2026
+- Added Bard as a selectable level 1 class.
+- Added Bard skill selection with support for choosing any 3 skills.
+- Added Bard musical instrument proficiencies through Finishing Touches.
+- Added a separate Bard owned instrument choice in Starting Equipment.
+- Added Bardic Inspiration as a level 1 class feature.
+- Added Bard spellcasting as a known-spells caster.
+- Added Bard cantrip selection and level 1 known spell selection.
+- Confirmed Bard chooses 2 cantrips and 4 level 1 known spells.
+- Confirmed Bard does not use prepared-spell wording.
+- Confirmed Bard College and later Bard features do not appear at level 1.
+- Clarified spellcasting behavior across known-spell and prepared-spell classes.
+- Added Wizard prepared spell selection from selected spellbook spells.
+- Added inline Prepare/Prepared toggles on selected Wizard spellbook spell cards.
+- Improved Wizard prepared spell guidance and prepared-spell progress text.
+- Clarified final sheet spell sections for prepared spells, known spells, cantrips, and unprepared spellbook spells.
+- Started Sorcerer implementation as the next known-spells class.
+- Added initial Sorcerer support for Sorcerous Origin, Draconic Bloodline, Wild Magic, known spells, cantrips, starting equipment, and randomize behavior.
+- Left Sorcerer for follow-up validation and refinement.
+
 ### v0.5.1 — Druid Spellcasting and Ability Score Dropdown Cleanup — July 10, 2026
 - Added Druid as a selectable level 1 class.
 - Added Druid skills, proficiencies, class features, starting equipment, and starting gold support.
