@@ -1,29 +1,45 @@
 # D&D Character Builder
 
-An interactive web-based Dungeons & Dragons character builder that guides users through core character-creation choices and displays the resulting character details.
+A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creating level 1 characters through a guided step-by-step workflow.
 
 ## Features
-* Guided level 1 character creation workflow
-* Race, class, background, class-feature, ability-score, skill, equipment, spell, and finishing-touch selections
-* Support for multiple ability-score methods, including Standard Array, rolled scores, and Point Buy
-* Reroll support for rolled ability scores with visible reroll tracking
-* Class skill selection with duplicate-proficiency prevention
-* Starting equipment choices and advanced rolled starting gold option
-* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, and starting gold
+
+* Guided level 1 character creation for class, race, background, ability scores, skills, equipment, spells, and finishing touches
+* Support for all 2014 PHB classes at level 1, including martial classes, prepared casters, known-spell casters, and Pact Magic
+* Race and subrace selection with required-choice handling, racial traits, racial spells, languages, senses, and randomization support
+* Multiple ability-score methods, including Standard Array, rolled scores, Point Buy, rerolls, and random assignment support
+* Skills & Proficiencies step with class skill choices, duplicate-proficiency prevention, and final skill bonus calculations
+* Starting equipment choices, advanced rolled starting gold, equipment warnings, and optional trinkets
+* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, traits, and starting gold
 * Armor & Defense explanation showing how Armor Class is calculated
-* Attack Summary with weapon attack bonuses, damage bonuses, ability used, range, and relevant fighting-style bonuses
-* Spellcasting support for supported level 1 spellcasting classes, including cantrips, known spells, prepared spells, spell slots, spell save DC, and spell attack bonus
-* Finishing Touches step with character name, alignment, language/tool choices, optional roleplay fields, and optional trinkets
+* Attack Summary with weapon attack bonuses, damage bonuses, ability used, range, properties, and relevant class bonuses
+* Spellcasting support with cantrips, known spells, prepared spells, spellbook spells, domain spells, patron spells, racial spells, spell slots, spell save DC, and spell attack bonus
+* Organized preview sections for Attacks & Actions, Spells, Traits & Features, Proficiencies & Training, and Equipment Carried
+* Expandable details for spells, traits, features, tools, kits, instruments, vehicles, equipment packs, and carried gear
+* Finishing Touches step with character name, alignment, required language/tool choices, optional roleplay fields, and optional trinkets
 * Random character generation with support for class, race, background, ability scores, skills, equipment, spells, and finishing-touch choices
 * Autosave, browser save/load, refresh protection, and Restart flow
 * Responsive mobile-friendly browser interface
 
 ## Built With
+
 - HTML
 - CSS
 - JavaScript
 
 ## Project Evolution
+
+### v0.7.0 — Race Polish, Preview Cleanup, and Expandable Details — July 11, 2026
+- Improved race selection with cleaner required-choice handling, mobile-friendly scrolling, and dedicated randomize controls for races, subraces, and Dragonborn ancestry.
+- Cleaned up race-change behavior so incompatible traits, spells, proficiencies, resistances, and ancestry choices reset correctly.
+- Improved racial spell handling by combining racial and class cantrips under one Cantrips section, adding Racial Spell tags, and preserving each spell’s correct source and casting ability.
+- Reorganized the Character Preview so compact stats, skills, proficiencies, languages, attacks, spells, traits, features, and equipment are easier to scan.
+- Separated tool proficiency from physical tool ownership, with clearer section-level guidance and expandable details for tools, kits, instruments, gaming sets, and vehicles.
+- Added an Equipment Carried section for physical items, including expandable pack contents and clearer distinction between owned gear and trained proficiencies.
+- Refined traits and features so passive traits use compact expandable rows while attacks, spells, Breath Weapon, and active-use features remain full cards.
+- Fixed expandable feature behavior, including Warding Flare loading collapsed and View/Hide details working without changing character state or causing unexpected scrolling.
+- Kept spellcasting summaries inside the Spells section while preserving spellcasting ability, save DC, attack bonus, slots, cantrip counts, prepared spell counts, and class-specific spell notes.
+- Preserved existing race, class, spell, proficiency, attack, armor, equipment, autosave, randomization, and final-sheet behavior while improving mobile and keyboard usability.
 
 ### v0.6.0 — Sorcerer Validation and Warlock Pact Magic — July 10, 2026
 - Validated Sorcerer as a complete level 1 class, including Draconic Bloodline, Wild Magic, Charisma-based spellcasting, and known-spell selection.

@@ -2,7 +2,11 @@
 
 DND_DATA.createCharacter = function createCharacter(overrides = {}) {
   const classId = overrides.classId || "fighter";
-  const raceId = overrides.raceId || "human";
+  const resolvedRace = DND_DATA.resolveRaceSelection
+    ? DND_DATA.resolveRaceSelection(overrides.raceId || "human", overrides.subraceId || "")
+    : { raceId: overrides.raceId || "human", subraceId: overrides.subraceId || "" };
+  const raceId = resolvedRace.raceId;
+  const subraceId = resolvedRace.subraceId;
   const backgroundId = overrides.backgroundId || "soldier";
   const baseAbilities = overrides.baseAbilities || {
     Strength: 15,
@@ -20,6 +24,8 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     abilityScoreMethod: overrides.abilityScoreMethod || "standard-array",
     classId,
     raceId,
+    subraceId,
+    raceChoices: overrides.raceChoices || { dragonbornAncestry: "" },
     backgroundId,
     classFeatures: overrides.classFeatures || {
       fightingStyle: "",
@@ -31,7 +37,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     savingThrowProficiencies: overrides.savingThrowProficiencies || {},
     savingThrowExpertise: overrides.savingThrowExpertise || {},
     baseAbilities,
-    abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId),
+    abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId, subraceId),
     equipmentSelections: overrides.equipmentSelections || DND_DATA.createRandomEquipmentSelections(classId),
     equipment: [],
     spellcasting: {
@@ -39,6 +45,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
       spellbookSpells: (overrides.spellcasting && overrides.spellcasting.spellbookSpells) || [],
       preparedSpells: (overrides.spellcasting && overrides.spellcasting.preparedSpells) || [],
       natureBonusCantrip: (overrides.spellcasting && overrides.spellcasting.natureBonusCantrip) || [],
+      racialCantrip: (overrides.spellcasting && overrides.spellcasting.racialCantrip) || [],
     },
     abilityScoreRerollCount: overrides.abilityScoreRerollCount || 0,
     finishingTouches: overrides.finishingTouches || { choices: {}, alignment: {}, personality: {}, trinket: {} },
@@ -48,8 +55,10 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
   };
 };
 
-DND_DATA.applyRaceIncreases = function applyRaceIncreases(baseAbilities, raceId) {
-  const race = DND_DATA.races.find((item) => item.id === raceId);
+DND_DATA.applyRaceIncreases = function applyRaceIncreases(baseAbilities, raceId, subraceId = "") {
+  const race = DND_DATA.getEffectiveRace
+    ? DND_DATA.getEffectiveRace(raceId, subraceId)
+    : DND_DATA.races.find((item) => item.id === raceId);
   const increases = race ? race.abilityIncreases : {};
 
   return DND_DATA.abilities.reduce((scores, ability) => {

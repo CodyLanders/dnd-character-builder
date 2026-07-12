@@ -39,6 +39,7 @@ const EQUIPMENT_METHODS = {
   gold: "rolled-starting-gold",
 };
 
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 760px)";
 const AUTOSAVE_KEY = "dnd-character-builder-save";
 
 const views = {
@@ -76,6 +77,8 @@ function createBlankCharacter() {
     abilityScoreMethod: ABILITY_METHODS.standard,
     classId: "",
     raceId: "",
+    subraceId: "",
+    raceChoices: { dragonbornAncestry: "" },
     backgroundId: "",
     classFeatures: { fightingStyle: "" },
     skillProficiencies: {},
@@ -88,7 +91,7 @@ function createBlankCharacter() {
     abilities: emptyAbilityScores(),
     equipmentSelections: { classId: "", method: EQUIPMENT_METHODS.take, choices: {}, rolledGold: null, startingGoldRerollCount: 0 },
     equipment: [],
-    spellcasting: { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] },
+    spellcasting: { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [], racialCantrip: [] },
     abilityScoreRerollCount: 0,
     finishingTouches: { choices: {}, alignment: {}, personality: {}, trinket: {} },
     notes: "Stage 1 wizard character",
@@ -150,9 +153,15 @@ function normalizeCharacter(savedCharacter = {}) {
   const blank = createBlankCharacter();
   const savedEquipment = savedCharacter.equipmentSelections || {};
   const equipmentMethod = Object.values(EQUIPMENT_METHODS).includes(savedEquipment.method) ? savedEquipment.method : EQUIPMENT_METHODS.take;
+  const resolvedRace = DND_DATA.resolveRaceSelection
+    ? DND_DATA.resolveRaceSelection(savedCharacter.raceId || "", savedCharacter.subraceId || "")
+    : { raceId: savedCharacter.raceId || "", subraceId: savedCharacter.subraceId || "" };
   return {
     ...blank,
     ...savedCharacter,
+    raceId: resolvedRace.raceId,
+    subraceId: resolvedRace.subraceId,
+    raceChoices: { ...blank.raceChoices, ...(savedCharacter.raceChoices || {}) },
     classFeatures: { ...blank.classFeatures, ...(savedCharacter.classFeatures || {}) },
     skillProficiencies: { ...blank.skillProficiencies, ...(savedCharacter.skillProficiencies || {}) },
     classSkillProficiencies: { ...blank.classSkillProficiencies, ...(savedCharacter.classSkillProficiencies || {}) },
@@ -175,6 +184,7 @@ function normalizeCharacter(savedCharacter = {}) {
       spellbookSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.spellbookSpells) ? savedCharacter.spellcasting.spellbookSpells : [],
       preparedSpells: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.preparedSpells) ? savedCharacter.spellcasting.preparedSpells : [],
       natureBonusCantrip: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.natureBonusCantrip) ? savedCharacter.spellcasting.natureBonusCantrip : [],
+      racialCantrip: Array.isArray(savedCharacter.spellcasting && savedCharacter.spellcasting.racialCantrip) ? savedCharacter.spellcasting.racialCantrip : [],
     },
     abilityScoreRerollCount: Number.isInteger(savedCharacter.abilityScoreRerollCount) ? savedCharacter.abilityScoreRerollCount : 0,
     finishingTouches: {
@@ -228,11 +238,13 @@ function hasMeaningfulProgress() {
   const personalityChoices = Object.values(finishingTouches.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped));
   const trinketChoice = finishingTouches.trinket && finishingTouches.trinket.id;
   const spellcasting = character.spellcasting || {};
-  const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || []), ...(spellcasting.preparedSpells || []), ...(spellcasting.natureBonusCantrip || [])].some(Boolean);
+  const spellChoices = [...(spellcasting.cantrips || []), ...(spellcasting.spellbookSpells || []), ...(spellcasting.preparedSpells || []), ...(spellcasting.natureBonusCantrip || []), ...(spellcasting.racialCantrip || [])].some(Boolean);
 
   return Boolean(
     character.classId
     || character.raceId
+    || character.subraceId
+    || Object.values(character.raceChoices || {}).some(Boolean)
     || character.backgroundId
     || classFeatureChoices
     || equipmentChoices
@@ -307,6 +319,47 @@ function getById(collection, id) {
   return collection.find((item) => item.id === id);
 }
 
+function getSelectedBaseRace(character) {
+  return getById(DND_DATA.races, character.raceId);
+}
+
+function getSelectedRace(character) {
+  return DND_DATA.getEffectiveRace
+    ? DND_DATA.getEffectiveRace(character.raceId, character.subraceId)
+    : getById(DND_DATA.races, character.raceId);
+}
+
+function getSubracesForSelectedRace(character) {
+  return DND_DATA.getSubracesForRace ? DND_DATA.getSubracesForRace(character.raceId) : [];
+}
+
+function raceRequiresSubrace(character) {
+  return getSubracesForSelectedRace(character).length > 0;
+}
+
+function getSelectedDragonbornAncestry(character) {
+  if (character.raceId !== "dragonborn") return null;
+  return DND_DATA.getDragonbornAncestryById ? DND_DATA.getDragonbornAncestryById((character.raceChoices || {}).dragonbornAncestry) : null;
+}
+
+function raceRequiresAncestry(character) {
+  return character.raceId === "dragonborn";
+}
+
+function hasCompleteRaceSelection(character) {
+  return Boolean(character.raceId
+    && (!raceRequiresSubrace(character) || character.subraceId)
+    && (!raceRequiresAncestry(character) || getSelectedDragonbornAncestry(character)));
+}
+
+function resetRaceDependentState(character) {
+  character.subraceId = "";
+  character.raceChoices = { dragonbornAncestry: "" };
+  resetSkillSelections(character);
+  resetSpellSelections(character);
+  resetFinishingTouches(character);
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -355,6 +408,17 @@ function scrollToCurrentViewTop() {
 
 function scrollBuilderStepToTop() {
   scrollWindowToTop();
+}
+
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
+
+function scrollToRequiredRaceChoiceOnMobile() {
+  if (!isMobileViewport()) return;
+  requestAnimationFrame(() => {
+    wizardStep.querySelector("[data-required-race-choice]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 function abilityModifier(score) {
@@ -491,12 +555,17 @@ function getClericDomainProficiencies(character) {
 
 function hasCharacterProficiency(character, proficiency) {
   const characterClass = getById(DND_DATA.classes, character.classId);
+  const race = getSelectedRace(character);
   const staticProficiencies = characterClass ? [
     ...(characterClass.proficiencies || []),
     ...splitProficiencyText(characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Armor : ""),
     ...splitProficiencyText(characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Weapons : ""),
   ] : [];
-  return [...staticProficiencies, ...getClericDomainProficiencies(character)]
+  const raceProficiencies = [
+    ...splitProficiencyText(race && race.proficiencyDetails ? race.proficiencyDetails.Armor : ""),
+    ...splitProficiencyText(race && race.proficiencyDetails ? race.proficiencyDetails.Weapons : ""),
+  ];
+  return [...staticProficiencies, ...raceProficiencies, ...getClericDomainProficiencies(character)]
     .some((item) => item.toLowerCase() === proficiency.toLowerCase());
 }
 
@@ -519,7 +588,7 @@ function sanitizeDomainTriggeredChoices(character) {
     character.domainSkillProficiencies = {};
   } else {
     const allowedSkills = new Set(domainSkillChoice.options);
-    const race = getById(DND_DATA.races, character.raceId);
+    const race = getSelectedRace(character);
     const background = getById(DND_DATA.backgrounds, character.backgroundId);
     Object.keys(character.domainSkillProficiencies).forEach((skillName) => {
       if (!allowedSkills.has(skillName) || getUnavailableDomainSkillSources(skillName, character, race, background).length) delete character.domainSkillProficiencies[skillName];
@@ -752,20 +821,22 @@ function getSpellcastingMagicType(character, characterClass = null) {
 
 function supportsSpellSelection(character, characterClass = null) {
   const classId = characterClass ? characterClass.id : character.classId;
-  return hasLevelOneSpellcasting(character, characterClass) && DND_DATA.supportedSpellSelectionClasses.includes(classId);
+  return (hasLevelOneSpellcasting(character, characterClass) && DND_DATA.supportedSpellSelectionClasses.includes(classId))
+    || Boolean(getRacialCantripChoice(character));
 }
 
 function getSpellcastingSelections(character) {
-  if (!character.spellcasting) character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] };
+  if (!character.spellcasting) character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [], racialCantrip: [] };
   if (!Array.isArray(character.spellcasting.cantrips)) character.spellcasting.cantrips = [];
   if (!Array.isArray(character.spellcasting.spellbookSpells)) character.spellcasting.spellbookSpells = [];
   if (!Array.isArray(character.spellcasting.preparedSpells)) character.spellcasting.preparedSpells = [];
   if (!Array.isArray(character.spellcasting.natureBonusCantrip)) character.spellcasting.natureBonusCantrip = [];
+  if (!Array.isArray(character.spellcasting.racialCantrip)) character.spellcasting.racialCantrip = [];
   return character.spellcasting;
 }
 
 function resetSpellSelections(character) {
-  character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [] };
+  character.spellcasting = { cantrips: [], spellbookSpells: [], preparedSpells: [], natureBonusCantrip: [], racialCantrip: [] };
 }
 
 function getSpellSelectionRule(character) {
@@ -786,6 +857,38 @@ function getSpellSelectionSections(character) {
     ...section,
     limit: section.limit === "prepared" ? getPreparedSpellLimit(character) : section.limit,
   }));
+}
+
+function getRacialCantripChoice(character) {
+  const race = getSelectedRace(character);
+  return race && race.racialCantripChoice ? race.racialCantripChoice : null;
+}
+
+function getGrantedRacialCantripEntries(character) {
+  const race = getSelectedRace(character);
+  return race && race.racialCantrips ? race.racialCantrips : [];
+}
+
+function getGrantedRacialCantripIds(character) {
+  return getGrantedRacialCantripEntries(character).map((entry) => entry.id);
+}
+
+function getSelectedRacialCantripIds(character) {
+  return [...getGrantedRacialCantripIds(character), ...getSelectedSpellIds(character, "racialCantrip")];
+}
+
+function getRacialCantripSpells(character) {
+  const entries = [...getGrantedRacialCantripEntries(character)];
+  const choice = getRacialCantripChoice(character);
+  getSelectedSpellIds(character, "racialCantrip").forEach((spellId) => {
+    entries.push({ id: spellId, label: choice ? choice.label : "Racial cantrip", ability: choice ? choice.ability : "" });
+  });
+  return entries
+    .map((entry) => {
+      const spell = DND_DATA.getSpellById(entry.id);
+      return spell ? { ...spell, selectionNote: "Racial Spell", sourceNote: entry.label, racialAbility: entry.ability } : null;
+    })
+    .filter(Boolean);
 }
 
 function getSelectedSpellIds(character, selectionType) {
@@ -822,10 +925,12 @@ function getNatureBonusCantripChoice(character) {
 function getSpellOptionsForSelection(character, selectionType) {
   const section = getSpellSelectionSections(character).find((item) => item.id === selectionType);
   const natureChoice = getNatureBonusCantripChoice(character);
-  const level = section ? section.level : natureChoice && selectionType === natureChoice.id ? natureChoice.level : selectionType === "cantrips" ? 0 : 1;
-  const classId = natureChoice && selectionType === natureChoice.id ? natureChoice.classId : character.classId;
+  const racialChoice = getRacialCantripChoice(character);
+  const level = section ? section.level : natureChoice && selectionType === natureChoice.id ? natureChoice.level : racialChoice && selectionType === racialChoice.id ? racialChoice.level : selectionType === "cantrips" ? 0 : 1;
+  const classId = natureChoice && selectionType === natureChoice.id ? natureChoice.classId : racialChoice && selectionType === racialChoice.id ? racialChoice.classId : character.classId;
   const domainSpellIds = new Set(getClericDomainSpellIds(character));
   const bonusCantripIds = new Set(getSelectedBonusCantripIds(character));
+  const racialCantripIds = new Set(getGrantedRacialCantripIds(character));
   const wizardSpellbookIds = new Set(getSelectedSpellIds(character, "spellbookSpells"));
   const baseOptions = DND_DATA.getSpellsForClassLevel(classId, level);
   const warlockPatron = getSelectedWarlockPatron(character);
@@ -837,15 +942,23 @@ function getSpellOptionsForSelection(character, selectionType) {
     .filter((spell, index, spells) => spells.findIndex((item) => item.id === spell.id) === index)
     .filter((spell) => selectionType !== "preparedSpells" || !domainSpellIds.has(spell.id))
     .filter((spell) => character.classId !== "wizard" || selectionType !== "preparedSpells" || wizardSpellbookIds.has(spell.id))
-    .filter((spell) => selectionType !== "cantrips" || !bonusCantripIds.has(spell.id))
+    .filter((spell) => selectionType !== "cantrips" || (!bonusCantripIds.has(spell.id) && !racialCantripIds.has(spell.id)))
     .filter((spell) => selectionType !== "natureBonusCantrip" || !getSelectedSpellIds(character, "cantrips").includes(spell.id))
+    .filter((spell) => selectionType !== "racialCantrip" || !getSelectedSpellIds(character, "cantrips").includes(spell.id))
     .map((spell) => warlockExpandedIds.has(spell.id) && warlockPatron
       ? { ...spell, selectionNote: "Patron Spell" }
+      : racialChoice && selectionType === racialChoice.id
+        ? { ...spell, selectionNote: "Racial Spell", sourceNote: racialChoice.label }
       : spell);
 }
 
 function sanitizeSpellSelections(character) {
   const selections = getSpellcastingSelections(character);
+  const racialChoice = getRacialCantripChoice(character);
+  const grantedRacialCantrips = new Set(getGrantedRacialCantripIds(character));
+  if (grantedRacialCantrips.size) selections.cantrips = selections.cantrips.filter((spellId) => !grantedRacialCantrips.has(spellId));
+  if (!racialChoice) selections.racialCantrip = [];
+  if (racialChoice) selections.racialCantrip = selections.racialCantrip.slice(0, racialChoice.choose);
   if (character.classId === "wizard") {
     const spellbookIds = new Set(selections.spellbookSpells);
     selections.preparedSpells = selections.preparedSpells
@@ -866,7 +979,9 @@ function hasCompleteSpellSelection(character) {
     );
   const natureChoice = getNatureBonusCantripChoice(character);
   const natureComplete = !natureChoice || selections[natureChoice.id].length === natureChoice.choose;
-  return sectionsComplete && wizardPreparedSpellsAreValid && natureComplete;
+  const racialChoice = getRacialCantripChoice(character);
+  const racialComplete = !racialChoice || selections[racialChoice.id].length === racialChoice.choose;
+  return sectionsComplete && wizardPreparedSpellsAreValid && natureComplete && racialComplete;
 }
 
 function spellSelectionValidationMessage(character) {
@@ -886,6 +1001,11 @@ function spellSelectionValidationMessage(character) {
     const missingNature = Math.max(natureChoice.choose - getSelectedSpellIds(character, natureChoice.id).length, 0);
     if (missingNature) messages.push(`${missingNature} Nature Domain bonus ${missingNature === 1 ? "cantrip" : "cantrips"}`);
   }
+  const racialChoice = getRacialCantripChoice(character);
+  if (racialChoice) {
+    const missingRacial = Math.max(racialChoice.choose - getSelectedSpellIds(character, racialChoice.id).length, 0);
+    if (missingRacial) messages.push(`${missingRacial} ${racialChoice.label}`);
+  }
   if (character.classId === "wizard") {
     const preparedLimit = getPreparedSpellLimit(character);
     const preparedCount = getSelectedSpellIds(character, "preparedSpells").length;
@@ -901,12 +1021,20 @@ function setRandomSpellSelections(character) {
     domainId: character.classFeatures.divineDomain,
     patronId: character.classFeatures.otherworldlyPatron,
   });
+  const selections = getSpellcastingSelections(character);
+  const racialChoice = getRacialCantripChoice(character);
+  if (racialChoice) {
+    const options = DND_DATA.shuffle(getSpellOptionsForSelection(character, racialChoice.id));
+    selections[racialChoice.id] = options.slice(0, racialChoice.choose).map((spell) => spell.id);
+  }
+  sanitizeSpellSelections(character);
 }
 
 function toggleSpellSelection(character, selectionType, spellId) {
   const section = getSpellSelectionSections(character).find((item) => item.id === selectionType);
   const natureChoice = getNatureBonusCantripChoice(character);
-  const limit = section ? section.limit : natureChoice && selectionType === natureChoice.id ? natureChoice.choose : 0;
+  const racialChoice = getRacialCantripChoice(character);
+  const limit = section ? section.limit : natureChoice && selectionType === natureChoice.id ? natureChoice.choose : racialChoice && selectionType === racialChoice.id ? racialChoice.choose : 0;
   const selections = getSpellcastingSelections(character);
   const current = selections[selectionType] || [];
   if (current.includes(spellId)) {
@@ -949,11 +1077,27 @@ function calculateSpellAttackBonus(character, characterClass = null) {
   return formatSpellAttackBonus(getProficiencyBonus(character) + abilityModifierValue(character.abilities[ability]));
 }
 
+function calculateRacialSpellSaveDc(character, ability) {
+  if (!ability || !hasAssignedAbilityScore(character, ability)) return "";
+  return 8 + getProficiencyBonus(character) + abilityModifierValue(character.abilities[ability]);
+}
+
+function calculateRacialSpellAttackBonus(character, ability) {
+  if (!ability || !hasAssignedAbilityScore(character, ability)) return "";
+  return formatSpellAttackBonus(getProficiencyBonus(character) + abilityModifierValue(character.abilities[ability]));
+}
+
+function calculateBreathWeaponSaveDc(character) {
+  if (!hasAssignedAbilityScore(character, "Constitution")) return "";
+  return 8 + abilityModifierValue(character.abilities.Constitution) + getProficiencyBonus(character);
+}
+
 function calculateHitPoints(character, characterClass) {
   if (!characterClass) return "Not selected";
   if (!hasAssignedAbilityScore(character, "Constitution")) return "Assign Constitution";
   const draconicBonus = isDraconicSorcerer(character) ? 1 : 0;
-  return characterClass.hitDie + abilityModifierValue(character.abilities.Constitution) + draconicBonus;
+  const raceBonus = getSelectedRace(character)?.hpBonus || 0;
+  return characterClass.hitDie + abilityModifierValue(character.abilities.Constitution) + draconicBonus + raceBonus;
 }
 
 function formatHitDice(character, characterClass) {
@@ -1143,7 +1287,7 @@ function hasCompleteSkillSelections(character) {
 
 function setRandomClassSkillSelections(character) {
   const choice = getClassSkillChoice(character);
-  const race = getById(DND_DATA.races, character.raceId);
+  const race = getSelectedRace(character);
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !getGrantedSkillSources(skillName, race, background).length));
   character.classSkillProficiencies = {};
@@ -1163,7 +1307,7 @@ function setRandomDomainSkillSelections(character) {
   const choice = getDomainSkillChoice(character);
   character.domainSkillProficiencies = {};
   if (!choice) return;
-  const race = getById(DND_DATA.races, character.raceId);
+  const race = getSelectedRace(character);
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !getUnavailableDomainSkillSources(skillName, character, race, background).length));
   availableSkills.slice(0, choice.choose).forEach((skillName) => {
@@ -1289,7 +1433,7 @@ function syncAbilityScoresFromState() {
 }
 
 function recomputeCharacter() {
-  appState.character.abilities = DND_DATA.applyRaceIncreases(appState.character.baseAbilities, appState.character.raceId);
+  appState.character.abilities = DND_DATA.applyRaceIncreases(appState.character.baseAbilities, appState.character.raceId, appState.character.subraceId);
   if (appState.character.classId !== "fighter") appState.character.classFeatures.fightingStyle = "";
   sanitizeDomainTriggeredChoices(appState.character);
   sanitizeSpellSelections(appState.character);
@@ -1602,16 +1746,71 @@ function armorDefenseEntries(items, character) {
     if (item.type === "shield") return `${item.name} &mdash; +2 AC`;
     return item.name;
   });
-  if (!armor.isArmor && character.classId === "monk") entries.push("Unarmored Defense &mdash; AC 10 + Dex modifier + Wis modifier");
-  if (!armor.isArmor && character.classId === "barbarian") entries.push("Unarmored Defense &mdash; AC 10 + Dex modifier + Con modifier");
-  if (!armor.isArmor && isDraconicSorcerer(character)) entries.push("Draconic Resilience &mdash; AC 13 + Dex modifier while not wearing armor");
-  if (hasDefenseStyle) entries.push("Fighting Style: Defense &mdash; +1 AC while wearing armor");
-  if (hasProtectionStyle) entries.push("Fighting Style: Protection &mdash; while using a shield, you can help protect a nearby ally");
   return { entries, note: getArmorDefenseNote(armor, hasShield, hasDefenseStyle, hasProtectionStyle, character) };
 }
 
 function toolEntries(items) {
-  return items.filter((item) => typeof item !== "string" && item.type === "tool").map((item) => ({ text: item.name, children: item.contents || [] }));
+  return items.filter((item) => typeof item !== "string" && item.type === "tool").map((item) => {
+    const description = getToolDescription(item.name);
+    return { text: item.name, children: item.contents && item.contents.length ? item.contents : description ? [description] : [] };
+  });
+}
+
+function renderOwnedToolRows(items) {
+  const tools = items.filter((item) => typeof item !== "string" && item.type === "tool");
+  if (!tools.length) return "";
+  return `
+    <h4 class="preview-subheading">Tools & Kits Carried</h4>
+    <div class="compact-detail-list">
+      ${tools.map((item) => {
+        const description = getToolDescription(item.name);
+        const components = item.contents && item.contents.length ? item.contents.join(", ") : getToolTypicalComponents(item.name);
+        const details = [
+          detailBlock("Common uses", description),
+          detailBlock("Typical components", components),
+          "This is equipment you carry. Ownership does not automatically grant proficiency.",
+        ].filter(Boolean);
+        return `
+          <details class="compact-detail-row">
+            <summary>
+              <span class="compact-detail-heading">
+                <strong>${item.name}</strong>
+                <span>Equipment you carry</span>
+              </span>
+            </summary>
+            <div class="compact-detail-body">
+              ${details.map(renderDetailContent).join("")}
+            </div>
+          </details>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderPackCards(items) {
+  const packs = items.filter((item) => typeof item !== "string" && item.type === "pack");
+  if (!packs.length) return "";
+  return `
+    <h4 class="preview-subheading">Equipment Packs</h4>
+    <div class="compact-detail-list">
+      ${packs.map((pack) => `
+        <details class="compact-detail-row equipment-pack-row">
+          <summary>
+            <span class="compact-detail-heading">
+              <strong>${pack.name}</strong>
+              <span>Equipment bundle you carry</span>
+            </span>
+            <span class="compact-detail-action">View contents</span>
+          </summary>
+          <div class="compact-detail-body">
+            <span class="guidance-section-label">Contents</span>
+            <ul>${(pack.contents || []).map((item) => `<li>${item}</li>`).join("")}</ul>
+          </div>
+        </details>
+      `).join("")}
+    </div>
+  `;
 }
 
 function isAdventuringGearString(item) {
@@ -1625,7 +1824,7 @@ function adventuringGearEntries(items) {
       if (isAdventuringGearString(item)) entries.push({ text: item });
       return;
     }
-    if (item.type === "pack") entries.push({ text: item.name, children: item.contents || [] });
+    if (item.type === "pack") return;
   });
   return entries;
 }
@@ -1650,6 +1849,61 @@ function renderPreviewCategory(title, entries) {
   }).join("")}</ul>`;
 }
 
+function renderPreviewSection(title, subtitle, content, className = "") {
+  if (!content) return "";
+  return `
+    <section class="preview-section ${className}">
+      <h3>${title}</h3>
+      ${subtitle ? `<p class="preview-section-subtitle">${subtitle}</p>` : ""}
+      ${content}
+    </section>
+  `;
+}
+
+function renderCompactDetailRows(entries, defaultSubtitle = "Details") {
+  if (!entries.length) return "";
+  return `
+    <div class="compact-detail-list">
+      ${entries.map((entry) => `
+        <details class="compact-detail-row">
+          <summary>
+            <span class="compact-detail-heading">
+              <strong>${entry.title}</strong>
+              <span>${entry.subtitle || defaultSubtitle}</span>
+            </span>
+            <span class="compact-detail-action">View details</span>
+          </summary>
+          <div class="compact-detail-body">
+            ${entry.details.map(renderDetailContent).join("")}
+          </div>
+        </details>
+      `).join("")}
+    </div>
+  `;
+}
+
+function detailBlock(label, text) {
+  if (!text) return "";
+  return `<div class="detail-block"><span class="guidance-section-label">${label}</span><p>${text}</p></div>`;
+}
+
+function renderDetailContent(detail) {
+  const text = String(detail || "").trim();
+  return text.startsWith("<") ? text : `<p>${text}</p>`;
+}
+
+function splitFeatureText(featureText) {
+  const [name, ...descriptionParts] = String(featureText || "").split(" - ");
+  return {
+    name: name.trim(),
+    description: descriptionParts.join(" - ").trim() || String(featureText || "").trim(),
+  };
+}
+
+function isActiveFeatureName(name) {
+  return /breath weapon|rage|second wind|bardic inspiration|lay on hands|divine sense|martial arts|sneak attack|arcane recovery|warding flare|wrath of the storm|blessing of the trickster|war priest|fey presence|dark one's blessing|awakened mind/i.test(name);
+}
+
 function uniqueTextEntries(values, emptyText = "None") {
   const seen = new Set();
   const entries = [];
@@ -1660,6 +1914,55 @@ function uniqueTextEntries(values, emptyText = "None") {
     entries.push({ text });
   });
   return entries.length ? entries : [{ text: emptyText }];
+}
+
+function getToolDescription(toolName) {
+  const descriptions = DND_DATA.toolDescriptions || {};
+  const normalizedName = String(toolName || "").toLowerCase();
+  const key = Object.keys(descriptions).find((item) => item.toLowerCase() === normalizedName);
+  return key ? descriptions[key] : "";
+}
+
+function getToolTypicalComponents(toolName) {
+  const components = DND_DATA.toolTypicalComponents || {};
+  const normalizedName = String(toolName || "").toLowerCase();
+  const key = Object.keys(components).find((item) => item.toLowerCase() === normalizedName);
+  return key ? components[key] : "";
+}
+
+function toolEntry(toolName) {
+  const description = getToolDescription(toolName);
+  return description ? { text: toolName, children: [description] } : { text: toolName };
+}
+
+function renderToolProficiencyRows(entries) {
+  const tools = entries.filter((entry) => entry.text !== "None");
+  if (!tools.length) return "<p class=\"empty-state\">None</p>";
+  return `
+    <div class="compact-detail-list tool-proficiency-list">
+      ${tools.map((entry) => {
+        const components = getToolTypicalComponents(entry.text);
+        const description = getToolDescription(entry.text);
+        const details = [
+          detailBlock("Common uses", description),
+          detailBlock("Typical components", components),
+        ].filter(Boolean);
+        return `
+          <details class="compact-detail-row">
+            <summary>
+              <span class="compact-detail-heading">
+                <strong>${entry.text}</strong>
+              </span>
+              ${details.length ? '<span class="compact-detail-action">View details</span>' : ""}
+            </summary>
+            <div class="compact-detail-body">
+              ${details.map(renderDetailContent).join("")}
+            </div>
+          </details>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function splitProficiencyText(value) {
@@ -1703,7 +2006,15 @@ function toolProficiencyEntries(character, characterClass, race, background) {
       .filter((choice) => choice.category !== "language")
       .map((choice) => choice.value),
   ];
-  return uniqueTextEntries(tools);
+  const seen = new Set();
+  const entries = [];
+  tools.forEach((tool) => {
+    const text = String(tool || "").trim();
+    if (!text || seen.has(text.toLowerCase())) return;
+    seen.add(text.toLowerCase());
+    entries.push(toolEntry(text));
+  });
+  return entries.length ? entries : [{ text: "None" }];
 }
 
 function proficiencyEntries(character, characterClass, race, label) {
@@ -1730,14 +2041,100 @@ function renderKnownProficienciesPreview(character, characterClass, race, backgr
   ].join("");
 }
 
-function renderClassFeaturesPreview(character, characterClass) {
-  const classFeatures = characterClass && characterClass.features ? characterClass.features.map((feature) => ({ text: feature })) : [];
-  const domainFeatures = getClericDomainFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
-  const sorcererFeatures = getSorcererOriginFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
-  const warlockFeatures = getWarlockPatronFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
-  const features = [...classFeatures, ...domainFeatures, ...sorcererFeatures, ...warlockFeatures];
+function getClassFeatureObjects(character, characterClass) {
+  const classFeatures = characterClass && characterClass.features
+    ? characterClass.features.map((feature) => splitFeatureText(feature))
+    : [];
+  const domainFeatures = getClericDomainFeatures(character);
+  const sorcererFeatures = getSorcererOriginFeatures(character);
+  const warlockFeatures = getWarlockPatronFeatures(character);
+  return [...classFeatures, ...domainFeatures, ...sorcererFeatures, ...warlockFeatures]
+    .filter((feature) => feature.name && !/^spellcasting$/i.test(feature.name));
+}
+
+function renderProficienciesTrainingPreview(character, characterClass, race, background) {
+  const toolEntriesForCharacter = toolProficiencyEntries(character, characterClass, race, background);
+  const rows = [
+    { label: "Armor Training", value: proficiencyEntries(character, characterClass, race, "Armor").map((entry) => entry.text).join(", ") || "None" },
+    { label: "Weapon Training", value: proficiencyEntries(character, characterClass, race, "Weapons").map((entry) => entry.text).join(", ") || "None" },
+  ];
+  const content = `
+    <div class="training-row-list">
+      ${rows.map((row) => `
+        <div class="training-row">
+          <span>${row.label}</span>
+          <strong>${row.value}</strong>
+        </div>
+      `).join("")}
+    </div>
+    <h4 class="preview-subheading">Tool Proficiencies</h4>
+    ${renderToolProficiencyRows(toolEntriesForCharacter)}
+    ${characterClass && characterClass.proficiencyNotes ? `<div class="equipment-note">${characterClass.proficiencyNotes.join(" ")}</div>` : ""}
+  `;
+  return renderPreviewSection(
+    "Proficiencies & Training",
+    "Training your character has. This does not necessarily mean your character owns the related equipment.",
+    content,
+    "training-section",
+  );
+}
+
+function renderSimpleFactsPreview(character, race, background) {
+  return [
+    renderPreviewCategory("Damage Resistances", getDamageResistanceEntries(character)),
+  ].join("");
+}
+
+function renderFeatureActionCards(character, characterClass) {
+  const features = getClassFeatureObjects(character, characterClass).filter((feature) => isActiveFeatureName(feature.name));
   if (!features.length) return "";
-  return renderPreviewCategory("Class Features", features);
+  return `
+    <div class="weapon-card-list">
+      ${features.map((feature) => `
+        <details class="racial-action-card feature-action-card">
+          <summary class="weapon-card-summary">
+            <span class="weapon-card-heading">
+              <strong>${feature.name}</strong>
+              <span>Action your character can use</span>
+            </span>
+          </summary>
+          <div class="weapon-card-details">
+            <span class="guidance-section-label">Details</span>
+            <ul><li>${feature.description}</li></ul>
+          </div>
+        </details>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderTraitsAndFeaturesPreview(character, characterClass, race) {
+  const ancestry = getSelectedDragonbornAncestry(character);
+  const ancestryTraits = ancestry ? [
+    `Draconic Ancestry - ${ancestry.name}; ${ancestry.damageType} damage; ${ancestry.area}; ${ancestry.saveAbility} saving throw.`,
+    `Damage Resistance - You have resistance to ${ancestry.damageType.toLowerCase()} damage.`,
+  ] : [];
+  const racialTraitRows = [...(race && race.traitDetails && race.traitDetails.length ? race.traitDetails : race && race.traits ? race.traits : []), ...ancestryTraits]
+    .map(splitFeatureText)
+    .filter((feature) => feature.name && !/^breath weapon$/i.test(feature.name))
+    .map((feature) => ({
+      title: feature.name,
+      subtitle: "Passive racial trait",
+      details: [feature.description],
+    }));
+  const passiveClassRows = getClassFeatureObjects(character, characterClass)
+    .filter((feature) => !isActiveFeatureName(feature.name))
+    .map((feature) => ({
+      title: feature.name,
+      subtitle: "Passive class feature",
+      details: [feature.description],
+    }));
+  return renderPreviewSection(
+    "Traits & Features",
+    "",
+    renderCompactDetailRows([...racialTraitRows, ...passiveClassRows]),
+    "traits-section",
+  );
 }
 
 function getWarlockPatronFeatures(character) {
@@ -1803,6 +2200,15 @@ function renderSpellDetailContent(spell) {
   `;
 }
 
+function getSpellDisplayTags(spell) {
+  return [...(spell.selectionNotes || []), spell.selectionNote].filter(Boolean);
+}
+
+function renderSpellTags(spell) {
+  const tags = getSpellDisplayTags(spell);
+  return tags.map((tag) => `<span class="spell-selection-tag">${tag}</span>`).join("");
+}
+
 function renderSpellDisplayCard(spell) {
   return `
     <details class="spell-display-card">
@@ -1811,7 +2217,7 @@ function renderSpellDisplayCard(spell) {
           <span class="spell-card-heading">
             <strong>${spell.name}</strong>
             <span>${formatSpellLevel(spell)} - ${spell.school}</span>
-            ${spell.selectionNote ? `<span class="spell-selection-tag">${spell.selectionNote}</span>` : ""}
+            ${renderSpellTags(spell)}
           </span>
           <span class="spell-card-facts">
             ${renderSpellFactBoxes(spell)}
@@ -1858,6 +2264,33 @@ function getWizardUnpreparedSpellbookSpells(character) {
   return getSelectedSpells(character, "spellbookSpells").filter((spell) => !preparedIds.has(spell.id));
 }
 
+function mergeSpellSource(existingSpell, incomingSpell, tags) {
+  const existingTags = new Set([...(existingSpell.selectionNotes || []), existingSpell.selectionNote].filter(Boolean));
+  tags.forEach((tag) => existingTags.add(tag));
+  return {
+    ...existingSpell,
+    selectionNote: "",
+    selectionNotes: [...existingTags],
+    racialAbility: existingSpell.racialAbility || incomingSpell.racialAbility || "",
+    sourceNote: [existingSpell.sourceNote, incomingSpell.sourceNote].filter(Boolean).join("; "),
+  };
+}
+
+function getCantripDisplaySpells(character) {
+  const byId = new Map();
+  const addSpell = (spell, tags) => {
+    if (!spell) return;
+    byId.set(spell.id, byId.has(spell.id)
+      ? mergeSpellSource(byId.get(spell.id), spell, tags)
+      : { ...spell, selectionNote: "", selectionNotes: tags });
+  };
+
+  getSelectedSpells(character, "cantrips").forEach((spell) => addSpell(spell, ["Class Spell"]));
+  getBonusCantripSpells(character).forEach((spell) => addSpell(spell, ["Class Spell"]));
+  getRacialCantripSpells(character).forEach((spell) => addSpell(spell, ["Racial Spell"]));
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function renderSpellcastingPreview(character, characterClass) {
   if (!hasLevelOneSpellcasting(character, characterClass)) return "";
   const spellcasting = getLevelOneSpellcasting(character, characterClass);
@@ -1899,14 +2332,66 @@ function renderSpellcastingPreview(character, characterClass) {
       ${character.classId === "cleric" ? `<div class="sheet-item"><span class="sheet-label">Domain Spells</span>${domainSpells.length ? `${domainSpells.length} always prepared` : "Choose a Divine Domain"}</div>` : ""}
     </div>
     ${spellcastingNote ? `<p class="spell-selection-note">${spellcastingNote}</p>` : ""}
-    ${renderSelectedSpellList("Cantrips", cantripSpells)}
-    ${character.classId === "cleric" ? renderSelectedSpellList("Bonus Cantrips", bonusCantrips) : ""}
     ${isWizard ? renderSelectedSpellList("Prepared Level 1 Spells", preparedSpells) : ""}
     ${isWizard ? renderSelectedSpellList("Spellbook Spells Not Prepared", unpreparedSpellbookSpells) : ""}
     ${!isWizard && isPreparedCaster ? renderSelectedSpellList("Prepared Level 1 Spells", preparedSpells) : ""}
     ${!isWizard && isKnownCaster ? renderSelectedSpellList("Known Level 1 Spells", spellbookSpells) : ""}
     ${character.classId === "cleric" ? renderSelectedSpellList("Domain Spells, Always Prepared", domainSpells) : ""}
   `;
+}
+
+function renderCantripsPreview(character) {
+  return renderSelectedSpellList("Cantrips", getCantripDisplaySpells(character));
+}
+
+function renderRacialMagicPreview(character) {
+  const racialCantrips = getRacialCantripSpells(character);
+  if (!racialCantrips.length) return "";
+  const abilities = [...new Set(racialCantrips.map((spell) => spell.racialAbility).filter(Boolean))];
+  const abilitySummary = abilities.length ? abilities.join(", ") : "Not selected";
+  const primaryAbility = abilities[0] || "";
+  const saveDc = calculateRacialSpellSaveDc(character, primaryAbility);
+  const attackBonus = calculateRacialSpellAttackBonus(character, primaryAbility);
+  return `
+    <h3>Racial Magic</h3>
+    <div class="sheet-grid spellcasting-grid">
+      <div class="sheet-item"><span class="sheet-label">Spellcasting Ability</span>${abilitySummary}</div>
+      <div class="sheet-item"><span class="sheet-label">Spell Save DC</span>${saveDc === "" ? `Assign ${primaryAbility || "ability scores"}` : saveDc}</div>
+      <div class="sheet-item"><span class="sheet-label">Spell Attack Bonus</span>${attackBonus === "" ? `Assign ${primaryAbility || "ability scores"}` : attackBonus}</div>
+      <div class="sheet-item"><span class="sheet-label">Racial Spell Sources</span>${racialCantrips.map((spell) => spell.sourceNote || spell.name).join(", ")}</div>
+    </div>
+  `;
+}
+
+function renderSpellsPreview(character, characterClass) {
+  const content = [
+    renderSpellcastingPreview(character, characterClass),
+    renderRacialMagicPreview(character),
+    renderCantripsPreview(character),
+  ].join("");
+  return renderPreviewSection("Spells", "", content, "spells-preview-section");
+}
+
+function renderRacialTraitsPreview(character, race) {
+  if (!race || !(race.traitDetails || race.traits || []).length) return "";
+  const ancestry = getSelectedDragonbornAncestry(character);
+  const ancestryTraits = ancestry ? [
+    `Draconic Ancestry - ${ancestry.name}; ${ancestry.damageType} damage; ${ancestry.area}; ${ancestry.saveAbility} saving throw.`,
+    `Damage Resistance - You have resistance to ${ancestry.damageType.toLowerCase()} damage.`,
+  ] : [];
+  const traits = [...(race.traitDetails && race.traitDetails.length ? race.traitDetails : race.traits), ...ancestryTraits]
+    .map((text) => ({ text }));
+  return renderPreviewCategory("Racial Traits", traits);
+}
+
+function getDamageResistanceEntries(character) {
+  const race = getSelectedRace(character);
+  const ancestry = getSelectedDragonbornAncestry(character);
+  const values = [
+    ...((race && race.resistances) || []),
+    ...(ancestry ? [ancestry.damageType] : []),
+  ].map((type) => `${type} damage`);
+  return values.length ? uniqueTextEntries(values) : [];
 }
 
 function getFinishingTouches(character) {
@@ -1941,7 +2426,7 @@ function finishingChoice(id, label, category, helper, extra = {}) {
 }
 
 function getFinishingChoices(character) {
-  const race = getById(DND_DATA.races, character.raceId);
+  const race = getSelectedRace(character);
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   const characterClass = getById(DND_DATA.classes, character.classId);
   const choices = [];
@@ -1953,10 +2438,22 @@ function getFinishingChoices(character) {
         "Choose 1 language",
         "language",
         "Pick a language your character can speak, read, and write.",
-        { note: "Ask your DM before choosing an exotic language." },
+        { note: "Ask your DM before choosing an exotic language.", preventDuplicates: true },
       ));
     });
   }
+
+  (race && race.toolChoices ? race.toolChoices : []).forEach((toolChoice) => {
+    Array.from({ length: toolChoice.choose || 0 }, (_, index) => {
+      choices.push(finishingChoice(
+        `${toolChoice.id}-${index + 1}`,
+        toolChoice.category === "artisan" ? "Choose 1 artisan's tool" : "Choose 1 tool",
+        toolChoice.category,
+        "Tool proficiencies help with checks involving specialized equipment.",
+        { preventDuplicates: true, options: toolChoice.options || [] },
+      ));
+    });
+  });
 
   if (getSelectedClericDomainId(character) === "knowledge") {
     Array.from({ length: 2 }, (_, index) => {
@@ -2002,7 +2499,7 @@ function getChoiceOptions(choice, character = appState.character) {
   if (choice.category === "language") {
     const selectedChoices = getFinishingTouches(character).choices || {};
     const blockedLanguages = new Set([
-      ...(getById(DND_DATA.races, character.raceId)?.languages || []),
+      ...(getSelectedRace(character)?.languages || []),
       ...(getById(DND_DATA.backgrounds, character.backgroundId)?.languages || []),
       ...Object.entries(selectedChoices)
         .filter(([choiceId]) => choiceId !== choice.id)
@@ -2014,11 +2511,21 @@ function getChoiceOptions(choice, character = appState.character) {
     ].filter((option) => !choice.preventDuplicates || !blockedLanguages.has(option.value.toLowerCase()));
   }
   const selectedChoices = getFinishingTouches(character).choices || {};
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const fixedTools = [
+    ...(getSelectedRace(character)?.tools || []),
+    ...((background && background.tools) || []).filter((tool) => !isChoicePlaceholder(tool)),
+    ...splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools : "")
+      .filter((tool) => tool !== "None" && !isChoicePlaceholder(tool)),
+  ];
   const blockedValues = new Set(Object.entries(selectedChoices)
     .filter(([choiceId]) => choiceId !== choice.id)
     .map(([, value]) => String(value || "").toLowerCase()));
+  fixedTools.forEach((tool) => blockedValues.add(String(tool || "").toLowerCase()));
   return (DND_DATA.toolOptions[choice.category] || [])
-    .map((name) => ({ value: name, label: name }))
+    .filter((name) => !choice.options || choice.options.includes(name))
+    .map((name) => ({ value: name, label: name, description: getToolDescription(name) }))
     .filter((option) => !choice.preventDuplicates || !blockedValues.has(option.value.toLowerCase()));
 }
 
@@ -2027,9 +2534,13 @@ function isFinishingChoiceComplete(character, choice) {
   const selectedValue = String(selections[choice.id] || "");
   if (!selectedValue) return false;
   if (!choice.preventDuplicates) return true;
+  const characterClass = getById(DND_DATA.classes, character.classId);
   const blockedValues = new Set([
-    ...(choice.category === "language" ? getById(DND_DATA.races, character.raceId)?.languages || [] : []),
+    ...(choice.category === "language" ? getSelectedRace(character)?.languages || [] : []),
     ...(choice.category === "language" ? getById(DND_DATA.backgrounds, character.backgroundId)?.languages || [] : []),
+    ...(choice.category !== "language" ? getSelectedRace(character)?.tools || [] : []),
+    ...(choice.category !== "language" ? (getById(DND_DATA.backgrounds, character.backgroundId)?.tools || []).filter((tool) => !isChoicePlaceholder(tool)) : []),
+    ...(choice.category !== "language" ? splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools : "").filter((tool) => tool !== "None" && !isChoicePlaceholder(tool)) : []),
     ...Object.entries(selections)
       .filter(([choiceId]) => choiceId !== choice.id)
       .map(([, value]) => value),
@@ -2091,9 +2602,10 @@ function personalityEntries(character) {
   ];
 }
 
-function renderFinishingTouchesPreview(character) {
+function renderFinishingTouchesPreview(character, race, background) {
   const trinket = getSelectedTrinket(character);
   return [
+    renderPreviewCategory("Languages", languageEntries(character, race, background)),
     renderPreviewCategory("Background Details", personalityEntries(character)),
     trinket ? renderPreviewCategory("Optional Trinket", [{ text: `#${trinket.roll} - ${trinket.description}` }]) : "",
   ].join("");
@@ -2114,10 +2626,10 @@ function renderArmorDefenseCategory(armorDefense) {
   return `${renderPreviewCategory("Armor & Defense", armorDefense.entries)}${armorDefense.note ? `<p class="equipment-note">${armorDefense.note}</p>` : ""}`;
 }
 
-function renderWeaponCards(entries) {
+function renderWeaponCards(entries, showHeading = true) {
   if (!entries.length) return "";
   return `
-    <h3>Weapons</h3>
+    ${showHeading ? "<h3>Weapons</h3>" : ""}
     <p class="weapon-card-note">Weapon attacks include proficiency. Damage includes the relevant ability modifier when applicable.</p>
     <div class="weapon-card-list">
       ${entries.map((entry) => `
@@ -2144,27 +2656,81 @@ function renderWeaponCards(entries) {
   `;
 }
 
-function renderPreviewEquipment(character) {
+function renderRacialActionCards(character, showHeading = true) {
+  const ancestry = getSelectedDragonbornAncestry(character);
+  if (!ancestry) return "";
+  const saveDc = calculateBreathWeaponSaveDc(character);
+  return `
+    ${showHeading ? "<h3>Racial Actions</h3>" : ""}
+    <div class="weapon-card-list">
+      <article class="racial-action-card">
+        <div class="weapon-card-summary">
+          <span class="weapon-card-heading">
+            <strong>Breath Weapon</strong>
+            <span>${ancestry.name} Draconic Ancestry</span>
+          </span>
+          <span class="weapon-card-stats" aria-label="Breath Weapon summary">
+            <span class="weapon-stat"><span>Action</span><strong>1 action</strong></span>
+            <span class="weapon-stat"><span>Damage</span><strong>2d6</strong></span>
+            <span class="weapon-stat"><span>Type</span><strong>${ancestry.damageType}</strong></span>
+          </span>
+        </div>
+        <div class="weapon-card-details">
+          <span class="guidance-section-label">Details</span>
+          <ul>
+            <li>Area: ${ancestry.area}</li>
+            <li>Saving Throw: ${ancestry.saveAbility}; DC ${saveDc === "" ? "Assign Constitution" : saveDc}</li>
+            <li>Successful Save: Half damage</li>
+            <li>Usage: Once per short or long rest</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+function renderAttacksAndActionsPreview(character, characterClass) {
+  const items = usesRolledStartingGold(character) ? [] : getPreviewEquipmentItems(character);
+  const content = [
+    renderWeaponCards(categorizedWeaponEntries(items, character), false),
+    renderRacialActionCards(character, false),
+    renderFeatureActionCards(character, characterClass),
+  ].join("");
+  return renderPreviewSection("Attacks & Actions", "Actions and attacks your character can use during play.", content, "actions-section");
+}
+
+function renderEquipmentCarriedPreview(character) {
   if (usesRolledStartingGold(character)) {
-    return `<h3>Equipment</h3>${renderRolledStartingGoldPreview(character)}${renderEquipmentList([], "Manual equipment was chosen outside this builder.")}`;
+    return renderPreviewSection(
+      "Equipment Carried",
+      "Physical items your character currently carries.",
+      `${renderRolledStartingGoldPreview(character)}${renderEquipmentList([], "Manual equipment was chosen outside this builder.")}`,
+      "equipment-carried-section",
+    );
   }
   const items = getPreviewEquipmentItems(character);
   if (!items.length) {
-    return `<h3>Equipment</h3>${renderEquipmentList([], character.classId ? "Choose starting equipment." : "Choose a class first.")}`;
+    return renderPreviewSection(
+      "Equipment Carried",
+      "Physical items your character currently carries.",
+      renderEquipmentList([], character.classId ? "Choose starting equipment." : "Choose a class first."),
+      "equipment-carried-section",
+    );
   }
 
-  return [
-    renderWeaponCards(categorizedWeaponEntries(items, character)),
+  const content = [
     renderArmorDefenseCategory(armorDefenseEntries(items, character)),
-    renderPreviewCategory("Tools", toolEntries(items)),
+    renderOwnedToolRows(items),
+    renderPackCards(items),
     renderPreviewCategory("Adventuring Gear", adventuringGearEntries(items)),
     renderPreviewCategory("Other Equipment", otherEquipmentEntries(items)),
   ].join("");
+  return renderPreviewSection("Equipment Carried", "Physical items your character currently carries.", content, "equipment-carried-section");
 }
 
 function renderPreview(container, character) {
   const characterClass = getById(DND_DATA.classes, character.classId);
-  const race = getById(DND_DATA.races, character.raceId);
+  const race = getSelectedRace(character);
   const background = getById(DND_DATA.backgrounds, character.backgroundId);
   const armorClass = calculateArmorClass(character);
 
@@ -2174,6 +2740,7 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Level</span>${character.level}</div>
       <div class="sheet-item"><span class="sheet-label">Class</span>${characterClass ? characterClass.name : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Race</span>${race ? race.name : "Not selected"}</div>
+      <div class="sheet-item"><span class="sheet-label">Size</span>${race ? race.size || "Medium" : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Background</span>${background ? background.name : "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Hit Points</span>${calculateHitPoints(character, characterClass)}</div>
       <div class="sheet-item"><span class="sheet-label">Hit Dice</span>${formatHitDice(character, characterClass)}</div>
@@ -2184,17 +2751,19 @@ function renderPreview(container, character) {
       <div class="sheet-item"><span class="sheet-label">Passive Perception</span>${calculatePassivePerception(character, race, background)}</div>
       <div class="sheet-item"><span class="sheet-label">Senses</span>${formatSenses(race)}</div>
       <div class="sheet-item"><span class="sheet-label">Starting Gold</span>${usesRolledStartingGold(character) ? getRolledStartingGoldGp(character) : getStartingGoldGp(character)} gp${usesRolledStartingGold(character) ? `<span class="sheet-subnote">Reroll Attempts: ${getEquipmentSelections(character).startingGoldRerollCount}</span>` : ""}</div>
-      ${renderClassChoicePreviewItems(character)}
-      ${renderClassFaithPreviewItem(character)}
+    ${renderClassChoicePreviewItems(character)}
+    ${renderClassFaithPreviewItem(character)}
     </div>
     ${renderAbilityScoresTable(character, race)}
     ${renderSavingThrowsTable(character, characterClass)}
     ${renderSkillsTable(character, race, background)}
-    ${renderSpellcastingPreview(character, characterClass)}
-    ${renderClassFeaturesPreview(character, characterClass)}
-    ${renderKnownProficienciesPreview(character, characterClass, race, background)}
-    ${renderFinishingTouchesPreview(character)}
-    ${renderPreviewEquipment(character)}`;
+    ${renderProficienciesTrainingPreview(character, characterClass, race, background)}
+    ${renderSimpleFactsPreview(character, race, background)}
+    ${renderAttacksAndActionsPreview(character, characterClass)}
+    ${renderSpellsPreview(character, characterClass)}
+    ${renderTraitsAndFeaturesPreview(character, characterClass, race)}
+    ${renderEquipmentCarriedPreview(character)}
+    ${renderFinishingTouchesPreview(character, race, background)}`;
 }
 
 function optionCard(option, selectedId, type, detail = "", extraClass = "") {
@@ -2223,6 +2792,116 @@ function renderClassStep(step) {
 
 function renderChoiceStep(step, options, selectedId, type, detailForOption) {
   wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${guidancePanel(stepGuidance[step.key])}<div class="option-grid">${options.map((option) => optionCard(option, selectedId, type, detailForOption(option))).join("")}</div><div class="wizard-actions">${appState.wizardStepIndex > 0 ? '<button class="secondary-button" type="button" data-action="back">Back</button>' : ""}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${selectedId ? "" : "disabled"}>Continue</button></div>`;
+}
+
+function formatAbilityIncreaseSummary(increases = {}) {
+  const entries = Object.entries(increases).filter(([, bonus]) => bonus);
+  if (!entries.length) return "";
+  if (entries.length === DND_DATA.abilities.length && entries.every(([, bonus]) => bonus === 1)) return "+1 to all ability scores";
+  return entries.map(([ability, bonus]) => `${bonus > 0 ? "+" : ""}${bonus} ${ability}`).join(", ");
+}
+
+function renderRaceBaseCard(race) {
+  const summary = [
+    formatAbilityIncreaseSummary(race.abilityIncreases),
+    race.size,
+    `${race.speed} ft. speed`,
+    (race.traits || []).slice(0, 3).join(", "),
+  ].filter(Boolean).join(" - ");
+  return optionCard(race, appState.character.raceId, "race", summary, "race-option-card");
+}
+
+function renderSubraceCard(subrace) {
+  const isSelected = appState.character.subraceId === subrace.id;
+  return `
+    <article class="subrace-card ${isSelected ? "selected" : ""}">
+      <button class="subrace-choice-button" type="button" data-option-type="subrace" data-option-id="${subrace.id}" aria-pressed="${isSelected}">
+        <strong>${subrace.name}</strong>
+        <span>${formatAbilityIncreaseSummary(subrace.abilityIncreases)}</span>
+        <span>${subrace.traitSummary || (subrace.traits || []).join(", ")}</span>
+      </button>
+      <details class="subrace-details">
+        <summary>View details</summary>
+        <ul>
+          ${(subrace.traitDetails || []).map((detail) => `<li>${detail}</li>`).join("")}
+        </ul>
+      </details>
+    </article>
+  `;
+}
+
+function renderSubraceSection() {
+  const baseRace = getSelectedBaseRace(appState.character);
+  const subraces = getSubracesForSelectedRace(appState.character);
+  if (!baseRace || !subraces.length) return "";
+  return `
+    <section class="subrace-section" data-required-race-choice>
+      <div class="equipment-group-header">
+        <h3>Choose Your ${baseRace.name} Subrace</h3>
+        <span>Required</span>
+      </div>
+      <div class="subrace-grid">
+        ${subraces.map(renderSubraceCard).join("")}
+      </div>
+      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Subrace</button>
+    </section>
+  `;
+}
+
+function renderDragonbornAncestryCard(ancestry) {
+  const selectedId = (appState.character.raceChoices || {}).dragonbornAncestry || "";
+  const isSelected = selectedId === ancestry.id;
+  return `
+    <article class="subrace-card ${isSelected ? "selected" : ""}">
+      <button class="subrace-choice-button" type="button" data-option-type="dragonbornAncestry" data-option-id="${ancestry.id}" aria-pressed="${isSelected}">
+        <strong>${ancestry.name}</strong>
+        <span>${ancestry.damageType} damage resistance</span>
+        <span>Breath Weapon: ${ancestry.area}, ${ancestry.saveAbility} save</span>
+      </button>
+      <details class="subrace-details">
+        <summary>View details</summary>
+        <ul>
+          <li>Damage Type - ${ancestry.damageType}</li>
+          <li>Breath Weapon Area - ${ancestry.area}</li>
+          <li>Saving Throw - ${ancestry.saveAbility}; Save DC uses Constitution.</li>
+          <li>Damage Resistance - You resist ${ancestry.damageType.toLowerCase()} damage.</li>
+        </ul>
+      </details>
+    </article>
+  `;
+}
+
+function renderDragonbornAncestrySection() {
+  if (appState.character.raceId !== "dragonborn") return "";
+  return `
+    <section class="subrace-section" data-required-race-choice>
+      <div class="equipment-group-header">
+        <h3>Choose Your Draconic Ancestry</h3>
+        <span>Required</span>
+      </div>
+      <div class="subrace-grid">
+        ${DND_DATA.dragonbornAncestries.map(renderDragonbornAncestryCard).join("")}
+      </div>
+      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Ancestry</button>
+    </section>
+  `;
+}
+
+function renderRaceStep(step) {
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.race)}
+    <div class="race-step-controls"><button class="secondary-button race-randomize-button" type="button" data-action="randomize-race">Randomize Race</button></div>
+    <div class="option-grid">${DND_DATA.races.map(renderRaceBaseCard).join("")}</div>
+    ${renderSubraceSection()}
+    ${renderDragonbornAncestrySection()}
+    <div class="wizard-actions">
+      <button class="secondary-button" type="button" data-action="back">Back</button>
+      <button class="secondary-button" type="button" data-action="randomize-current">Randomize</button>
+      <button class="primary-button" type="button" data-action="continue" ${hasCompleteRaceSelection(appState.character) ? "" : "disabled"}>Continue</button>
+    </div>
+  `;
 }
 
 function renderClassFeatureStep(step) {
@@ -2663,7 +3342,7 @@ function getSimpleAbilityGuidance(character) {
 
 function renderAbilityScoreGuidancePanel() {
   const characterClass = getById(DND_DATA.classes, appState.character.classId);
-  const race = getById(DND_DATA.races, appState.character.raceId);
+  const race = getSelectedRace(appState.character);
   const featureName = getSelectedClassFeatureName(appState.character);
   const choice = getClassFeatureChoice(appState.character);
   const guidance = getSimpleAbilityGuidance(appState.character);
@@ -2693,7 +3372,7 @@ function methodSelector() {
 }
 
 function standardArrayControls() {
-  const race = getById(DND_DATA.races, appState.character.raceId);
+  const race = getSelectedRace(appState.character);
   const usedScores = getUsedStandardScores();
   const availableScores = DND_DATA.standardArray.filter((score) => !usedScores.includes(score));
   return `<div class="available-scores">Available scores: ${availableScores.length ? availableScores.map((score) => `<span class="score-pill">${score}</span>`).join("") : '<span class="score-pill">None</span>'}</div><div class="ability-controls score-assignment-grid standard-array-grid">${DND_DATA.abilities.map((ability) => {
@@ -2706,7 +3385,7 @@ function standardArrayControls() {
 }
 
 function rolledScoreControls() {
-  const race = getById(DND_DATA.races, appState.character.raceId);
+  const race = getSelectedRace(appState.character);
   const rolled = appState.abilityState.rolled;
   const hasRolledScores = rolled.results.length === 6;
   const rollSlots = hasRolledScores
@@ -2744,7 +3423,7 @@ function pointChangeLabel(value, isAvailable) {
 
 function pointBuyControls() {
   const remaining = getPointBuyRemaining();
-  const race = getById(DND_DATA.races, appState.character.raceId);
+  const race = getSelectedRace(appState.character);
 
   return `<div class="point-buy-summary">Points Remaining: ${remaining} / ${DND_DATA.pointBuyTotal}</div><div class="point-buy-grid">${DND_DATA.abilities.map((ability) => {
     const baseScore = appState.abilityState.pointBuy.scores[ability];
@@ -2775,7 +3454,7 @@ function renderInlinePicker({ id, label, value, placeholder, options, helper = "
       <button class="inline-picker-trigger" type="button" data-picker-toggle="${id}" aria-expanded="${isOpen}">
         <span>${displayValue}</span>
       </button>
-      ${isOpen ? `<div class="inline-picker-options">${options.map((option) => `<button type="button" data-picker-option="${id}" data-picker-action="${actionType}" data-picker-value="${option.value}">${option.label}</button>`).join("")}</div>` : ""}
+      ${isOpen ? `<div class="inline-picker-options">${options.map((option) => `<button type="button" data-picker-option="${id}" data-picker-action="${actionType}" data-picker-value="${option.value}"><span>${option.label}</span>${option.description ? `<small>${option.description}</small>` : ""}</button>`).join("")}</div>` : ""}
       ${note || ""}
     </div>
   `;
@@ -2961,7 +3640,7 @@ function renderAbilityStep(step) {
 
 function renderSkillsStep(step) {
   const characterClass = getById(DND_DATA.classes, appState.character.classId);
-  const race = getById(DND_DATA.races, appState.character.raceId);
+  const race = getSelectedRace(appState.character);
   const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
   const choice = getClassSkillChoice(appState.character);
   const selectedCount = getSelectedClassSkillNames(appState.character).length;
@@ -3042,7 +3721,7 @@ function renderSpellSelectionCard(spell, selectionType, selectedIds, limit, char
         <span class="spell-card-main">
           <span class="spell-card-heading">
             <strong>${spell.name}</strong>
-            ${spell.selectionNote ? `<span class="spell-selection-tag">${spell.selectionNote}</span>` : ""}
+            ${renderSpellTags(spell)}
             <span>${formatSpellLevel(spell)} - ${spell.school}</span>
           </span>
           <span class="spell-card-facts">
@@ -3144,6 +3823,23 @@ function renderBonusCantripSelectionSection(character) {
   `;
 }
 
+function renderRacialCantripSelectionSection(character) {
+  const choice = getRacialCantripChoice(character);
+  if (!choice) return "";
+  const selectedIds = getSelectedSpellIds(character, choice.id);
+  const options = getSpellOptionsForSelection(character, choice.id);
+  return `
+    <section class="spell-selection-section">
+      <div class="spell-selection-header">
+        <h3>High Elf Racial Cantrip</h3>
+        <span>${selectedIds.length} / ${choice.choose} selected</span>
+      </div>
+      <p>Choose one Wizard cantrip granted by your High Elf ancestry. It does not count against any class cantrip limit and uses Intelligence.</p>
+      ${renderSpellChoiceGrid(options, choice.id, selectedIds, choice.choose)}
+    </section>
+  `;
+}
+
 function spellSelectionSectionHelper(character, section) {
   if ((character.classId === "cleric" || character.classId === "druid") && section.id === "preparedSpells") {
     const className = character.classId === "druid" ? "Druid" : "Cleric";
@@ -3174,6 +3870,7 @@ function renderSpellSelectionStep(step) {
       section.limit,
     )).join("")}
     ${renderBonusCantripSelectionSection(appState.character)}
+    ${renderRacialCantripSelectionSection(appState.character)}
     ${renderDomainSpellSelectionSection(appState.character)}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button></div>
   `;
@@ -3185,7 +3882,7 @@ function renderWizard() {
   syncAbilityScoresFromState();
   renderPreview(livePreview, appState.character);
   if (step.key === "class") renderClassStep(step);
-  if (step.key === "race") renderChoiceStep(step, DND_DATA.races, appState.character.raceId, "race", (item) => item.traits.slice(0, 2).join(", "));
+  if (step.key === "race") renderRaceStep(step);
   if (step.key === "background") renderChoiceStep(step, DND_DATA.backgrounds, appState.character.backgroundId, "background", (item) => item.skills.join(", "));
   if (step.key === "classFeature") renderClassFeatureStep(step);
   if (step.key === "equipment") renderEquipmentStep(step);
@@ -3238,6 +3935,34 @@ function previewRandomizedCharacter(character) {
 function randomChoiceExcept(items, currentId) {
   const otherItems = items.filter((item) => item.id !== currentId);
   return DND_DATA.randomChoice(otherItems.length ? otherItems : items);
+}
+
+function randomizeBaseRaceOnly() {
+  const race = randomChoiceExcept(DND_DATA.races, appState.character.raceId);
+  appState.character.raceId = race.id;
+  resetRaceDependentState(appState.character);
+  renderWizard();
+}
+
+function randomizeSecondaryRaceChoice() {
+  if (raceRequiresSubrace(appState.character)) {
+    const subraces = getSubracesForSelectedRace(appState.character);
+    const subrace = randomChoiceExcept(subraces, appState.character.subraceId);
+    appState.character.subraceId = subrace.id;
+    resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
+    resetFinishingTouches(appState.character);
+    renderWizard();
+    return;
+  }
+
+  if (raceRequiresAncestry(appState.character)) {
+    const ancestry = randomChoiceExcept(DND_DATA.dragonbornAncestries || [], (appState.character.raceChoices || {}).dragonbornAncestry);
+    if (!ancestry) return;
+    if (!appState.character.raceChoices) appState.character.raceChoices = { dragonbornAncestry: "" };
+    appState.character.raceChoices.dragonbornAncestry = ancestry.id;
+    renderWizard();
+  }
 }
 
 function randomClassFeatureSelection(character, group) {
@@ -3316,7 +4041,12 @@ function randomizeCurrentStep() {
     resetFinishingTouches(appState.character);
   }
   if (step.key === "race") {
-    appState.character.raceId = randomChoiceExcept(DND_DATA.races, appState.character.raceId).id;
+    const raceSelection = DND_DATA.randomRaceSelection
+      ? DND_DATA.randomRaceSelection(appState.character.raceId)
+      : { race: randomChoiceExcept(DND_DATA.races, appState.character.raceId), subrace: null };
+    appState.character.raceId = raceSelection.race.id;
+    appState.character.subraceId = raceSelection.subrace ? raceSelection.subrace.id : "";
+    appState.character.raceChoices = { dragonbornAncestry: raceSelection.ancestry ? raceSelection.ancestry.id : "" };
     resetSkillSelections(appState.character);
     resetSpellSelections(appState.character);
     resetFinishingTouches(appState.character);
@@ -3555,7 +4285,7 @@ wizardStep.addEventListener("click", (event) => {
       delete appState.character.domainSkillProficiencies[skillName];
     } else {
       if (selectedSkills.length >= choice.choose) return;
-      const race = getById(DND_DATA.races, appState.character.raceId);
+      const race = getSelectedRace(appState.character);
       const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
       if (getUnavailableDomainSkillSources(skillName, appState.character, race, background).length) return;
       appState.character.domainSkillProficiencies[skillName] = choice.expertise ? 2 : 1;
@@ -3603,6 +4333,7 @@ wizardStep.addEventListener("click", (event) => {
   if (optionButton) {
     const optionType = optionButton.dataset.optionType;
     const optionId = optionButton.dataset.optionId;
+    let shouldScrollToSubrace = false;
     if (optionType === "class") {
       appState.character.classId = appState.character.classId === optionId ? "" : optionId;
       resetClassFeatureSelections(appState.character);
@@ -3612,10 +4343,27 @@ wizardStep.addEventListener("click", (event) => {
       resetFinishingTouches(appState.character);
     }
     if (optionType === "race") {
-      appState.character.raceId = appState.character.raceId === optionId ? "" : optionId;
+      if (appState.character.raceId === optionId) {
+        appState.character.raceId = "";
+        resetRaceDependentState(appState.character);
+      } else {
+        appState.character.raceId = optionId;
+        resetRaceDependentState(appState.character);
+        shouldScrollToSubrace = raceRequiresSubrace(appState.character) || raceRequiresAncestry(appState.character);
+      }
+    }
+    if (optionType === "subrace") {
+      const subrace = DND_DATA.getSubraceById ? DND_DATA.getSubraceById(optionId) : null;
+      if (!subrace || subrace.raceId !== appState.character.raceId) return;
+      appState.character.subraceId = appState.character.subraceId === optionId ? "" : optionId;
       resetSkillSelections(appState.character);
       resetSpellSelections(appState.character);
       resetFinishingTouches(appState.character);
+    }
+    if (optionType === "dragonbornAncestry") {
+      if (appState.character.raceId !== "dragonborn") return;
+      if (!appState.character.raceChoices) appState.character.raceChoices = { dragonbornAncestry: "" };
+      appState.character.raceChoices.dragonbornAncestry = appState.character.raceChoices.dragonbornAncestry === optionId ? "" : optionId;
     }
     if (optionType === "background") {
       appState.character.backgroundId = appState.character.backgroundId === optionId ? "" : optionId;
@@ -3641,6 +4389,7 @@ wizardStep.addEventListener("click", (event) => {
       resetSpellSelections(appState.character);
     }
     renderWizard();
+    if (shouldScrollToSubrace) scrollToRequiredRaceChoiceOnMobile();
     return;
   }
 
@@ -3665,6 +4414,7 @@ wizardStep.addEventListener("click", (event) => {
     return;
   }
   if (action === "continue") {
+    if (wizardSteps[appState.wizardStepIndex].key === "race" && !hasCompleteRaceSelection(appState.character)) return;
     appState.confirmBlankName = false;
     goToWizardStep(getNextStepIndex());
     return;
@@ -3680,6 +4430,8 @@ wizardStep.addEventListener("click", (event) => {
     return;
   }
   if (action === "randomize-current") randomizeCurrentStep();
+  if (action === "randomize-race") randomizeBaseRaceOnly();
+  if (action === "randomize-secondary-race-choice") randomizeSecondaryRaceChoice();
   if (action === "randomize-abilities") randomizeAbilityScores();
   if (action === "roll-scores") rollSixScores();
   if (action === "reroll-stats") rerollRolledAbilityScores();

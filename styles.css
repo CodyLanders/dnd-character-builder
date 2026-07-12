@@ -303,6 +303,76 @@ textarea {
   line-height: 1.4;
 }
 
+.subrace-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  scroll-margin-top: 16px;
+}
+
+.race-step-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.race-randomize-button {
+  width: fit-content;
+}
+
+.subrace-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.subrace-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.subrace-card.selected {
+  border-color: var(--button);
+  box-shadow: inset 0 0 0 2px var(--button);
+}
+
+.subrace-choice-button {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+}
+
+.subrace-choice-button span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.subrace-details {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.subrace-details summary {
+  cursor: pointer;
+  color: var(--button);
+  font-weight: 700;
+}
+
+.subrace-details ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .equipment-section,
 .equipment-notes {
   display: grid;
@@ -701,6 +771,8 @@ textarea {
 }
 
 .inline-picker-options button {
+  display: grid;
+  gap: 2px;
   min-height: 36px;
   border: 1px solid transparent;
   border-radius: 5px;
@@ -709,6 +781,12 @@ textarea {
   color: var(--text);
   background: #ffffff;
   overflow-wrap: anywhere;
+}
+
+.inline-picker-options button small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
 }
 
 .inline-picker-options button:hover {
@@ -924,6 +1002,161 @@ textarea {
 #livePreview .sheet-grid + h3,
 #randomPreview .sheet-grid + h3 {
   margin-top: 18px;
+}
+
+.preview-section {
+  margin-top: 24px;
+  min-width: 0;
+}
+
+.preview-section > h3 {
+  margin-top: 0;
+}
+
+.preview-section-subtitle {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.preview-subheading {
+  margin: 14px 0 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.training-row-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.training-row {
+  display: grid;
+  grid-template-columns: minmax(105px, 0.42fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #ffffff;
+}
+
+.training-row span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.training-row strong {
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.compact-detail-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compact-detail-row {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.compact-detail-row[open] {
+  border-color: #b8c6cf;
+  box-shadow: 0 1px 0 rgba(20, 38, 50, 0.04);
+}
+
+.compact-detail-row summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.compact-detail-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.compact-detail-heading strong,
+.compact-detail-heading span {
+  overflow-wrap: anywhere;
+}
+
+.compact-detail-heading span,
+.compact-detail-action {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.compact-detail-action {
+  color: var(--button);
+  font-weight: 800;
+}
+
+.compact-detail-row[open] .compact-detail-action {
+  color: var(--muted);
+}
+
+.compact-detail-row[open] .compact-detail-action {
+  font-size: 0;
+}
+
+.compact-detail-row[open] .compact-detail-action::after {
+  content: "Hide details";
+  font-size: 0.82rem;
+}
+
+.equipment-pack-row[open] .compact-detail-action::after {
+  content: "Hide contents";
+}
+
+.compact-detail-body {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: #f7f9fa;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.compact-detail-body p {
+  margin: 0 0 8px;
+}
+
+.compact-detail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.detail-block {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.detail-block .guidance-section-label {
+  display: block;
+}
+
+.detail-block p {
+  margin: 0;
+}
+
+.compact-detail-body ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
 }
 
 .ability-reroll-note {
@@ -1149,6 +1382,33 @@ textarea {
   text-align: left;
   color: var(--text);
   background: #ffffff;
+}
+
+.racial-action-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--button);
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fbfc;
+}
+
+.feature-action-card {
+  padding: 0;
+}
+
+.feature-action-card[open] {
+  border-color: #b8c6cf;
+  box-shadow: 0 1px 0 rgba(20, 38, 50, 0.04);
+}
+
+.feature-action-card .weapon-card-summary::after {
+  content: "View details";
+}
+
+.feature-action-card[open] .weapon-card-summary::after {
+  content: "Hide details";
 }
 
 .spell-display-section {
