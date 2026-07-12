@@ -161,7 +161,7 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     domainSkillProficiencies,
     baseAbilities,
     equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod, { domainId: choices.classFeatures.divineDomain }),
-    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain }),
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain, patronId: choices.classFeatures.otherworldlyPatron }),
     finishingTouches,
   });
 };
@@ -192,7 +192,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     domainSkillProficiencies,
     baseAbilities,
     equipmentSelections: randomEquipmentSelections(choices.characterClass.id, equipmentMethod, { domainId: choices.classFeatures.divineDomain }),
-    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain }),
+    spellcasting: DND_DATA.randomSpellSelectionForClass(choices.characterClass.id, { abilities, domainId: choices.classFeatures.divineDomain, patronId: choices.classFeatures.otherworldlyPatron }),
     finishingTouches,
     rolledScores,
     rolledAssignments,

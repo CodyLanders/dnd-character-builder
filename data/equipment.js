@@ -409,6 +409,42 @@ DND_DATA.startingEquipment = {
     ],
     fixed: ["daggers2"],
   },
+  warlock: {
+    choices: [
+      {
+        id: "weaponOne",
+        title: "Weapon Choice 1",
+        options: [
+          { id: "crossbow", name: "Light crossbow and 20 bolts", items: ["lightCrossbow", "bolts20"], details: ["Light crossbow - 1d8 piercing, ranged, two-handed", "20 bolts"] },
+          { id: "simple-weapon", name: "Any simple weapon", dropdowns: [{ id: "simpleWeapon", label: "Simple weapon", list: "simple" }] },
+        ],
+      },
+      {
+        id: "spellcastingFocus",
+        title: "Spellcasting focus",
+        options: [
+          { id: "component-pouch", name: "Component pouch", items: ["componentPouch"], details: ["Component pouch - material components used to cast spells"] },
+          { id: "arcane-focus", name: "Arcane focus", helper: "Choose what your Warlock uses as a spellcasting focus.", dropdowns: [{ id: "arcaneFocusType", label: "Arcane focus", list: "arcaneFocus" }] },
+        ],
+      },
+      {
+        id: "pack",
+        title: "Pack",
+        options: [
+          { id: "scholars-pack", name: "Scholar's Pack", items: ["scholarsPack"] },
+          { id: "dungeoneers-pack", name: "Dungeoneer's Pack", items: ["dungeoneersPack"] },
+        ],
+      },
+      {
+        id: "weaponTwo",
+        title: "Weapon Choice 2",
+        options: [
+          { id: "simple-weapon", name: "Choose one simple weapon", dropdowns: [{ id: "simpleWeapon", label: "Simple weapon", list: "simple" }] },
+        ],
+      },
+    ],
+    fixed: ["leatherArmor", "daggers2"],
+  },
   druid: {
     choices: [
       {

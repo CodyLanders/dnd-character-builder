@@ -466,6 +466,16 @@ function getDragonAncestor(character) {
   return choices.options.find((option) => option.id === character.classFeatures.dragonAncestor) || null;
 }
 
+function getSelectedWarlockPatronId(character) {
+  return character.classId === "warlock" && character.classFeatures ? character.classFeatures.otherworldlyPatron || "" : "";
+}
+
+function getSelectedWarlockPatron(character) {
+  const patronId = getSelectedWarlockPatronId(character);
+  const group = DND_DATA.classFeatureChoices.warlock && DND_DATA.classFeatureChoices.warlock.groups[0];
+  return group ? group.options.find((option) => option.id === patronId) || null : null;
+}
+
 function getSelectedClericDomain(character) {
   const domainId = getSelectedClericDomainId(character);
   const domainGroup = DND_DATA.classFeatureChoices.cleric && DND_DATA.classFeatureChoices.cleric.groups[0];
@@ -817,11 +827,21 @@ function getSpellOptionsForSelection(character, selectionType) {
   const domainSpellIds = new Set(getClericDomainSpellIds(character));
   const bonusCantripIds = new Set(getSelectedBonusCantripIds(character));
   const wizardSpellbookIds = new Set(getSelectedSpellIds(character, "spellbookSpells"));
-  return DND_DATA.getSpellsForClassLevel(classId, level)
+  const baseOptions = DND_DATA.getSpellsForClassLevel(classId, level);
+  const warlockPatron = getSelectedWarlockPatron(character);
+  const warlockExpandedIds = new Set(character.classId === "warlock" && selectionType === "spellbookSpells" && DND_DATA.getWarlockPatronExpandedSpellIds
+    ? DND_DATA.getWarlockPatronExpandedSpellIds(getSelectedWarlockPatronId(character))
+    : []);
+  const expandedOptions = warlockExpandedIds.size ? [...warlockExpandedIds].map((spellId) => DND_DATA.getSpellById(spellId)).filter(Boolean) : [];
+  return [...baseOptions, ...expandedOptions]
+    .filter((spell, index, spells) => spells.findIndex((item) => item.id === spell.id) === index)
     .filter((spell) => selectionType !== "preparedSpells" || !domainSpellIds.has(spell.id))
     .filter((spell) => character.classId !== "wizard" || selectionType !== "preparedSpells" || wizardSpellbookIds.has(spell.id))
     .filter((spell) => selectionType !== "cantrips" || !bonusCantripIds.has(spell.id))
-    .filter((spell) => selectionType !== "natureBonusCantrip" || !getSelectedSpellIds(character, "cantrips").includes(spell.id));
+    .filter((spell) => selectionType !== "natureBonusCantrip" || !getSelectedSpellIds(character, "cantrips").includes(spell.id))
+    .map((spell) => warlockExpandedIds.has(spell.id) && warlockPatron
+      ? { ...spell, selectionNote: "Patron Spell" }
+      : spell);
 }
 
 function sanitizeSpellSelections(character) {
@@ -879,6 +899,7 @@ function setRandomSpellSelections(character) {
     abilities: character.abilities,
     level: character.level,
     domainId: character.classFeatures.divineDomain,
+    patronId: character.classFeatures.otherworldlyPatron,
   });
 }
 
@@ -1104,6 +1125,7 @@ function getSkillTags(character, skill, isAlreadyProficient) {
     druid: ["Nature", "Animal Handling", "Survival", "Perception"],
     bard: ["Performance", "Persuasion", "Deception", "Insight"],
     sorcerer: ["Arcana", "Persuasion", "Deception", "Intimidation"],
+    warlock: ["Arcana", "Deception", "Intimidation", "Investigation"],
   };
   const tags = [];
   if (isAlreadyProficient) tags.push("Already Proficient");
@@ -1712,9 +1734,25 @@ function renderClassFeaturesPreview(character, characterClass) {
   const classFeatures = characterClass && characterClass.features ? characterClass.features.map((feature) => ({ text: feature })) : [];
   const domainFeatures = getClericDomainFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
   const sorcererFeatures = getSorcererOriginFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
-  const features = [...classFeatures, ...domainFeatures, ...sorcererFeatures];
+  const warlockFeatures = getWarlockPatronFeatures(character).map((feature) => ({ text: `${feature.name} - ${feature.description}` }));
+  const features = [...classFeatures, ...domainFeatures, ...sorcererFeatures, ...warlockFeatures];
   if (!features.length) return "";
   return renderPreviewCategory("Class Features", features);
+}
+
+function getWarlockPatronFeatures(character) {
+  if (character.classId !== "warlock") return [];
+  const patronId = getSelectedWarlockPatronId(character);
+  if (patronId === "archfey") {
+    return [{ name: "Fey Presence", description: "You can briefly charm or frighten nearby creatures. You regain this feature after a short or long rest." }];
+  }
+  if (patronId === "fiend") {
+    return [{ name: "Dark One's Blessing", description: "When you reduce a hostile creature to 0 hit points, you gain temporary hit points equal to your Charisma modifier + your Warlock level." }];
+  }
+  if (patronId === "great-old-one") {
+    return [{ name: "Awakened Mind", description: "You can telepathically speak to a nearby creature you can see, as long as it understands at least one language." }];
+  }
+  return [];
 }
 
 function getSorcererOriginFeatures(character) {
@@ -1773,6 +1811,7 @@ function renderSpellDisplayCard(spell) {
           <span class="spell-card-heading">
             <strong>${spell.name}</strong>
             <span>${formatSpellLevel(spell)} - ${spell.school}</span>
+            ${spell.selectionNote ? `<span class="spell-selection-tag">${spell.selectionNote}</span>` : ""}
           </span>
           <span class="spell-card-facts">
             ${renderSpellFactBoxes(spell)}
@@ -1810,6 +1849,7 @@ function getSpellcastingClassNote(character) {
   if (character.classId === "druid") return "You can prepare different Druid spells after a long rest.";
   if (character.classId === "bard") return "Your Bard spells are known spells. You do not prepare spells each day.";
   if (character.classId === "sorcerer") return "Your Sorcerer spells are known spells. You do not prepare spells each day.";
+  if (character.classId === "warlock") return "Your Warlock spells are known spells. You regain your Pact Magic slot after a short or long rest.";
   return "";
 }
 
@@ -1824,7 +1864,8 @@ function renderSpellcastingPreview(character, characterClass) {
   const ability = getSpellcastingAbility(character, characterClass);
   const saveDc = calculateSpellSaveDc(character, characterClass);
   const attackBonus = calculateSpellAttackBonus(character, characterClass);
-  const slotLabel = getSpellcastingMagicType(character, characterClass) === "pact" ? "Pact Magic Slots" : "Spell Slots";
+  const isPactMagic = getSpellcastingMagicType(character, characterClass) === "pact";
+  const slotLabel = isPactMagic ? "Pact Magic Slot" : "Spell Slots";
   const slotCount = getLevelOneSpellSlotCount(character, characterClass);
   const cantripSpells = getSelectedSpells(character, "cantrips");
   const spellbookSpells = getSelectedSpells(character, "spellbookSpells");
@@ -1845,7 +1886,7 @@ function renderSpellcastingPreview(character, characterClass) {
   const spellcastingNote = getSpellcastingClassNote(character);
 
   return `
-    <h3>Spellcasting</h3>
+    <h3>${isPactMagic ? "Pact Magic" : "Spellcasting"}</h3>
     <div class="sheet-grid spellcasting-grid">
       <div class="sheet-item"><span class="sheet-label">Spellcasting Ability</span>${ability || "Not selected"}</div>
       <div class="sheet-item"><span class="sheet-label">Spell Save DC</span>${saveDc === "" ? `Assign ${ability}` : saveDc}</div>
@@ -2593,6 +2634,14 @@ function getSimpleAbilityGuidance(character) {
     };
   }
 
+  if (character.classId === "warlock") {
+    return {
+      primary: "Charisma",
+      secondary: "Constitution and Dexterity",
+      notes: equipmentNotes,
+    };
+  }
+
   if (character.classId === "paladin") {
     return {
       primary: "Strength",
@@ -2993,6 +3042,7 @@ function renderSpellSelectionCard(spell, selectionType, selectedIds, limit, char
         <span class="spell-card-main">
           <span class="spell-card-heading">
             <strong>${spell.name}</strong>
+            ${spell.selectionNote ? `<span class="spell-selection-tag">${spell.selectionNote}</span>` : ""}
             <span>${formatSpellLevel(spell)} - ${spell.school}</span>
           </span>
           <span class="spell-card-facts">
@@ -3009,6 +3059,27 @@ function renderSpellSelectionCard(spell, selectionType, selectedIds, limit, char
       </details>
     </article>
   `;
+}
+
+function sortSpellsByName(spells) {
+  return [...spells].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderSpellChoiceGrid(spells, selectionType, selectedIds, limit) {
+  return `
+    <div class="spell-choice-grid">
+      ${spells.map((spell) => renderSpellSelectionCard(spell, selectionType, selectedIds, limit)).join("")}
+    </div>
+  `;
+}
+
+function renderWarlockKnownSpellOptions(spells, selectionType, selectedIds, limit) {
+  const expandedIds = new Set(DND_DATA.getWarlockPatronExpandedSpellIds
+    ? DND_DATA.getWarlockPatronExpandedSpellIds(getSelectedWarlockPatronId(appState.character))
+    : []);
+  const expandedSpells = sortSpellsByName(spells.filter((spell) => expandedIds.has(spell.id)));
+  const regularSpells = sortSpellsByName(spells.filter((spell) => !expandedIds.has(spell.id)));
+  return renderSpellChoiceGrid([...expandedSpells, ...regularSpells], selectionType, selectedIds, limit);
 }
 
 function renderSpellSelectionSection(title, helper, selectionType, spells, selectedIds, limit) {
@@ -3031,9 +3102,9 @@ function renderSpellSelectionSection(title, helper, selectionType, spells, selec
       </div>
       <p>${helper}</p>
       ${wizardPrepareProgress}
-      <div class="spell-choice-grid">
-        ${spells.map((spell) => renderSpellSelectionCard(spell, selectionType, selectedIds, limit)).join("")}
-      </div>
+      ${appState.character.classId === "warlock" && selectionType === "spellbookSpells"
+        ? renderWarlockKnownSpellOptions(spells, selectionType, selectedIds, limit)
+        : renderSpellChoiceGrid(spells, selectionType, selectedIds, limit)}
     </section>
   `;
 }

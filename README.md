@@ -3,14 +3,20 @@
 An interactive web-based Dungeons & Dragons character builder that guides users through core character-creation choices and displays the resulting character details.
 
 ## Features
-* Guided character creation workflow
-* Race, class, background, level 1 feature, and ability-score selection
-* Starting equipment choices for Fighter, Barbarian, Rogue, and Monk
-* Character Preview with ability scores, saving throws, skills, armor class, initiative, speed, and equipment
-* Armor & Defense explanation showing how the current Armor Class is being sourced
-* Racial ability-score bonuses shown beside affected abilities
-* Clear bonus legend available throughout the builder
-* Responsive browser-based interface
+* Guided level 1 character creation workflow
+* Race, class, background, class-feature, ability-score, skill, equipment, spell, and finishing-touch selections
+* Support for multiple ability-score methods, including Standard Array, rolled scores, and Point Buy
+* Reroll support for rolled ability scores with visible reroll tracking
+* Class skill selection with duplicate-proficiency prevention
+* Starting equipment choices and advanced rolled starting gold option
+* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, and starting gold
+* Armor & Defense explanation showing how Armor Class is calculated
+* Attack Summary with weapon attack bonuses, damage bonuses, ability used, range, and relevant fighting-style bonuses
+* Spellcasting support for supported level 1 spellcasting classes, including cantrips, known spells, prepared spells, spell slots, spell save DC, and spell attack bonus
+* Finishing Touches step with character name, alignment, language/tool choices, optional roleplay fields, and optional trinkets
+* Random character generation with support for class, race, background, ability scores, skills, equipment, spells, and finishing-touch choices
+* Autosave, browser save/load, refresh protection, and Restart flow
+* Responsive mobile-friendly browser interface
 
 ## Built With
 - HTML
@@ -18,6 +24,14 @@ An interactive web-based Dungeons & Dragons character builder that guides users 
 - JavaScript
 
 ## Project Evolution
+
+### v0.6.0 — Sorcerer Validation and Warlock Pact Magic — July 10, 2026
+- Validated Sorcerer as a complete level 1 class, including Draconic Bloodline, Wild Magic, Charisma-based spellcasting, and known-spell selection.
+- Added and validated Warlock as a complete level 1 class with Archfey, Fiend, and Great Old One patron choices.
+- Added Warlock Pact Magic with cantrips, known spells, a level 1 Pact Magic slot, and short-rest recovery guidance.
+- Polished Warlock spell selection so patron expanded spells appear first, are clearly tagged, and behave as additional options rather than free spells.
+- Added Warlock starting equipment, arcane focus choices, final sheet support, and randomize support.
+- Confirmed the broader spellcasting system still works across Bard, Wizard, Cleric, Druid, Sorcerer, and Warlock.
 
 ### v0.5.2 — Bard Spellcasting, Wizard Preparation, and Sorcerer Start — July 10, 2026
 - Added Bard as a selectable level 1 class.

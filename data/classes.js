@@ -235,6 +235,28 @@ DND_DATA.classes = [
     ],
   },
   {
+    id: "warlock",
+    name: "Warlock",
+    cardDescription: "Pact-bound Charisma caster",
+    detail:
+      "A Warlock gains magic through a bargain with an otherworldly patron. At level 1, you use Charisma for Pact Magic and choose the patron that grants your strange power.",
+    proficiencyDetails: {
+      Armor: "Light armor",
+      Weapons: "Simple weapons",
+      Tools: "None",
+      "Saving Throws": "Wisdom, Charisma",
+    },
+    hitDie: 8,
+    savingThrowProficiencies: ["Wisdom", "Charisma"],
+    skillChoices: {
+      choose: 2,
+      options: ["Arcana", "Deception", "History", "Intimidation", "Investigation", "Nature", "Religion"],
+    },
+    primaryAbilities: ["Charisma", "Constitution", "Dexterity", "Wisdom", "Intelligence", "Strength"],
+    proficiencies: ["Light armor", "Simple weapons"],
+    features: ["Otherworldly Patron", "Pact Magic"],
+  },
+  {
     id: "wizard",
     name: "Wizard",
     cardDescription: "Studied arcane spellcaster",
@@ -434,6 +456,21 @@ DND_DATA.classFeatureChoices = {
           ],
           note: "Your dragon ancestor's damage type matters for later Draconic features, but has little mechanical impact at level 1.",
         },
+      },
+    ],
+  },
+  warlock: {
+    groups: [
+      {
+        id: "otherworldlyPatron",
+        title: "Otherworldly Patron",
+        previewLabel: "Otherworldly Patron",
+        description: "Choose the powerful being that grants your Warlock magic.",
+        options: [
+          { id: "archfey", name: "Archfey", description: "Your patron is a powerful fey being of charm, illusion, and ancient emotion." },
+          { id: "fiend", name: "Fiend", description: "Your patron is a fiendish power tied to fire, corruption, and survival through victory." },
+          { id: "great-old-one", name: "Great Old One", description: "Your patron is an alien mind tied to secrets, telepathy, and unknowable power." },
+        ],
       },
     ],
   },
