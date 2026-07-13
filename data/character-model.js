@@ -25,8 +25,9 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     classId,
     raceId,
     subraceId,
-    raceChoices: overrides.raceChoices || { dragonbornAncestry: "" },
+    raceChoices: overrides.raceChoices || { dragonbornAncestry: "", halfElfAbilities: [], halfElfSkills: [] },
     backgroundId,
+    backgroundChoices: overrides.backgroundChoices || { backgroundId, choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
     classFeatures: overrides.classFeatures || {
       fightingStyle: "",
     },
@@ -37,7 +38,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     savingThrowProficiencies: overrides.savingThrowProficiencies || {},
     savingThrowExpertise: overrides.savingThrowExpertise || {},
     baseAbilities,
-    abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId, subraceId),
+    abilities: DND_DATA.applyRaceIncreases(baseAbilities, raceId, subraceId, overrides.raceChoices || {}),
     equipmentSelections: overrides.equipmentSelections || DND_DATA.createRandomEquipmentSelections(classId),
     equipment: [],
     spellcasting: {
@@ -55,11 +56,20 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
   };
 };
 
-DND_DATA.applyRaceIncreases = function applyRaceIncreases(baseAbilities, raceId, subraceId = "") {
+DND_DATA.applyRaceIncreases = function applyRaceIncreases(baseAbilities, raceId, subraceId = "", raceChoices = {}) {
   const race = DND_DATA.getEffectiveRace
     ? DND_DATA.getEffectiveRace(raceId, subraceId)
     : DND_DATA.races.find((item) => item.id === raceId);
-  const increases = race ? race.abilityIncreases : {};
+  const increases = { ...(race ? race.abilityIncreases : {}) };
+  const hasCompleteBaseScores = DND_DATA.abilities.every((ability) => baseAbilities[ability] !== "" && baseAbilities[ability] !== undefined);
+  if (raceId === "half-elf" && hasCompleteBaseScores) {
+    (Array.isArray(raceChoices.halfElfAbilities) ? raceChoices.halfElfAbilities : [])
+      .filter((ability) => DND_DATA.abilities.includes(ability) && ability !== "Charisma")
+      .slice(0, 2)
+      .forEach((ability) => {
+        increases[ability] = (increases[ability] || 0) + 1;
+      });
+  }
 
   return DND_DATA.abilities.reduce((scores, ability) => {
     const baseScore = baseAbilities[ability];

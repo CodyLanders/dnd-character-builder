@@ -29,6 +29,21 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 
 ## Project Evolution
 
+### v0.7.1 — Half-Elf, Background Expansion, and Proficiency Conflict Cleanup — July 11, 2026
+- Strengthened the race and background systems overall so complex choices, replacement proficiencies, randomization, autosave, and final-sheet output behave more consistently.
+- Added Half-Elf as a full race option, including flexible ability-score increases, Skill Versatility, extra language choice, racial trait cleanup, autosave support, and randomization support.
+- Validated Human and Half-Orc against the newer race systems to confirm ability bonuses, racial traits, skills, languages, preview output, randomization, and state cleanup still work correctly.
+- Redesigned the Race step with simpler comparison cards, cleaner required-choice behavior, mobile-friendly navigation, and a dynamic Selected Race Details section.
+- Improved Ability Scores layout so Half-Elf flexible ability increases stay clearly separated from base score assignment and do not interfere with Random Assign.
+- Added Acolyte, Sage, Noble, and Hermit backgrounds with full background data, required choices, equipment, starting gold, features, proficiencies, descriptions, and optional details.
+- Expanded background roleplay support with background-specific Personality Trait, Ideal, Bond, and Flaw suggestion pools.
+- Improved Finishing Touches so roleplay fields can use suggestions, custom text, or skipped values while preserving custom entries across background changes.
+- Reworked the Background step into a cleaner flow with compact background cards, required background choices, full background details, field-level randomize buttons, and mobile-friendly navigation.
+- Added proficiency conflict handling for duplicate fixed skills, tools, and languages, including replacement dropdowns, source-aware cleanup, field-level randomize, and support for multiple conflicts.
+- Simplified duplicate-proficiency replacement UI so conflicts are easier to understand without oversized cards or repeated warnings.
+- Updated Character Preview and final output with new background features, proficiencies, languages, equipment, gold, specialties, optional details, and cleaner Alignment placement.
+- Improved background and race cleanup so changing choices removes stale traits, equipment, gold, proficiencies, languages, and background-specific details while preserving valid autosaved selections.
+
 ### v0.7.0 — Race Polish, Preview Cleanup, and Expandable Details — July 11, 2026
 - Improved race selection with cleaner required-choice handling, mobile-friendly scrolling, and dedicated randomize controls for races, subraces, and Dragonborn ancestry.
 - Cleaned up race-change behavior so incompatible traits, spells, proficiencies, resistances, and ancestry choices reset correctly.

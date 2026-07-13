@@ -105,6 +105,23 @@ DND_DATA.randomDomainSkillProficiencies = function randomDomainSkillProficiencie
   }, {});
 };
 
+DND_DATA.randomHalfElfAbilityChoices = function randomHalfElfAbilityChoices(race) {
+  if (!race || race.baseRaceId !== "half-elf" && race.id !== "half-elf") return [];
+  return DND_DATA.shuffle(DND_DATA.abilities.filter((ability) => ability !== "Charisma")).slice(0, 2);
+};
+
+DND_DATA.randomHalfElfSkillChoices = function randomHalfElfSkillChoices(race, background, classSkillProficiencies, domainSkillProficiencies) {
+  if (!race || race.baseRaceId !== "half-elf" && race.id !== "half-elf") return [];
+  const unavailableSkills = new Set([
+    ...((race && race.skills) || []),
+    ...Object.keys((race && race.skillProficiencies) || {}),
+    ...((background && background.skills) || []),
+    ...Object.keys(classSkillProficiencies || {}),
+    ...Object.keys(domainSkillProficiencies || {}),
+  ]);
+  return DND_DATA.shuffle(DND_DATA.skills.map((skill) => skill.name).filter((skillName) => !unavailableSkills.has(skillName))).slice(0, 2);
+};
+
 DND_DATA.randomFinishingTouchesForCharacter = function randomFinishingTouchesForCharacter(characterClass, race, background, classFeatures) {
   const finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
   if (race && race.languageChoices) {
@@ -117,7 +134,8 @@ DND_DATA.randomFinishingTouchesForCharacter = function randomFinishingTouchesFor
       ...DND_DATA.languages.exotic,
     ].filter((language) => !blockedLanguages.has(language.toLowerCase())));
     languageOptions.slice(0, race.languageChoices.choose || 0).forEach((language, index) => {
-      finishingTouches.choices[`race-language-${index + 1}`] = language;
+      const choiceId = race.id === "half-elf" || race.baseRaceId === "half-elf" ? `half-elf-language-${index + 1}` : `race-language-${index + 1}`;
+      finishingTouches.choices[choiceId] = language;
     });
   }
   (race && race.toolChoices ? race.toolChoices : []).forEach((toolChoice) => {
@@ -166,10 +184,16 @@ function randomEquipmentSelections(classId, equipmentMethod, context = {}) {
 DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharacter(options = {}) {
   const choices = DND_DATA.createRandomStarterChoices();
   const baseAbilities = DND_DATA.assignStandardArray(choices.characterClass.id);
-  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id, choices.subrace ? choices.subrace.id : "");
+  const raceChoices = {
+    dragonbornAncestry: choices.ancestry ? choices.ancestry.id : "",
+    halfElfAbilities: DND_DATA.randomHalfElfAbilityChoices(choices.effectiveRace),
+    halfElfSkills: [],
+  };
+  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id, choices.subrace ? choices.subrace.id : "", raceChoices);
   const equipmentMethod = options.equipmentMethod || "take-equipment";
   const classSkillProficiencies = DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.effectiveRace, choices.background);
   const domainSkillProficiencies = DND_DATA.randomDomainSkillProficiencies(choices.characterClass, choices.effectiveRace, choices.background, classSkillProficiencies, choices.classFeatures);
+  raceChoices.halfElfSkills = DND_DATA.randomHalfElfSkillChoices(choices.effectiveRace, choices.background, classSkillProficiencies, domainSkillProficiencies);
   const finishingTouches = DND_DATA.randomFinishingTouchesForCharacter(choices.characterClass, choices.effectiveRace, choices.background, choices.classFeatures);
 
   const character = DND_DATA.createCharacter({
@@ -178,7 +202,7 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     classId: choices.characterClass.id,
     raceId: choices.race.id,
     subraceId: choices.subrace ? choices.subrace.id : "",
-    raceChoices: { dragonbornAncestry: choices.ancestry ? choices.ancestry.id : "" },
+    raceChoices,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
     classSkillProficiencies,
@@ -206,9 +230,15 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     scores[ability] = roll.total;
     return scores;
   }, {});
-  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id, choices.subrace ? choices.subrace.id : "");
+  const raceChoices = {
+    dragonbornAncestry: choices.ancestry ? choices.ancestry.id : "",
+    halfElfAbilities: DND_DATA.randomHalfElfAbilityChoices(choices.effectiveRace),
+    halfElfSkills: [],
+  };
+  const abilities = DND_DATA.applyRaceIncreases(baseAbilities, choices.race.id, choices.subrace ? choices.subrace.id : "", raceChoices);
   const classSkillProficiencies = DND_DATA.randomClassSkillProficiencies(choices.characterClass, choices.effectiveRace, choices.background);
   const domainSkillProficiencies = DND_DATA.randomDomainSkillProficiencies(choices.characterClass, choices.effectiveRace, choices.background, classSkillProficiencies, choices.classFeatures);
+  raceChoices.halfElfSkills = DND_DATA.randomHalfElfSkillChoices(choices.effectiveRace, choices.background, classSkillProficiencies, domainSkillProficiencies);
   const finishingTouches = DND_DATA.randomFinishingTouchesForCharacter(choices.characterClass, choices.effectiveRace, choices.background, choices.classFeatures);
 
   const character = DND_DATA.createCharacter({
@@ -217,7 +247,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     classId: choices.characterClass.id,
     raceId: choices.race.id,
     subraceId: choices.subrace ? choices.subrace.id : "",
-    raceChoices: { dragonbornAncestry: choices.ancestry ? choices.ancestry.id : "" },
+    raceChoices,
     backgroundId: choices.background.id,
     classFeatures: choices.classFeatures,
     classSkillProficiencies,

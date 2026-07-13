@@ -71,4 +71,105 @@ DND_DATA.backgrounds = [
       flaw: ["The tyrant who rules my land will stop at nothing to see me killed.", "I'm convinced of the significance of my destiny.", "I have trouble trusting my allies."],
     },
   },
+  {
+    id: "acolyte",
+    name: "Acolyte",
+    description: "You served a temple, shrine, or religious community before adventuring.",
+    skills: ["Insight", "Religion"],
+    choiceGroups: [
+      { id: "acolyte-language-1", label: "Acolyte Language 1", category: "language", required: true, helper: "Pick a language learned through religious service." },
+      { id: "acolyte-language-2", label: "Acolyte Language 2", category: "language", required: true, helper: "Pick a second language learned through religious service." },
+      { id: "acolyte-prayer-item", label: "Prayer Item", category: "option", required: true, options: ["Prayer book", "Prayer wheel"], helper: "Choose the devotional item your Acolyte carries." },
+    ],
+    optionalDetails: [
+      { id: "acolyteFaith", label: "Deity, Faith, or Philosophy", placeholder: "Optional deity, faith, cosmic force, or philosophy" },
+    ],
+    equipment: ["Holy symbol", "5 sticks of incense", "Vestments", "Common clothes"],
+    startingGoldGp: 15,
+    feature: {
+      name: "Shelter of the Faithful",
+      description: "Members of your faith can usually provide modest food, lodging, and support when you are near a temple or community that honors your beliefs.",
+    },
+    personality: {
+      trait: ["I quote sacred teachings in everyday conversation.", "I look for omens in ordinary events.", "I try to see the divine spark in everyone.", "I am patient with honest doubt.", "I am uncomfortable around open disrespect for faith.", "I speak softly until my beliefs are challenged.", "I treat rituals as anchors in a chaotic world.", "I am eager to debate theology with anyone willing to listen."],
+      ideal: ["Tradition. Ancient rites preserve hard-won wisdom.", "Charity. Those with strength must aid those without it.", "Change. Faith should guide people toward a better world.", "Power. Divine favor proves who should lead.", "Faith. Trust in higher truth can carry us through fear.", "Aspiration. I seek to be worthy of the teachings I follow."],
+      bond: ["The temple that raised me is my true home.", "I owe my life to the priest who took me in.", "I protect a relic entrusted to my care.", "I seek proof of a vision I received.", "My faith community depends on what I discover.", "I left someone behind who still needs my help."],
+      flaw: ["I judge harshly those who reject my beliefs.", "I sometimes mistake ritual for compassion.", "I am naive about worldly schemes.", "I hide doubts I am afraid to admit.", "I trust religious authority too easily.", "I can be inflexible when doctrine is involved."],
+    },
+  },
+  {
+    id: "sage",
+    name: "Sage",
+    description: "You spent years studying lore, records, formulas, or forgotten histories.",
+    skills: ["Arcana", "History"],
+    choiceGroups: [
+      { id: "sage-language-1", label: "Sage Language 1", category: "language", required: true, helper: "Pick a language learned through study." },
+      { id: "sage-language-2", label: "Sage Language 2", category: "language", required: true, helper: "Pick a second language learned through study." },
+      { id: "sage-specialty", label: "Sage Specialty", category: "option", required: true, options: ["Alchemist", "Astronomer", "Discredited Academic", "Librarian", "Professor", "Researcher", "Wizard's Apprentice", "Scribe"], helper: "Choose the field that shaped your studies." },
+    ],
+    equipment: ["Bottle of black ink", "Quill", "Small knife", "Letter from a deceased colleague containing an unanswered question", "Common clothes"],
+    startingGoldGp: 10,
+    feature: {
+      name: "Researcher",
+      description: "When you do not know a piece of lore, you often know where and from whom it could be learned.",
+    },
+    personality: {
+      trait: ["I use precise words even when simple ones would do.", "I get excited by obscure facts.", "I am more comfortable in libraries than taverns.", "I ask questions until people become impatient.", "I take careful notes about everything unusual.", "I value a good argument more than easy agreement.", "I often forget practical concerns while thinking.", "I treat mysteries like invitations."],
+      ideal: ["Knowledge. Truth is worth pursuing for its own sake.", "Beauty. A brilliant idea is a work of art.", "Logic. Reason should overcome fear and superstition.", "No Limits. Forbidden knowledge is still knowledge.", "Power. Information is leverage.", "Self-Improvement. Study should make me better than I was."],
+      bond: ["I must answer a question my mentor could not solve.", "A library or school gave me my purpose.", "I protect notes that dangerous people want.", "I seek a lost text central to my research.", "My reputation was ruined, and I will restore it.", "A student or colleague depends on my discoveries."],
+      flaw: ["I dismiss people who lack formal education.", "I overlook danger when knowledge is at stake.", "I hoard information instead of sharing it.", "I am easily baited by intellectual challenges.", "I trust books more than people.", "I struggle to admit when I am wrong."],
+    },
+  },
+  {
+    id: "noble",
+    name: "Noble",
+    description: "You were born or adopted into wealth, title, or recognized privilege.",
+    skills: ["History", "Persuasion"],
+    choiceGroups: [
+      { id: "noble-gaming-set", label: "Gaming Set", category: "gaming", required: true, helper: "Pick a gaming set common among your peers." },
+      { id: "noble-language-1", label: "Noble Language", category: "language", required: true, helper: "Pick a language learned through education or courtly life." },
+    ],
+    optionalDetails: [
+      { id: "nobleTitle", label: "Noble Title", placeholder: "Baroness, Lord, heir, minor noble..." },
+      { id: "nobleHouse", label: "Family or House", placeholder: "House name, lineage, or influential family" },
+    ],
+    equipment: ["Fine clothes", "Signet ring", "Scroll of pedigree"],
+    startingGoldGp: 25,
+    feature: {
+      name: "Position of Privilege",
+      description: "People tend to recognize your status, and high society is more likely to grant you access, audience, or respectful treatment.",
+    },
+    personality: {
+      trait: ["My manners are polished even under pressure.", "I expect comfort but can endure hardship when pride demands it.", "I speak as though people are listening.", "I am generous when it costs me little.", "I remember every slight against my house.", "I enjoy the responsibilities of rank.", "I try to prove I am more than my title.", "I treat etiquette as a useful weapon."],
+      ideal: ["Respect. Nobility must be earned through conduct.", "Responsibility. Rank exists to protect those below it.", "Independence. I will not be trapped by family expectations.", "Power. Authority belongs in capable hands.", "Family. Blood and house come before all else.", "Noblesse Oblige. Privilege means duty."],
+      bond: ["My house's honor rests on my actions.", "I must secure an alliance important to my family.", "A commoner once showed me true loyalty.", "I carry proof of my lineage wherever I go.", "I will reclaim standing my family lost.", "My sibling or heir is counting on me."],
+      flaw: ["I secretly believe I deserve special treatment.", "I cannot resist courtly gossip.", "I underestimate people of lower station.", "I spend money to avoid embarrassment.", "I am terrified of disgracing my family.", "I hold grudges behind a courteous smile."],
+    },
+  },
+  {
+    id: "hermit",
+    name: "Hermit",
+    description: "You lived apart from society in solitude, contemplation, or hidden service.",
+    skills: ["Medicine", "Religion"],
+    tools: ["Herbalism kit"],
+    choiceGroups: [
+      { id: "hermit-language-1", label: "Hermit Language", category: "language", required: true, helper: "Pick a language learned during your seclusion." },
+      { id: "hermit-seclusion", label: "Life of Seclusion", category: "option", required: true, options: ["Seeking spiritual enlightenment", "Living communally under a religious order", "Exile for an alleged or actual crime", "Retreat after a life-changing event", "Seeking solitude to complete important work", "Communing with nature", "Protecting an ancient site or relic", "Undertaking a personal pilgrimage"], helper: "Choose what led you away from ordinary society." },
+    ],
+    optionalDetails: [
+      { id: "hermitDiscovery", label: "Your Discovery", placeholder: "Describe the revelation or secret with your DM" },
+    ],
+    equipment: ["Scroll case filled with notes from studies or prayers", "Winter blanket", "Common clothes", "Herbalism kit"],
+    startingGoldGp: 5,
+    feature: {
+      name: "Discovery",
+      description: "Your isolation revealed an important truth, location, omen, or secret. Work with your DM to decide what it means.",
+    },
+    personality: {
+      trait: ["I am unused to crowded places.", "I speak slowly because I choose words carefully.", "I find meaning in silence.", "I am blunt about what truly matters.", "I keep simple routines no matter where I travel.", "I am fascinated by ordinary city life.", "I prefer listening to speaking.", "I treat solitude as a source of strength."],
+      ideal: ["Greater Good. My discovery must help others.", "Logic. Emotion clouds the truth I found.", "Free Thinking. Isolation freed me from old assumptions.", "Power. My secret can reshape the world.", "Live and Let Live. People should find their own paths.", "Self-Knowledge. The hardest truth is within."],
+      bond: ["I protect the place where I made my discovery.", "A quiet community sheltered me in my seclusion.", "I must share my revelation with the right person.", "I left someone behind to pursue solitude.", "An ancient site or relic is under my care.", "My pilgrimage is not yet complete."],
+      flaw: ["I distrust institutions and crowds.", "I speak of my discovery at the wrong times.", "I can be stubborn about my interpretation of signs.", "I neglect practical needs during contemplation.", "I avoid intimacy by retreating into solitude.", "I believe my suffering made me wiser than others."],
+    },
+  },
 ];
