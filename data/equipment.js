@@ -2,6 +2,7 @@ window.DND_DATA = window.DND_DATA || {};
 
 DND_DATA.equipmentItems = {
   club: { id: "club", name: "Club", type: "weapon", category: "simple weapon", damage: "1d4", damageType: "bludgeoning", properties: ["light"] },
+  belayingPin: { id: "belayingPin", name: "Belaying pin", type: "weapon", category: "simple weapon", damage: "1d4", damageType: "bludgeoning", properties: ["light"], detail: "Belaying pin - 1d4 bludgeoning, light" },
   dagger: { id: "dagger", name: "Dagger", type: "weapon", category: "simple weapon", damage: "1d4", damageType: "piercing", properties: ["finesse", "light", "thrown"], range: "20/60" },
   greatclub: { id: "greatclub", name: "Greatclub", type: "weapon", category: "simple weapon", damage: "1d8", damageType: "bludgeoning", properties: ["two-handed"] },
   handaxe: { id: "handaxe", name: "Handaxe", type: "weapon", category: "simple weapon", damage: "1d6", damageType: "slashing", properties: ["light", "thrown"], range: "20/60" },
@@ -24,6 +25,9 @@ DND_DATA.equipmentItems = {
   scimitar: { id: "scimitar", name: "Scimitar", type: "weapon", category: "martial weapon", melee: true, damage: "1d6", damageType: "slashing", properties: ["finesse", "light"] },
   shortsword: { id: "shortsword", name: "Shortsword", type: "weapon", category: "martial weapon", melee: true, damage: "1d6", damageType: "piercing", properties: ["finesse", "light"] },
   warhammer: { id: "warhammer", name: "Warhammer", type: "weapon", category: "martial weapon", melee: true, damage: "1d8", damageType: "bludgeoning", properties: ["versatile 1d10"] },
+  net: { id: "net", name: "Net", type: "weapon", category: "martial weapon", damage: "", damageType: "", properties: ["ranged", "thrown"], range: "5/15", detail: "Net - special martial ranged weapon, thrown" },
+  trident: { id: "trident", name: "Trident", type: "weapon", category: "martial weapon", melee: true, damage: "1d6", damageType: "piercing", properties: ["thrown", "versatile 1d8"], range: "20/60" },
+  whip: { id: "whip", name: "Whip", type: "weapon", category: "martial weapon", melee: true, damage: "1d4", damageType: "slashing", properties: ["finesse", "reach"] },
   longbow: { id: "longbow", name: "Longbow", type: "weapon", category: "martial weapon", damage: "1d8", damageType: "piercing", properties: ["ranged", "two-handed"], range: "150/600" },
   chainMail: { id: "chainMail", name: "Chain mail", type: "armor", category: "heavy armor", armorClass: { base: 16, dex: false } },
   leatherArmor: { id: "leatherArmor", name: "Leather armor", type: "armor", category: "light armor", armorClass: { base: 11, dex: true } },
@@ -61,6 +65,8 @@ DND_DATA.equipmentItems = {
   totem: { id: "totem", name: "Totem", type: "other", detail: "Totem - Druidic Focus, used to cast Druid spells that require material components" },
   woodenStaffFocus: { id: "woodenStaffFocus", name: "Wooden staff", type: "other", detail: "Wooden staff - Druidic Focus, used to cast Druid spells that require material components" },
   yewWand: { id: "yewWand", name: "Yew wand", type: "other", detail: "Yew wand - Druidic Focus, used to cast Druid spells that require material components" },
+  mule: { id: "mule", name: "Mule", type: "other", detail: "Mule - pack animal" },
+  cart: { id: "cart", name: "Cart", type: "other", detail: "Cart - small vehicle for hauling goods" },
   herbalismKit: {
     id: "herbalismKit",
     name: "Herbalism Kit",

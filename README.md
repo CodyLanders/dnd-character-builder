@@ -2,22 +2,28 @@
 
 A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creating level 1 characters through a guided step-by-step workflow.
 
+# D&D Character Builder
+
+A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creating level 1 characters through a guided step-by-step workflow.
+
 ## Features
 
 * Guided level 1 character creation for class, race, background, ability scores, skills, equipment, spells, and finishing touches
 * Support for all 2014 PHB classes at level 1, including martial classes, prepared casters, known-spell casters, and Pact Magic
-* Race and subrace selection with required-choice handling, racial traits, racial spells, languages, senses, and randomization support
+* Support for all 2014 PHB races and subraces, including required race choices, racial traits, racial spells, languages, senses, and randomization
+* Support for all 13 base 2014 PHB backgrounds plus PHB background variants
+* Background version handling for variants such as Spy, Gladiator, Guild Merchant, Knight, and Pirate
 * Multiple ability-score methods, including Standard Array, rolled scores, Point Buy, rerolls, and random assignment support
-* Skills & Proficiencies step with class skill choices, duplicate-proficiency prevention, and final skill bonus calculations
+* Skills & Proficiencies step with class skill choices, duplicate-proficiency prevention, replacement proficiency handling, and final skill bonus calculations
 * Starting equipment choices, advanced rolled starting gold, equipment warnings, and optional trinkets
-* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, traits, and starting gold
+* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, traits, background details, and starting gold
 * Armor & Defense explanation showing how Armor Class is calculated
 * Attack Summary with weapon attack bonuses, damage bonuses, ability used, range, properties, and relevant class bonuses
 * Spellcasting support with cantrips, known spells, prepared spells, spellbook spells, domain spells, patron spells, racial spells, spell slots, spell save DC, and spell attack bonus
 * Organized preview sections for Attacks & Actions, Spells, Traits & Features, Proficiencies & Training, and Equipment Carried
-* Expandable details for spells, traits, features, tools, kits, instruments, vehicles, equipment packs, and carried gear
-* Finishing Touches step with character name, alignment, required language/tool choices, optional roleplay fields, and optional trinkets
-* Random character generation with support for class, race, background, ability scores, skills, equipment, spells, and finishing-touch choices
+* Expandable details for spells, traits, features, tools, kits, instruments, vehicles, equipment packs, carried gear, and background features
+* Finishing Touches step with character name, alignment, required language/tool choices, background-specific roleplay suggestions, custom roleplay text, and optional trinkets
+* Random character generation with support for class, race, background, variants, ability scores, skills, equipment, spells, and finishing-touch choices
 * Autosave, browser save/load, refresh protection, and Restart flow
 * Responsive mobile-friendly browser interface
 
@@ -29,7 +35,22 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 
 ## Project Evolution
 
-### v0.7.1 — Half-Elf, Background Expansion, and Proficiency Conflict Cleanup — July 11, 2026
+### v0.7.2 — Complete PHB Backgrounds, Variants, and Final QA Polish — July 12, 2026
+- Completed all 13 base 2014 PHB backgrounds by adding Charlatan, Entertainer, Guild Artisan, and Sailor with full skills, tools, languages, equipment, gold, features, required choices, optional details, randomization, autosave, preview, and final-sheet support.
+- Added background-specific details such as false identities, stage names, routines, guild businesses, ship roles, and background feature text.
+- Added all five PHB background variants: Spy, Gladiator, Guild Merchant, Knight, and Pirate.
+- Added a Standard / Variant background version system while keeping the main Background grid clean at 13 cards.
+- Built variants as structured parent-background overrides so they inherit the correct roleplay suggestions, randomization behavior, autosave support, and cleanup rules.
+- Updated preview and final output to show the actual selected background or variant name.
+- Improved background choice handling with field-level randomize buttons, duplicate prevention, source-aware cleanup, and better separation between tool proficiency and owned equipment.
+- Added variant-specific support for Gladiator weapons, Guild Merchant trade details, Knight retainers, Spy aliases, and Pirate reputation details.
+- Expanded Barbarian Rage details with its level 1 mechanics, including bonus action use, damage bonus, resistances, duration, restrictions, and ending conditions.
+- Fixed Gladiator weapons so they appear correctly in Equipment Carried and Attack Summary without granting automatic proficiency.
+- Added proper Net handling with range, restrained-target details, and no invented damage die.
+- Renamed Knight support entries to Squire, Retainer 1, and Retainer 2 while preserving existing saved data.
+- Confirmed final manual verification checks passed.
+
+### v0.7.1 — Half-Elf, Background Expansion, and Proficiency Conflict Cleanup — July 12, 2026
 - Strengthened the race and background systems overall so complex choices, replacement proficiencies, randomization, autosave, and final-sheet output behave more consistently.
 - Added Half-Elf as a full race option, including flexible ability-score increases, Skill Versatility, extra language choice, racial trait cleanup, autosave support, and randomization support.
 - Validated Human and Half-Orc against the newer race systems to confirm ability bonuses, racial traits, skills, languages, preview output, randomization, and state cleanup still work correctly.
@@ -44,7 +65,7 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 - Updated Character Preview and final output with new background features, proficiencies, languages, equipment, gold, specialties, optional details, and cleaner Alignment placement.
 - Improved background and race cleanup so changing choices removes stale traits, equipment, gold, proficiencies, languages, and background-specific details while preserving valid autosaved selections.
 
-### v0.7.0 — Race Polish, Preview Cleanup, and Expandable Details — July 11, 2026
+### v0.7.0 — Race Polish, Preview Cleanup, and Expandable Details — July 12, 2026
 - Improved race selection with cleaner required-choice handling, mobile-friendly scrolling, and dedicated randomize controls for races, subraces, and Dragonborn ancestry.
 - Cleaned up race-change behavior so incompatible traits, spells, proficiencies, resistances, and ancestry choices reset correctly.
 - Improved racial spell handling by combining racial and class cantrips under one Cantrips section, adding Racial Spell tags, and preserving each spell’s correct source and casting ability.
@@ -56,7 +77,7 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 - Kept spellcasting summaries inside the Spells section while preserving spellcasting ability, save DC, attack bonus, slots, cantrip counts, prepared spell counts, and class-specific spell notes.
 - Preserved existing race, class, spell, proficiency, attack, armor, equipment, autosave, randomization, and final-sheet behavior while improving mobile and keyboard usability.
 
-### v0.6.0 — Sorcerer Validation and Warlock Pact Magic — July 10, 2026
+### v0.6.0 — Sorcerer Validation and Warlock Pact Magic — July 11, 2026
 - Validated Sorcerer as a complete level 1 class, including Draconic Bloodline, Wild Magic, Charisma-based spellcasting, and known-spell selection.
 - Added and validated Warlock as a complete level 1 class with Archfey, Fiend, and Great Old One patron choices.
 - Added Warlock Pact Magic with cantrips, known spells, a level 1 Pact Magic slot, and short-rest recovery guidance.

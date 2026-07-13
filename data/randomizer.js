@@ -62,12 +62,16 @@ DND_DATA.createRandomStarterChoices = function createRandomStarterChoices() {
   });
 
   const raceSelection = DND_DATA.randomRaceSelection ? DND_DATA.randomRaceSelection() : { race: DND_DATA.randomChoice(DND_DATA.races), subrace: null, effectiveRace: null };
+  const backgroundOutcome = DND_DATA.randomBackgroundOutcome
+    ? DND_DATA.randomBackgroundOutcome()
+    : { background: DND_DATA.randomChoice(DND_DATA.backgrounds), version: "" };
   return {
     characterClass,
     race: raceSelection.race,
     subrace: raceSelection.subrace,
     effectiveRace: raceSelection.effectiveRace || raceSelection.race,
-    background: DND_DATA.randomChoice(DND_DATA.backgrounds),
+    background: backgroundOutcome.background,
+    backgroundVersion: backgroundOutcome.version || "",
     classFeatures,
   };
 };
@@ -204,6 +208,7 @@ DND_DATA.randomizeStandardArrayCharacter = function randomizeStandardArrayCharac
     subraceId: choices.subrace ? choices.subrace.id : "",
     raceChoices,
     backgroundId: choices.background.id,
+    backgroundChoices: { backgroundId: choices.background.id, version: choices.backgroundVersion || "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
     classFeatures: choices.classFeatures,
     classSkillProficiencies,
     domainSkillProficiencies,
@@ -249,6 +254,7 @@ DND_DATA.randomizeRolledCharacter = function randomizeRolledCharacter(options = 
     subraceId: choices.subrace ? choices.subrace.id : "",
     raceChoices,
     backgroundId: choices.background.id,
+    backgroundChoices: { backgroundId: choices.background.id, version: choices.backgroundVersion || "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
     classFeatures: choices.classFeatures,
     classSkillProficiencies,
     domainSkillProficiencies,

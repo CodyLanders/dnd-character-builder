@@ -80,7 +80,7 @@ function createBlankCharacter() {
     subraceId: "",
     raceChoices: { dragonbornAncestry: "", halfElfAbilities: [], halfElfSkills: [] },
     backgroundId: "",
-    backgroundChoices: { backgroundId: "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
+    backgroundChoices: { backgroundId: "", version: "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
     classFeatures: { fightingStyle: "" },
     skillProficiencies: {},
     classSkillProficiencies: {},
@@ -154,6 +154,9 @@ function normalizeCharacter(savedCharacter = {}) {
   const blank = createBlankCharacter();
   const savedEquipment = savedCharacter.equipmentSelections || {};
   const equipmentMethod = Object.values(EQUIPMENT_METHODS).includes(savedEquipment.method) ? savedEquipment.method : EQUIPMENT_METHODS.take;
+  const savedBackgroundChoices = savedCharacter.backgroundChoices || {};
+  const savedBackground = getById(DND_DATA.backgrounds, savedCharacter.backgroundId || "");
+  const migratedBackgroundVersion = savedBackgroundChoices.version || (savedBackground && savedBackground.variants ? "standard" : "");
   const resolvedRace = DND_DATA.resolveRaceSelection
     ? DND_DATA.resolveRaceSelection(savedCharacter.raceId || "", savedCharacter.subraceId || "")
     : { raceId: savedCharacter.raceId || "", subraceId: savedCharacter.subraceId || "" };
@@ -169,11 +172,12 @@ function normalizeCharacter(savedCharacter = {}) {
       halfElfSkills: Array.isArray(savedCharacter.raceChoices && savedCharacter.raceChoices.halfElfSkills) ? savedCharacter.raceChoices.halfElfSkills : [],
     },
     backgroundChoices: {
-      backgroundId: savedCharacter.backgroundChoices && savedCharacter.backgroundChoices.backgroundId === savedCharacter.backgroundId ? savedCharacter.backgroundId : "",
-      choices: { ...((savedCharacter.backgroundChoices && savedCharacter.backgroundChoices.choices) || {}) },
-      skillReplacements: { ...((savedCharacter.backgroundChoices && savedCharacter.backgroundChoices.skillReplacements) || {}) },
-      toolReplacements: { ...((savedCharacter.backgroundChoices && savedCharacter.backgroundChoices.toolReplacements) || {}) },
-      details: { ...((savedCharacter.backgroundChoices && savedCharacter.backgroundChoices.details) || {}) },
+      backgroundId: savedBackgroundChoices.backgroundId === savedCharacter.backgroundId ? savedCharacter.backgroundId : "",
+      version: migratedBackgroundVersion,
+      choices: { ...((savedBackgroundChoices && savedBackgroundChoices.choices) || {}) },
+      skillReplacements: { ...((savedBackgroundChoices && savedBackgroundChoices.skillReplacements) || {}) },
+      toolReplacements: { ...((savedBackgroundChoices && savedBackgroundChoices.toolReplacements) || {}) },
+      details: { ...((savedBackgroundChoices && savedBackgroundChoices.details) || {}) },
     },
     classFeatures: { ...blank.classFeatures, ...(savedCharacter.classFeatures || {}) },
     skillProficiencies: { ...blank.skillProficiencies, ...(savedCharacter.skillProficiencies || {}) },
@@ -376,8 +380,9 @@ function resetRaceDependentState(character) {
 
 function getBackgroundChoices(character = appState.character) {
   if (!character.backgroundChoices || character.backgroundChoices.backgroundId !== character.backgroundId) {
-    character.backgroundChoices = { backgroundId: character.backgroundId || "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} };
+    character.backgroundChoices = { backgroundId: character.backgroundId || "", version: "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} };
   }
+  if (character.backgroundChoices.version === undefined) character.backgroundChoices.version = "";
   if (!character.backgroundChoices.choices) character.backgroundChoices.choices = {};
   if (!character.backgroundChoices.skillReplacements) character.backgroundChoices.skillReplacements = {};
   if (!character.backgroundChoices.toolReplacements) character.backgroundChoices.toolReplacements = {};
@@ -386,7 +391,71 @@ function getBackgroundChoices(character = appState.character) {
 }
 
 function resetBackgroundChoices(character) {
-  character.backgroundChoices = { backgroundId: character.backgroundId || "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} };
+  character.backgroundChoices = { backgroundId: character.backgroundId || "", version: "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} };
+}
+
+function backgroundHasVersions(background) {
+  return Boolean(background && Array.isArray(background.variants) && background.variants.length);
+}
+
+function getBackgroundVersion(character = appState.character) {
+  return getBackgroundChoices(character).version || "";
+}
+
+function setBackgroundVersion(character, versionId) {
+  getBackgroundChoices(character).version = versionId || "";
+}
+
+function getBackgroundVersionOptions(background) {
+  return backgroundHasVersions(background) ? background.variants : [];
+}
+
+function getSelectedBackgroundVersion(background, character = appState.character) {
+  const versionId = getBackgroundVersion(character);
+  return getBackgroundVersionOptions(background).find((version) => version.id === versionId) || null;
+}
+
+function mergeChoiceGroupsForVersion(background, version) {
+  const removeIds = new Set((version && version.removeChoiceIds) || []);
+  const overrides = (version && version.choiceOverrides) || {};
+  const inherited = backgroundChoiceGroups(background)
+    .filter((choice) => !removeIds.has(choice.id))
+    .map((choice) => ({ ...choice, ...(overrides[choice.id] || {}) }));
+  return [...inherited, ...((version && version.addChoiceGroups) || [])];
+}
+
+function getActiveBackground(character = appState.character) {
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  if (!background) return null;
+  const version = getSelectedBackgroundVersion(background, character);
+  if (!version || version.id === "standard") {
+    return { ...background, baseName: background.name, versionId: version ? "standard" : "", versionLabel: "" };
+  }
+  return {
+    ...background,
+    ...version,
+    id: background.id,
+    baseName: background.name,
+    name: version.name || background.name,
+    versionId: version.id,
+    versionLabel: version.variantLabel || "",
+    skills: version.skills || background.skills || [],
+    tools: Object.prototype.hasOwnProperty.call(version, "tools") ? version.tools : background.tools || [],
+    languages: Object.prototype.hasOwnProperty.call(version, "languages") ? version.languages : background.languages || [],
+    equipment: Object.prototype.hasOwnProperty.call(version, "equipment") ? version.equipment : background.equipment || [],
+    equipmentItems: Object.prototype.hasOwnProperty.call(version, "equipmentItems") ? version.equipmentItems : background.equipmentItems || [],
+    choiceGroups: mergeChoiceGroupsForVersion(background, version),
+    optionalDetails: version.replaceOptionalDetails ? version.optionalDetails || [] : [...(background.optionalDetails || []), ...(version.optionalDetails || [])],
+    fixedChoices: version.fixedChoices || [],
+    feature: version.feature || background.feature,
+    personality: background.personality,
+    startingGoldGp: Number.isFinite(Number(version.startingGoldGp)) ? Number(version.startingGoldGp) : background.startingGoldGp,
+  };
+}
+
+function backgroundVersionIsRequired(character = appState.character) {
+  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  return backgroundHasVersions(background) && !getBackgroundVersion(character);
 }
 
 function escapeHtml(value = "") {
@@ -472,6 +541,13 @@ function scrollToRequiredBackgroundChoicesOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
     wizardStep.querySelector("[data-required-background-choices]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
+function scrollToBackgroundVersionOnMobile() {
+  if (!isMobileViewport()) return;
+  requestAnimationFrame(() => {
+    wizardStep.querySelector("[data-background-version-section]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
   });
 }
 
@@ -715,7 +791,7 @@ function sanitizeDomainTriggeredChoices(character) {
   } else {
     const allowedSkills = new Set(domainSkillChoice.options);
     const race = getSelectedRace(character);
-    const background = getById(DND_DATA.backgrounds, character.backgroundId);
+    const background = getActiveBackground(character);
     Object.keys(character.domainSkillProficiencies).forEach((skillName) => {
       if (!allowedSkills.has(skillName) || getUnavailableDomainSkillSources(skillName, character, race, background).length) delete character.domainSkillProficiencies[skillName];
     });
@@ -759,7 +835,7 @@ function sanitizeRaceTriggeredChoices(character) {
 
   const seenSkills = new Set();
   const race = getSelectedRace(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   character.raceChoices.halfElfSkills = character.raceChoices.halfElfSkills
     .filter((skillName) => DND_DATA.skills.some((skill) => skill.name === skillName))
     .filter((skillName) => !getUnavailableHalfElfSkillSources(skillName, character, race, background).length)
@@ -898,12 +974,18 @@ function getClassEquipmentItems(character, requireComplete = false) {
 
 function getBackgroundEquipmentItems(character) {
   if (usesRolledStartingGold(character)) return [];
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   if (!background) return [];
+  const fixedStructuredItems = (background.equipmentItems || []).map((itemId) => DND_DATA.getEquipmentItem(itemId)).filter(Boolean);
   const selectedEquipmentChoices = selectedBackgroundChoices(character)
-    .filter((choice) => choice.category === "option" && /prayer|equipment|item/i.test(choice.label || ""))
-    .map((choice) => choice.value);
-  return [...(background.equipment || []), ...selectedEquipmentChoices];
+    .filter((choice) => choice.equipment || (choice.category === "option" && /prayer|equipment|item/i.test(choice.label || "")))
+    .map((choice) => {
+      if (choice.category === "equipmentItem") return DND_DATA.getEquipmentItem(choice.value);
+      if (choice.category !== "language" && choice.category !== "option") return equipmentItemForToolName(choice.value);
+      return choice.value;
+    })
+    .filter(Boolean);
+  return [...fixedStructuredItems, ...(background.equipment || []), ...selectedEquipmentChoices];
 }
 
 function getAllEquipmentItems(character) {
@@ -1286,7 +1368,7 @@ function formatSenses(race) {
 
 function getStartingGoldGp(character) {
   if (usesRolledStartingGold(character)) return 0;
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const startingGold = background ? Number(background.startingGoldGp) : 0;
   return Number.isFinite(startingGold) && startingGold > 0 ? startingGold : 0;
 }
@@ -1452,7 +1534,7 @@ function getSkillTags(character, skill, isAlreadyProficient) {
 function hasCompleteSkillSelections(character) {
   const choice = getClassSkillChoice(character);
   const domainChoice = getDomainSkillChoice(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const race = getSelectedRace(character);
   const choices = getBackgroundChoices(character);
   const hasBackgroundReplacements = getBackgroundSkillDuplicateSlots(character, race, background)
@@ -1471,7 +1553,7 @@ function randomizeBackgroundSkillReplacement(character, slotId) {
 }
 
 function setRandomClassSkillSelections(character) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const race = getSelectedRace(character);
   getBackgroundSkillDuplicateSlots(character, race, background).forEach((slot) => randomizeBackgroundSkillReplacement(character, slot.id));
   const choice = getClassSkillChoice(character);
@@ -1505,7 +1587,7 @@ function getUnavailableHalfElfSkillSources(skillName, character, race, backgroun
 function setRandomHalfElfSkillSelections(character) {
   if (!isHalfElf(character)) return;
   const race = getSelectedRace(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const availableSkills = DND_DATA.shuffle(DND_DATA.skills
     .map((skill) => skill.name)
     .filter((skillName) => !getUnavailableHalfElfSkillSources(skillName, character, race, background).length));
@@ -1518,7 +1600,7 @@ function setRandomDomainSkillSelections(character) {
   character.domainSkillProficiencies = {};
   if (!choice) return;
   const race = getSelectedRace(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const availableSkills = DND_DATA.shuffle(choice.options.filter((skillName) => !getUnavailableDomainSkillSources(skillName, character, race, background).length));
   availableSkills.slice(0, choice.choose).forEach((skillName) => {
     character.domainSkillProficiencies[skillName] = choice.expertise ? 2 : 1;
@@ -1823,19 +1905,47 @@ function shouldApplyGreatWeaponFighting(character, item, rowType) {
     && (rowType === "versatile" || hasWeaponProperty(item, "two-handed"));
 }
 
+function normalizeWeaponProficiencyText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isWeaponProficient(character, item) {
+  if (!item || item.type !== "weapon") return false;
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const race = getSelectedRace(character);
+  const weaponProficiencies = proficiencyEntries(character, characterClass, race, "Weapons")
+    .map((entry) => normalizeWeaponProficiencyText(entry.text));
+  const category = normalizeWeaponProficiencyText(item.category);
+  const weaponName = normalizeWeaponProficiencyText(item.name);
+  const pluralName = weaponName.endsWith("s") ? weaponName : `${weaponName}s`;
+
+  return weaponProficiencies.some((proficiency) => {
+    if (!proficiency || proficiency === "none") return false;
+    if (/martial weapons?/.test(proficiency) && category === "martial weapon") return true;
+    if (/simple weapons?/.test(proficiency) && category === "simple weapon") return true;
+    return proficiency === weaponName || proficiency === pluralName;
+  });
+}
+
 function getWeaponAttackBonus(character, item) {
   const styleBonus = shouldApplyArchery(character, item) ? 2 : 0;
-  return formatAttackBonus(getWeaponAbilityInfo(character, item).modifier + getProficiencyBonus(character) + styleBonus);
+  const proficiencyBonus = isWeaponProficient(character, item) ? getProficiencyBonus(character) : 0;
+  return formatAttackBonus(getWeaponAbilityInfo(character, item).modifier + proficiencyBonus + styleBonus);
 }
 
 function formatDamage(damage, modifier, bonus = 0, includeModifier = true) {
+  if (!damage) return "None";
   const totalModifier = (includeModifier ? modifier : 0) + bonus;
   if (totalModifier === 0) return damage;
   return `${damage} ${totalModifier > 0 ? "+" : "-"} ${Math.abs(totalModifier)}`;
 }
 
 function formatDamageType(damageType) {
-  return damageType ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : "";
+  return damageType ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : "Special";
 }
 
 function getWeaponUse(item, isVersatileRow = false) {
@@ -1919,6 +2029,15 @@ function getWeaponRoleRank(role) {
 
 function getWeaponNotes(character, item, options = {}) {
   if (options.isPaired) return [twoWeaponFightingDescription(character, options.label, options.singularName)];
+  if (item.id === "net") {
+    const notes = [
+      "A net has no damage die. On a hit, a Large or smaller creature is restrained until freed; it has no effect on formless or Huge or larger creatures.",
+      "A creature can use its action to make a DC 10 Strength check to free itself or another creature within reach. Dealing 5 slashing damage to the net also frees the creature and destroys it.",
+      "When you use an action, bonus action, or reaction to attack with a net, you can make only one attack with that action.",
+    ];
+    if (!isWeaponProficient(character, item)) notes.push("Your current proficiencies do not include this weapon, so the attack bonus does not include proficiency.");
+    return notes;
+  }
   const notes = [];
   const isRanged = hasWeaponProperty(item, "ranged");
   const isThrown = hasWeaponProperty(item, "thrown");
@@ -1932,6 +2051,7 @@ function getWeaponNotes(character, item, options = {}) {
   if (shouldApplyArchery(character, item)) notes.push("Includes +2 attack bonus from Archery Fighting Style.");
   if (options.dueling) notes.push("Includes +2 damage from Dueling when used one-handed with no second weapon.");
   if (options.greatWeaponFighting) notes.push("Great Weapon Fighting lets you reroll 1s and 2s on weapon damage dice when using this weapon two-handed.");
+  if (!isWeaponProficient(character, item)) notes.push("Your current proficiencies do not include this weapon, so the attack bonus does not include proficiency.");
   return notes;
 }
 
@@ -2014,7 +2134,7 @@ function categorizedWeaponEntries(items, character) {
       }
       return;
     }
-    if (item.type === "weapon" && item.damage) entries.push(createWeaponCardEntry(character, item));
+    if (item.type === "weapon") entries.push(createWeaponCardEntry(character, item));
   });
 
   return entries.sort((first, second) => first.roleRank - second.roleRank);
@@ -2050,6 +2170,12 @@ function armorDefenseEntries(items, character) {
     return item.name;
   });
   return { entries, note: getArmorDefenseNote(armor, hasShield, hasDefenseStyle, hasProtectionStyle, character) };
+}
+
+function weaponEquipmentEntries(items) {
+  return items
+    .filter((item) => typeof item !== "string" && item.type === "weapon")
+    .map((item) => ({ text: item.name }));
 }
 
 function toolEntries(items) {
@@ -2117,7 +2243,7 @@ function renderPackCards(items) {
 }
 
 function isAdventuringGearString(item) {
-  return /pack|backpack|bag|ball bearings|string|bell|candle|crowbar|hammer|piton|lantern|oil|ration|tinderbox|waterskin|rope|staff|trap|clothes|clothing|map|knife|token|shovel|pot|pouch|dice|cards/i.test(item);
+  return /pack|backpack|bag|ball bearings|string|bell|candle|crowbar|hammer|piton|lantern|oil|ration|tinderbox|waterskin|rope|staff|trap|clothes|clothing|costume|map|knife|token|shovel|pot|pouch|dice|cards|letter|hair|charm|bottle|ring|tools/i.test(item);
 }
 
 function adventuringGearEntries(items) {
@@ -2283,6 +2409,37 @@ function backgroundChoiceGroups(background) {
   return background && Array.isArray(background.choiceGroups) ? background.choiceGroups : [];
 }
 
+function getEntertainerRoutineCount(character) {
+  if (character.backgroundId !== "entertainer") return 1;
+  const count = Number(getBackgroundChoices(character).choices.entertainerRoutineCount) || 1;
+  return Math.max(1, Math.min(3, count));
+}
+
+function setEntertainerRoutineCount(character, count) {
+  if (character.backgroundId !== "entertainer") return;
+  getBackgroundChoices(character).choices.entertainerRoutineCount = Math.max(1, Math.min(3, count));
+}
+
+function getRoutineChoiceIndex(choice) {
+  const match = String(choice.id || "").match(/entertainer-routine-(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function visibleBackgroundChoiceGroups(background, character = appState.character) {
+  return backgroundChoiceGroups(background).filter((choice) => {
+    if (choice.requiresChoice) {
+      const selectedValue = getBackgroundChoices(character).choices[choice.requiresChoice.id] || "";
+      if (selectedValue !== choice.requiresChoice.value) return false;
+    }
+    if (!choice.optionalRoutine) return true;
+    return getRoutineChoiceIndex(choice) <= getEntertainerRoutineCount(character);
+  });
+}
+
+function isEntertainerRoutineChoice(choice) {
+  return choice && choice.uniqueGroup === "entertainer-routines";
+}
+
 function getAllToolOptionNames() {
   const seen = new Set();
   return Object.values(DND_DATA.toolOptions || {}).flat().filter((tool) => {
@@ -2293,12 +2450,29 @@ function getAllToolOptionNames() {
   });
 }
 
+function equipmentItemForToolName(toolName) {
+  const normalizedName = String(toolName || "").toLowerCase();
+  const item = Object.values(DND_DATA.equipmentItems || {})
+    .find((equipmentItem) => equipmentItem.type === "tool" && equipmentItem.name.toLowerCase() === normalizedName);
+  if (item) return item;
+  if (!toolName) return null;
+  return {
+    id: `backgroundTool:${toolName}`,
+    name: toolName,
+    type: "tool",
+    detail: `${toolName} - tool set`,
+  };
+}
+
 function selectedBackgroundChoices(character) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const selections = getBackgroundChoices(character).choices;
-  return backgroundChoiceGroups(background)
+  return [
+    ...((background && background.fixedChoices) || []),
+    ...visibleBackgroundChoiceGroups(background, character)
     .map((choice) => ({ ...choice, value: selections[choice.id] || "" }))
-    .filter((choice) => choice.value);
+    .filter((choice) => choice.value),
+  ];
 }
 
 function selectedFinishingChoices(character) {
@@ -2317,9 +2491,16 @@ function selectedLanguageValues(character) {
 
 function selectedToolValues(character) {
   return [
-    ...selectedBackgroundChoices(character).filter((choice) => choice.category !== "language" && choice.category !== "option").map((choice) => choice.value),
+    ...selectedBackgroundChoices(character).filter((choice) => choice.category !== "language" && choice.category !== "option" && choice.category !== "equipmentItem").map((choice) => choice.value),
+    ...selectedBackgroundChoices(character).map((choice) => getChoiceGrantedTool(choice, choice.value)).filter(Boolean),
     ...selectedFinishingChoices(character).filter((choice) => choice.category !== "language").map((choice) => choice.value),
   ];
+}
+
+function getChoiceGrantedTool(choice, value) {
+  if (!choice || !choice.grantsTool) return "";
+  if (typeof choice.grantsTool === "string") return choice.grantsTool;
+  return choice.grantsTool[value] || "";
 }
 
 function getBaseSkillNamesBeforeBackground(character, race) {
@@ -2354,7 +2535,11 @@ function getBackgroundToolDuplicateSlots(character, race, background) {
     ...(race ? race.tools || [] : []),
     ...getClassToolNames(character),
   ].map((tool) => String(tool || "").toLowerCase()));
-  return (background.tools || [])
+  const backgroundTools = [
+    ...(background.tools || []),
+    ...selectedBackgroundChoices(character).map((choice) => getChoiceGrantedTool(choice, choice.value)).filter(Boolean),
+  ];
+  return backgroundTools
     .filter((tool) => tool && !isChoicePlaceholder(tool) && existing.has(String(tool).toLowerCase()))
     .map((tool, index) => ({ id: `${tool}-${index}`, tool }));
 }
@@ -2473,17 +2658,38 @@ function renderFeatureActionCards(character, characterClass) {
           <summary class="weapon-card-summary">
             <span class="weapon-card-heading">
               <strong>${feature.name}</strong>
-              <span>Action your character can use</span>
+              <span>${getFeatureActionSummary(feature)}</span>
             </span>
           </summary>
           <div class="weapon-card-details">
             <span class="guidance-section-label">Details</span>
-            <ul><li>${feature.description}</li></ul>
+            <ul>${getFeatureActionDetails(feature).map((detail) => `<li>${detail}</li>`).join("")}</ul>
           </div>
         </details>
       `).join("")}
     </div>
   `;
+}
+
+function getFeatureActionSummary(feature) {
+  if (/^rage$/i.test(feature.name)) return "Bonus action &bull; 2 uses per long rest";
+  return "Action your character can use";
+}
+
+function getFeatureActionDetails(feature) {
+  if (!/^rage$/i.test(feature.name)) return [feature.description];
+  return [
+    "Activate Rage as a bonus action.",
+    "You can rage 2 times, and regain expended uses when you finish a long rest.",
+    "While raging, you have advantage on Strength checks.",
+    "While raging, you have advantage on Strength saving throws.",
+    "You gain a +2 damage bonus on melee weapon attacks made using Strength.",
+    "You have resistance to bludgeoning, piercing, and slashing damage.",
+    "You cannot cast spells or concentrate on spells while raging.",
+    "Rage lasts up to 1 minute.",
+    "Rage ends early if you are knocked unconscious.",
+    "Rage also ends early if your turn ends and you have not attacked a hostile creature since your previous turn or taken damage since then.",
+  ];
 }
 
 function renderTraitsAndFeaturesPreview(character, characterClass, race) {
@@ -2507,7 +2713,7 @@ function renderTraitsAndFeaturesPreview(character, characterClass, race) {
       subtitle: "Passive class feature",
       details: [feature.description],
     }));
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const backgroundFeatureRows = background && background.feature ? [{
     title: background.feature.name,
     subtitle: "Background feature",
@@ -2816,7 +3022,7 @@ function finishingChoice(id, label, category, helper, extra = {}) {
 
 function getFinishingChoices(character) {
   const race = getSelectedRace(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const characterClass = getById(DND_DATA.classes, character.classId);
   const choices = [];
 
@@ -2892,7 +3098,7 @@ function getChoiceOptions(choice, character = appState.character) {
     const selectedChoices = getFinishingTouches(character).choices || {};
     const blockedLanguages = new Set([
       ...(getSelectedRace(character)?.languages || []),
-      ...(getById(DND_DATA.backgrounds, character.backgroundId)?.languages || []),
+      ...(getActiveBackground(character)?.languages || []),
       ...selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category === "language").map((backgroundChoice) => backgroundChoice.value),
       ...Object.entries(selectedChoices)
         .filter(([choiceId]) => choiceId !== choice.id)
@@ -2905,11 +3111,11 @@ function getChoiceOptions(choice, character = appState.character) {
   }
   const selectedChoices = getFinishingTouches(character).choices || {};
   const characterClass = getById(DND_DATA.classes, character.classId);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const fixedTools = [
     ...(getSelectedRace(character)?.tools || []),
     ...((background && background.tools) || []).filter((tool) => !isChoicePlaceholder(tool)),
-    ...selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category !== "language" && backgroundChoice.category !== "option").map((backgroundChoice) => backgroundChoice.value),
+    ...selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category !== "language" && backgroundChoice.category !== "option" && backgroundChoice.category !== "equipmentItem").map((backgroundChoice) => backgroundChoice.value),
     ...getBackgroundToolReplacementValues(character),
     ...splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools : "")
       .filter((tool) => tool !== "None" && !isChoicePlaceholder(tool)),
@@ -2932,11 +3138,11 @@ function isFinishingChoiceComplete(character, choice) {
   const characterClass = getById(DND_DATA.classes, character.classId);
   const blockedValues = new Set([
     ...(choice.category === "language" ? getSelectedRace(character)?.languages || [] : []),
-    ...(choice.category === "language" ? getById(DND_DATA.backgrounds, character.backgroundId)?.languages || [] : []),
+    ...(choice.category === "language" ? getActiveBackground(character)?.languages || [] : []),
     ...(choice.category === "language" ? selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category === "language").map((backgroundChoice) => backgroundChoice.value) : []),
     ...(choice.category !== "language" ? getSelectedRace(character)?.tools || [] : []),
-    ...(choice.category !== "language" ? (getById(DND_DATA.backgrounds, character.backgroundId)?.tools || []).filter((tool) => !isChoicePlaceholder(tool)) : []),
-    ...(choice.category !== "language" ? selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category !== "language" && backgroundChoice.category !== "option").map((backgroundChoice) => backgroundChoice.value) : []),
+    ...(choice.category !== "language" ? (getActiveBackground(character)?.tools || []).filter((tool) => !isChoicePlaceholder(tool)) : []),
+    ...(choice.category !== "language" ? selectedBackgroundChoices(character).filter((backgroundChoice) => backgroundChoice.category !== "language" && backgroundChoice.category !== "option" && backgroundChoice.category !== "equipmentItem").map((backgroundChoice) => backgroundChoice.value) : []),
     ...(choice.category !== "language" ? getBackgroundToolReplacementValues(character) : []),
     ...(choice.category !== "language" ? splitProficiencyText(characterClass && characterClass.proficiencyDetails ? characterClass.proficiencyDetails.Tools : "").filter((tool) => tool !== "None" && !isChoicePlaceholder(tool)) : []),
     ...Object.entries(selections)
@@ -2963,7 +3169,7 @@ function randomizeAlignment(character) {
 }
 
 function randomizePersonalityField(character, field) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const options = background && background.personality ? background.personality[field] || [] : [];
   if (!options.length) return;
   getFinishingTouches(character).personality[field] = { selected: DND_DATA.randomChoice(options), custom: "", skipped: false };
@@ -3017,14 +3223,31 @@ function renderBackgroundDetailsPreview(character, background) {
   const choices = selectedBackgroundChoices(character)
     .filter((choice) => choice.category === "option" && !/prayer|equipment|item/i.test(choice.label || ""))
     .map((choice) => ({ text: `${choice.label}: ${choice.value}` }));
-  const details = Object.entries(getBackgroundChoices(character).details || {})
+  const detailValues = getBackgroundChoices(character).details || {};
+  const retainerIds = new Set(["squireName", "squireRole", "retainer2Name", "retainer2Role", "retainer3Name", "retainer3Role"]);
+  const retainerEntries = background.versionId === "knight"
+    ? [
+      { label: "Squire", name: detailValues.squireName, role: detailValues.squireRole },
+      { label: "Retainer 1", name: detailValues.retainer2Name, role: detailValues.retainer2Role },
+      { label: "Retainer 2", name: detailValues.retainer3Name, role: detailValues.retainer3Role },
+    ]
+      .map((retainer) => {
+        const name = String(retainer.name || "").trim();
+        const role = String(retainer.role || "").trim();
+        if (!name && !role) return null;
+        return { text: `${retainer.label}: ${[name, role].filter(Boolean).join(" &mdash; ")}` };
+      })
+      .filter(Boolean)
+    : [];
+  const details = Object.entries(detailValues)
+    .filter(([detailId]) => !retainerIds.has(detailId))
     .filter(([, value]) => String(value || "").trim())
     .map(([detailId, value]) => {
       const detail = (background.optionalDetails || []).find((item) => item.id === detailId);
       return { text: `${detail ? detail.label : detailId}: ${value}` };
     });
   const feature = background.feature ? [{ text: `${background.feature.name}: ${background.feature.description}` }] : [];
-  return renderPreviewCategory("Background Details", [...feature, ...choices, ...details]);
+  return renderPreviewCategory("Background Details", [...feature, ...choices, ...details, ...retainerEntries]);
 }
 
 function renderRolledStartingGoldPreview(character) {
@@ -3046,7 +3269,7 @@ function renderWeaponCards(entries, showHeading = true) {
   if (!entries.length) return "";
   return `
     ${showHeading ? "<h3>Weapons</h3>" : ""}
-    <p class="weapon-card-note">Weapon attacks include proficiency. Damage includes the relevant ability modifier when applicable.</p>
+    <p class="weapon-card-note">Weapon attacks include proficiency when your character is proficient. Damage includes the relevant ability modifier when applicable.</p>
     <div class="weapon-card-list">
       ${entries.map((entry) => `
         <details class="weapon-card">
@@ -3136,6 +3359,7 @@ function renderEquipmentCarriedPreview(character) {
 
   const content = [
     renderArmorDefenseCategory(armorDefenseEntries(items, character)),
+    renderPreviewCategory("Weapons", weaponEquipmentEntries(items)),
     renderOwnedToolRows(items),
     renderPackCards(items),
     renderPreviewCategory("Adventuring Gear", adventuringGearEntries(items)),
@@ -3147,7 +3371,7 @@ function renderEquipmentCarriedPreview(character) {
 function renderPreview(container, character) {
   const characterClass = getById(DND_DATA.classes, character.classId);
   const race = getSelectedRace(character);
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const armorClass = calculateArmorClass(character);
 
   container.innerHTML = `
@@ -3216,7 +3440,7 @@ function getKnownLanguageSetForBackground(character, currentChoiceId = "") {
   const selections = getBackgroundChoices(character).choices;
   return new Set([
     ...(getSelectedRace(character)?.languages || []),
-    ...(getById(DND_DATA.backgrounds, character.backgroundId)?.languages || []),
+    ...(getActiveBackground(character)?.languages || []),
     ...Object.entries(selections)
       .filter(([choiceId]) => choiceId !== currentChoiceId)
       .map(([, value]) => value),
@@ -3231,9 +3455,28 @@ function getBackgroundChoiceOptions(choice, character = appState.character) {
       ...DND_DATA.languages.exotic.map((name) => ({ value: name, label: `${name} (exotic)` })),
     ].filter((option) => !blocked.has(option.value.toLowerCase()));
   }
-  if (choice.category === "option") return (choice.options || []).map((value) => ({ value, label: value }));
+  if (choice.category === "option") {
+    const selectedChoices = getBackgroundChoices(character).choices;
+    const blocked = new Set();
+    if (choice.uniqueGroup) {
+      visibleBackgroundChoiceGroups(getActiveBackground(character), character)
+        .filter((item) => item.uniqueGroup === choice.uniqueGroup && item.id !== choice.id)
+        .map((item) => selectedChoices[item.id])
+        .filter(Boolean)
+        .forEach((value) => blocked.add(String(value).toLowerCase()));
+    }
+    return (choice.options || [])
+      .map((value) => ({ value, label: value }))
+      .filter((option) => !blocked.has(option.value.toLowerCase()));
+  }
+  if (choice.category === "equipmentItem") {
+    return (choice.itemIds || [])
+      .map((itemId) => DND_DATA.getEquipmentItem(itemId))
+      .filter(Boolean)
+      .map((item) => ({ value: item.id, label: item.name, description: item.detail || formatEquipmentItem(item) }));
+  }
   const selectedChoices = getBackgroundChoices(character).choices;
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const blocked = new Set([
     ...(getSelectedRace(character)?.tools || []),
     ...getClassToolNames(character),
@@ -3248,7 +3491,7 @@ function getBackgroundChoiceOptions(choice, character = appState.character) {
 }
 
 function getBackgroundReplacementSkillOptions(character, slotId) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const race = getSelectedRace(character);
   const selectedReplacements = getBackgroundChoices(character).skillReplacements;
   const blocked = new Set([
@@ -3262,13 +3505,14 @@ function getBackgroundReplacementSkillOptions(character, slotId) {
 }
 
 function getBackgroundReplacementToolOptions(character, slotId) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const selectedReplacements = getBackgroundChoices(character).toolReplacements;
   const blocked = new Set([
     ...(getSelectedRace(character)?.tools || []),
     ...getClassToolNames(character),
     ...((background && background.tools) || []).filter((tool) => !isChoicePlaceholder(tool)),
-    ...selectedBackgroundChoices(character).filter((choice) => choice.category !== "language" && choice.category !== "option").map((choice) => choice.value),
+    ...selectedBackgroundChoices(character).filter((choice) => choice.category !== "language" && choice.category !== "option" && choice.category !== "equipmentItem").map((choice) => choice.value),
+    ...selectedBackgroundChoices(character).map((choice) => getChoiceGrantedTool(choice, choice.value)).filter(Boolean),
     ...Object.entries(selectedReplacements)
       .filter(([id]) => id !== slotId)
       .map(([, value]) => value),
@@ -3284,21 +3528,25 @@ function isBackgroundChoiceComplete(character, choice) {
 }
 
 function hasCompleteBackgroundChoices(character) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  if (backgroundVersionIsRequired(character)) return false;
+  const background = getActiveBackground(character);
   if (!background) return false;
   const race = getSelectedRace(character);
   const choices = getBackgroundChoices(character);
-  const requiredChoicesComplete = backgroundChoiceGroups(background).every((choice) => isBackgroundChoiceComplete(character, choice));
+  const requiredChoicesComplete = visibleBackgroundChoiceGroups(background, character).every((choice) => isBackgroundChoiceComplete(character, choice));
   const toolReplacementsComplete = getBackgroundToolDuplicateSlots(character, race, background)
     .every((slot) => getBackgroundReplacementToolOptions(character, slot.id).includes(choices.toolReplacements[slot.id]));
   return requiredChoicesComplete && toolReplacementsComplete;
 }
 
 function setRandomBackgroundChoices(character) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   if (!background) return;
+  const version = getBackgroundVersion(character);
   resetBackgroundChoices(character);
-  backgroundChoiceGroups(background).forEach((choice) => {
+  setBackgroundVersion(character, version);
+  if (background.id === "entertainer") setEntertainerRoutineCount(character, Math.floor(Math.random() * 3) + 1);
+  visibleBackgroundChoiceGroups(background, character).forEach((choice) => {
     const options = getBackgroundChoiceOptions(choice, character);
     if (options.length) getBackgroundChoices(character).choices[choice.id] = DND_DATA.randomChoice(options).value;
   });
@@ -3310,7 +3558,7 @@ function setRandomBackgroundChoices(character) {
 }
 
 function randomizeBackgroundChoice(character, choiceId) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const choice = backgroundChoiceGroups(background).find((item) => item.id === choiceId);
   if (!choice) return;
   const options = getBackgroundChoiceOptions(choice, character);
@@ -3325,13 +3573,19 @@ function randomizeBackgroundToolReplacement(character, slotId) {
 }
 
 function sanitizeBackgroundChoices(character) {
-  const background = getById(DND_DATA.backgrounds, character.backgroundId);
+  const background = getActiveBackground(character);
   const choices = getBackgroundChoices(character);
   if (!background) {
     resetBackgroundChoices(character);
     return;
   }
+  if (background.id !== "entertainer") delete choices.choices.entertainerRoutineCount;
+  const visibleChoiceIds = new Set(visibleBackgroundChoiceGroups(background, character).map((choice) => choice.id));
   backgroundChoiceGroups(background).forEach((choice) => {
+    if (!visibleChoiceIds.has(choice.id)) {
+      delete choices.choices[choice.id];
+      return;
+    }
     const value = choices.choices[choice.id];
     if (value && !getBackgroundChoiceOptions(choice, character).some((option) => option.value === value)) delete choices.choices[choice.id];
   });
@@ -3355,6 +3609,9 @@ function renderBackgroundChoiceCard(choice) {
   const placeholder = {
     language: "Choose a language",
     gaming: "Choose a gaming set",
+    musical: "Choose a musical instrument",
+    artisan: "Choose an artisan's tool",
+    equipmentItem: `Choose ${choice.label.toLowerCase()}`,
     option: `Choose ${choice.label.toLowerCase()}`,
   }[choice.category] || "Choose an option";
   const isComplete = isBackgroundChoiceComplete(appState.character, choice);
@@ -3372,8 +3629,21 @@ function renderBackgroundChoiceCard(choice) {
       })}
       <div class="personality-actions">
         <button class="secondary-button" type="button" data-random-background-choice="${choice.id}">Randomize</button>
+        ${choice.removable ? `<button class="secondary-button" type="button" data-remove-background-routine="${getRoutineChoiceIndex(choice)}">Remove</button>` : ""}
       </div>
     </section>
+  `;
+}
+
+function renderEntertainerRoutineControls(background) {
+  if (!background || background.id !== "entertainer") return "";
+  const count = getEntertainerRoutineCount(appState.character);
+  const currentRoutineChoice = backgroundChoiceGroups(background).find((choice) => choice.id === `entertainer-routine-${count}`);
+  const canAdd = count < 3 && (!currentRoutineChoice || isBackgroundChoiceComplete(appState.character, currentRoutineChoice));
+  return `
+    <div class="personality-actions background-routine-actions">
+      <button class="secondary-button" type="button" data-add-background-routine ${canAdd ? "" : "disabled"}>Add Another Routine</button>
+    </div>
   `;
 }
 
@@ -3419,21 +3689,62 @@ function renderBackgroundOptionalDetails(background) {
   `;
 }
 
+function renderBackgroundVersionSection(rawBackground) {
+  if (!backgroundHasVersions(rawBackground)) return "";
+  const selectedVersion = getBackgroundVersion(appState.character);
+  return `
+    <section class="background-detail-subsection" data-background-version-section>
+      <div class="equipment-group-header"><h3>Background Version</h3><span>Choose 1</span></div>
+      <div class="equipment-options">
+        ${getBackgroundVersionOptions(rawBackground).map((version) => {
+          const isSelected = selectedVersion === version.id;
+          return `
+            <div class="equipment-option ${isSelected ? "selected" : ""}" data-background-version="${version.id}">
+              <button class="equipment-choice-button" type="button" data-background-version="${version.id}" aria-pressed="${isSelected}">
+                <span class="equipment-radio" aria-hidden="true"></span>
+                <span class="equipment-choice-copy">
+                  <strong>${version.label}</strong>
+                  ${version.variantLabel ? `<span>${version.variantLabel}</span>` : ""}
+                </span>
+              </button>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      ${selectedVersion ? "" : '<p class="finishing-validation">Choose Standard or Variant before continuing.</p>'}
+    </section>
+  `;
+}
+
 function renderSelectedBackgroundDetails() {
-  const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
-  if (!background) return "";
+  const rawBackground = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  const background = getActiveBackground(appState.character);
+  if (!rawBackground || !background) return "";
+  const versionSection = renderBackgroundVersionSection(rawBackground);
+  if (backgroundVersionIsRequired(appState.character)) {
+    return `<section class="selected-background-details" data-selected-background-details>${versionSection}</section>`;
+  }
   const race = getSelectedRace(appState.character);
   const toolDuplicates = getBackgroundToolDuplicateSlots(appState.character, race, background);
   const requiredSections = [
-    ...backgroundChoiceGroups(background).map(renderBackgroundChoiceCard),
+    ...visibleBackgroundChoiceGroups(background, appState.character).map(renderBackgroundChoiceCard),
+    renderEntertainerRoutineControls(background),
     ...toolDuplicates.map(renderBackgroundToolReplacementCard),
-  ].join("");
+  ].filter(Boolean).join("");
   const tools = (background.tools || []).length ? background.tools.join(", ") : "None";
-  const languages = backgroundChoiceGroups(background).filter((choice) => choice.category === "language").length
-    ? `Choose ${backgroundChoiceGroups(background).filter((choice) => choice.category === "language").length}`
+  const languages = visibleBackgroundChoiceGroups(background, appState.character).filter((choice) => choice.category === "language").length
+    ? `Choose ${visibleBackgroundChoiceGroups(background, appState.character).filter((choice) => choice.category === "language").length}`
     : (background.languages || []).join(", ") || "None";
+  const dynamicEquipment = backgroundChoiceGroups(background)
+    .filter((choice) => choice.equipment || /prayer/i.test(choice.id))
+    .map((choice) => {
+      if (choice.category === "musical") return "Chosen musical instrument";
+      if (choice.category === "artisan") return "Chosen artisan's tools";
+      return `Chosen ${choice.label.toLowerCase()}`;
+    });
   return `
     <section class="selected-background-details" data-selected-background-details>
+      ${versionSection}
       <section class="background-detail-subsection" data-required-background-choices>
         <div class="equipment-group-header"><h3>Required Background Choices</h3><span>${requiredSections ? "Required" : "None"}</span></div>
         ${requiredSections || '<div class="finishing-empty">No required background choices.</div>'}
@@ -3448,7 +3759,7 @@ function renderSelectedBackgroundDetails() {
           <div><span>Starting Gold</span><strong>${Number(background.startingGoldGp) || 0} gp</strong></div>
         </div>
         <h5>Equipment</h5>
-        <ul>${[...(background.equipment || []), ...(backgroundChoiceGroups(background).some((choice) => /prayer/i.test(choice.id)) ? ["Chosen prayer item"] : [])].map((item) => `<li>${item}</li>`).join("")}</ul>
+        <ul>${[...(background.equipmentItems || []).map((itemId) => (DND_DATA.getEquipmentItem(itemId) || {}).name).filter(Boolean), ...(background.equipment || []), ...dynamicEquipment].map((item) => `<li>${item}</li>`).join("")}</ul>
         ${background.feature ? `<h5>Feature</h5><p><strong>${background.feature.name}:</strong> ${background.feature.description}</p>` : ""}
       </div>
       ${renderBackgroundOptionalDetails(background)}
@@ -4314,7 +4625,7 @@ function renderTrinketSection() {
 }
 
 function renderFinishingStep(step) {
-  const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  const background = getActiveBackground(appState.character);
   const choices = getFinishingChoices(appState.character);
   const canFinish = hasValidAbilityAssignments()
     && hasCompleteSkillSelections(appState.character)
@@ -4376,7 +4687,7 @@ function renderAbilityStep(step) {
 function renderSkillsStep(step) {
   const characterClass = getById(DND_DATA.classes, appState.character.classId);
   const race = getSelectedRace(appState.character);
-  const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  const background = getActiveBackground(appState.character);
   const choice = getClassSkillChoice(appState.character);
   const selectedCount = getSelectedClassSkillNames(appState.character).length;
   const canFinish = hasValidAbilityAssignments() && hasCompleteSkillSelections(appState.character);
@@ -4791,7 +5102,12 @@ function randomizeCurrentStep() {
     resetFinishingRequiredChoices(appState.character);
   }
   if (step.key === "background") {
-    appState.character.backgroundId = randomChoiceExcept(DND_DATA.backgrounds, appState.character.backgroundId).id;
+    const currentVersion = getBackgroundVersion(appState.character);
+    const currentKey = currentVersion ? `${appState.character.backgroundId}:${currentVersion}` : appState.character.backgroundId;
+    const outcome = DND_DATA.randomBackgroundOutcome ? DND_DATA.randomBackgroundOutcome(currentKey) : { background: randomChoiceExcept(DND_DATA.backgrounds, appState.character.backgroundId), version: "" };
+    appState.character.backgroundId = outcome.background.id;
+    resetBackgroundChoices(appState.character);
+    setBackgroundVersion(appState.character, outcome.version || "");
     setRandomBackgroundChoices(appState.character);
     resetSkillSelections(appState.character);
     resetFinishingRequiredChoices(appState.character);
@@ -4932,6 +5248,9 @@ wizardStep.addEventListener("click", (event) => {
   const randomBackgroundChoiceButton = event.target.closest("[data-random-background-choice]");
   const randomBackgroundSkillReplacementButton = event.target.closest("[data-random-background-skill-replacement]");
   const randomBackgroundToolReplacementButton = event.target.closest("[data-random-background-tool-replacement]");
+  const addBackgroundRoutineButton = event.target.closest("[data-add-background-routine]");
+  const removeBackgroundRoutineButton = event.target.closest("[data-remove-background-routine]");
+  const backgroundVersionButton = event.target.closest("[data-background-version]");
   const randomAlignmentButton = event.target.closest("[data-random-alignment]");
   const skipAlignmentButton = event.target.closest("[data-skip-alignment]");
   const randomPersonalityButton = event.target.closest("[data-random-personality]");
@@ -4978,6 +5297,39 @@ wizardStep.addEventListener("click", (event) => {
     appState.openFinishingPicker = "";
     renderWizard();
     if (!wasComplete && hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
+    return;
+  }
+
+  if (backgroundVersionButton) {
+    setBackgroundVersion(appState.character, backgroundVersionButton.dataset.backgroundVersion);
+    sanitizeBackgroundChoices(appState.character);
+    resetSkillSelections(appState.character);
+    resetFinishingRequiredChoices(appState.character);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    if (hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
+    else scrollToRequiredBackgroundChoicesOnMobile();
+    return;
+  }
+
+  if (addBackgroundRoutineButton) {
+    setEntertainerRoutineCount(appState.character, getEntertainerRoutineCount(appState.character) + 1);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    return;
+  }
+
+  if (removeBackgroundRoutineButton) {
+    const removeIndex = Number(removeBackgroundRoutineButton.dataset.removeBackgroundRoutine);
+    const count = getEntertainerRoutineCount(appState.character);
+    const choices = getBackgroundChoices(appState.character).choices;
+    for (let index = removeIndex; index < count; index += 1) {
+      choices[`entertainer-routine-${index}`] = choices[`entertainer-routine-${index + 1}`] || "";
+    }
+    delete choices[`entertainer-routine-${count}`];
+    setEntertainerRoutineCount(appState.character, count - 1);
+    appState.openFinishingPicker = "";
+    renderWizard();
     return;
   }
 
@@ -5059,7 +5411,7 @@ wizardStep.addEventListener("click", (event) => {
 
   if (randomPersonalityButton) {
     const field = randomPersonalityButton.dataset.randomPersonality;
-    const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+    const background = getActiveBackground(appState.character);
     const options = background && background.personality ? background.personality[field] || [] : [];
     if (!options.length) return;
     getFinishingTouches(appState.character).personality[field] = { selected: DND_DATA.randomChoice(options), custom: "", skipped: false, mode: "suggestion" };
@@ -5122,7 +5474,7 @@ wizardStep.addEventListener("click", (event) => {
     } else {
       if (selectedSkills.length >= choice.choose) return;
       const race = getSelectedRace(appState.character);
-      const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+      const background = getActiveBackground(appState.character);
       if (getUnavailableDomainSkillSources(skillName, appState.character, race, background).length) return;
       appState.character.domainSkillProficiencies[skillName] = choice.expertise ? 2 : 1;
     }
@@ -5139,7 +5491,7 @@ wizardStep.addEventListener("click", (event) => {
       appState.character.raceChoices.halfElfSkills = selectedSkills.filter((item) => item !== skillName);
     } else {
       const race = getSelectedRace(appState.character);
-      const background = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+      const background = getActiveBackground(appState.character);
       if (selectedSkills.length >= 2 || getUnavailableHalfElfSkillSources(skillName, appState.character, race, background).length) return;
       appState.character.raceChoices.halfElfSkills = [...selectedSkills, skillName];
     }
@@ -5230,7 +5582,9 @@ wizardStep.addEventListener("click", (event) => {
       resetFinishingRequiredChoices(appState.character);
       renderWizard();
       if (!isSameBackground) {
-        if (hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
+        const rawBackground = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+        if (backgroundHasVersions(rawBackground) && backgroundVersionIsRequired(appState.character)) scrollToBackgroundVersionOnMobile();
+        else if (hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
         else scrollToRequiredBackgroundChoicesOnMobile();
       }
       return;
@@ -5406,6 +5760,7 @@ function initializeApp() {
 }
 
 initializeApp();
+
 
 
 

@@ -27,7 +27,7 @@ DND_DATA.createCharacter = function createCharacter(overrides = {}) {
     subraceId,
     raceChoices: overrides.raceChoices || { dragonbornAncestry: "", halfElfAbilities: [], halfElfSkills: [] },
     backgroundId,
-    backgroundChoices: overrides.backgroundChoices || { backgroundId, choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
+    backgroundChoices: overrides.backgroundChoices || { backgroundId, version: "", choices: {}, skillReplacements: {}, toolReplacements: {}, details: {} },
     classFeatures: overrides.classFeatures || {
       fightingStyle: "",
     },
