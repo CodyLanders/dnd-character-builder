@@ -35,6 +35,20 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 
 ## Project Evolution
 
+### v0.8.0 — Randomize Controls, Utility Bar, and Class Step UX Polish — July 13, 2026
+- Standardized local Randomize controls across the builder so section-level buttons randomize only their own choice while the bottom Randomize button continues to randomize the whole step.
+- Improved mobile navigation after selections and randomization so the page guides users to the next required choice or the relevant details section without unnecessary desktop jumping.
+- Renamed detail sections to cleaner labels: Race Details, Class Details, and Background Details.
+- Added a top utility bar with Restart, Feedback, and Reset, while keeping the bottom sticky bar focused on Back, Randomize, and Continue/Finish.
+- Added Reset as a current-step-only clearing action with confirmation, disabled states, and safer behavior that does not wipe the whole character.
+- Added a Feedback button as a placeholder for the future feedback system.
+- Polished Restart so it replaces the old Home behavior, returns users to the start page, and stays disabled until a character build has started.
+- Consolidated level 1 class choices into the main Class step, removing the separate Class Choice step from the normal flow.
+- Improved Class step flow so required class choices appear before Class Details, while skills, spells, equipment, tools, languages, and flavor choices remain in their dedicated steps.
+- Added Class step randomize controls, including Randomize Class and Randomize Choice buttons for class-specific choices like Ranger options, Sorcerer origins, and Dragon Ancestor.
+- Cleaned up class-choice UI with more compact Ranger options, beginner-friendly helper text, and smoother mobile behavior for multi-choice classes.
+- Improved feature details for items like Fighting Style and Second Wind so they show useful selected-feature information instead of placeholder text.
+
 ### v0.7.2 — Complete PHB Backgrounds, Variants, and Final QA Polish — July 12, 2026
 - Completed all 13 base 2014 PHB backgrounds by adding Charlatan, Entertainer, Guild Artisan, and Sailor with full skills, tools, languages, equipment, gold, features, required choices, optional details, randomization, autosave, preview, and final-sheet support.
 - Added background-specific details such as false identities, stage names, routines, guild businesses, ship roles, and background feature text.

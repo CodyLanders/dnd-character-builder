@@ -38,16 +38,35 @@ button {
 }
 
 .app-header {
+  padding-bottom: 10px;
+  border-bottom: 0;
+}
+
+.utility-action-row {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
+  gap: 8px;
   align-items: center;
-  gap: 16px;
-  padding-bottom: 18px;
+  margin: 0 -4px 8px;
+  border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+  padding: 8px 4px;
+  background: rgba(244, 244, 241, 0.96);
+  backdrop-filter: blur(8px);
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 1.15rem;
+}
+
+.utility-button {
+  flex: 0 1 auto;
+  min-height: 36px;
+  padding: 7px 12px;
+  white-space: nowrap;
 }
 
 .view {
@@ -303,6 +322,25 @@ textarea {
   line-height: 1.4;
 }
 
+.class-feature-group-favoredEnemy .option-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.class-feature-group-favoredEnemy .option-card {
+  min-height: 58px;
+  padding: 9px 10px;
+}
+
+.class-feature-group-favoredEnemy .option-card strong {
+  margin-bottom: 2px;
+}
+
+.class-feature-group-favoredEnemy .option-card span {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
 .race-option-card {
   display: grid;
   align-content: start;
@@ -364,7 +402,8 @@ textarea {
   line-height: 1.35;
 }
 
-.selected-race-details {
+.selected-race-details,
+.selected-class-details {
   display: grid;
   gap: 10px;
   margin-top: 18px;
@@ -379,6 +418,7 @@ textarea {
 }
 
 .selected-race-details h3,
+.selected-class-details h3,
 .selected-background-details h3 {
   margin: 0;
 }
@@ -926,9 +966,9 @@ textarea {
 }
 
 .personality-mode-control .secondary-button {
-  min-height: 36px;
-  padding: 7px 8px;
-  font-size: 0.8rem;
+  min-height: 42px;
+  padding: 10px 14px;
+  font-size: inherit;
 }
 
 .personality-mode-control .secondary-button.selected {
@@ -945,8 +985,8 @@ textarea {
 
 .personality-actions .secondary-button {
   flex: 1 1 140px;
-  min-height: 36px;
-  padding: 6px 10px;
+  min-height: 42px;
+  padding: 10px 14px;
 }
 
 .equipment-method-grid {
@@ -1948,6 +1988,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .class-feature-group-favoredEnemy .option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .skill-choice-grid {
     grid-template-columns: 1fr;
   }
@@ -2028,6 +2072,17 @@ textarea {
   .primary-button,
   .secondary-button {
     width: 100%;
+  }
+
+  .utility-button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .app-header h1 {
+    text-align: center;
   }
 
   .wizard-actions .primary-button,

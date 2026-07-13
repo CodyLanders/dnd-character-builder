@@ -1,13 +1,12 @@
 const wizardSteps = [
-  { key: "class", title: "Pick Your Class", progress: "Step 1 of 9 - Class" },
-  { key: "race", title: "Pick Your Race", progress: "Step 2 of 9 - Race" },
-  { key: "background", title: "Pick Your Background", progress: "Step 3 of 9 - Background" },
-  { key: "classFeature", title: "Choose Your Level 1 Class Choice", progress: "Step 4 of 9 - Level 1 Class Choice" },
-  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 5 of 9 - Starting Equipment" },
-  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 6 of 9 - Ability Scores" },
-  { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 7 of 9 - Skills & Proficiencies" },
-  { key: "spellSelection", title: "Choose Spells", progress: "Step 8 of 9 - Spell Selection" },
-  { key: "finishing", title: "Finishing Touches", progress: "Step 9 of 9 - Finishing Touches" },
+  { key: "class", title: "Pick Your Class", progress: "Step 1 of 8 - Class" },
+  { key: "race", title: "Pick Your Race", progress: "Step 2 of 8 - Race" },
+  { key: "background", title: "Pick Your Background", progress: "Step 3 of 8 - Background" },
+  { key: "equipment", title: "Choose Your Starting Equipment", progress: "Step 4 of 8 - Starting Equipment" },
+  { key: "abilities", title: "Assign Your Ability Scores", progress: "Step 5 of 8 - Ability Scores" },
+  { key: "skills", title: "Choose Skills & Proficiencies", progress: "Step 6 of 8 - Skills & Proficiencies" },
+  { key: "spellSelection", title: "Choose Spells", progress: "Step 7 of 8 - Spell Selection" },
+  { key: "finishing", title: "Finishing Touches", progress: "Step 8 of 8 - Finishing Touches" },
 ];
 
 const stepGuidance = {
@@ -19,7 +18,6 @@ When choosing a class, think about:
 - What role sounds most fun to play at the table
 
 You will make more choices later, but your class is the foundation for how your character works.`,
-  classFeature: "Some classes make an important choice at level 1. This choice helps define how your character plays and is separate from a subclass, which may come later.",
   race: "Your race gives your character traits that can affect ability scores, movement, senses, and other special abilities. Choose the option that best fits the character you want to play.",
   background: "Your background explains what your character did before adventuring. It provides skills, tools or languages, starting equipment, and a roleplaying hook.",
   equipment: "Choose the starting equipment granted by your class. Background equipment is added automatically.",
@@ -61,6 +59,8 @@ const editRandomButton = document.querySelector("#editRandomButton");
 const wizardStep = document.querySelector("#wizardStep");
 const livePreview = document.querySelector("#livePreview");
 const randomPreview = document.querySelector("#randomPreview");
+const feedbackButton = document.querySelector("#feedbackButton");
+const resetStepButton = document.querySelector("#resetStepButton");
 
 function emptyAbilityScores(value = "") {
   return DND_DATA.abilities.reduce((scores, ability) => {
@@ -287,7 +287,7 @@ function saveProgress() {
   }
   try {
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       savedAt: new Date().toISOString(),
       currentView: getActiveViewName(),
       wizardStepIndex: appState.wizardStepIndex,
@@ -298,6 +298,15 @@ function saveProgress() {
   } catch (error) {
     console.warn("Unable to autosave character progress.", error);
   }
+}
+
+function normalizeSavedWizardStepIndex(saved) {
+  if (!Number.isInteger(saved.wizardStepIndex)) return 0;
+  if (Number(saved.version) < 2) {
+    if (saved.wizardStepIndex === 3) return 0;
+    if (saved.wizardStepIndex > 3) return Math.min(saved.wizardStepIndex - 1, wizardSteps.length - 1);
+  }
+  return Math.min(Math.max(saved.wizardStepIndex, 0), wizardSteps.length - 1);
 }
 
 function clearSavedProgress() {
@@ -327,9 +336,7 @@ function restoreSavedProgress() {
     ? saved.abilityMethod
     : appState.character.abilityScoreMethod || ABILITY_METHODS.standard;
   appState.abilityState = normalizeAbilityState(saved.abilityState);
-  appState.wizardStepIndex = Number.isInteger(saved.wizardStepIndex)
-    ? Math.min(Math.max(saved.wizardStepIndex, 0), wizardSteps.length - 1)
-    : 0;
+  appState.wizardStepIndex = normalizeSavedWizardStepIndex(saved);
   return true;
 }
 
@@ -469,6 +476,7 @@ function escapeHtml(value = "") {
 function showView(viewName) {
   Object.values(views).forEach((view) => view.classList.add("hidden"));
   views[viewName].classList.remove("hidden");
+  updateUtilityBarState();
   scrollToCurrentViewTop();
 }
 
@@ -530,6 +538,14 @@ function scrollToSelectedRaceDetailsOnMobile() {
   });
 }
 
+function scrollToRaceStepTargetOnMobile() {
+  if (!isMobileViewport()) return;
+  requestAnimationFrame(() => {
+    const selector = hasCompleteRaceSelection(appState.character) ? "[data-selected-race-details]" : "[data-required-race-choice]";
+    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
 function scrollToSelectedBackgroundDetailsOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
@@ -556,6 +572,59 @@ function scrollToSelectedBackgroundDescriptionOnMobile() {
   requestAnimationFrame(() => {
     wizardStep.querySelector("[data-selected-background-description]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
   });
+}
+
+function scrollToBackgroundStepTargetOnMobile() {
+  if (!isMobileViewport()) return;
+  requestAnimationFrame(() => {
+    const rawBackground = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+    const selector = backgroundHasVersions(rawBackground) && backgroundVersionIsRequired(appState.character)
+      ? "[data-background-version-section]"
+      : hasCompleteBackgroundChoices(appState.character)
+        ? "[data-selected-background-description]"
+        : "[data-required-background-choices]";
+    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
+function scrollToFinishingStepTargetOnMobile() {
+  if (!isMobileViewport()) return;
+  requestAnimationFrame(() => {
+    wizardStep.querySelector("[data-incomplete-finishing-choice]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
+function scrollToClassStepTargetOnMobile(selector) {
+  if (!isMobileViewport() || !selector) return;
+  requestAnimationFrame(() => {
+    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
+function scrollToCurrentStepDetailsOnMobile() {
+  if (!isMobileViewport()) return;
+  const step = wizardSteps[appState.wizardStepIndex];
+  const selectors = {
+    class: "[data-selected-class-details]",
+    race: "[data-selected-race-details]",
+    background: "[data-selected-background-description]",
+  };
+  const selector = step ? selectors[step.key] : "";
+  if (!selector) return;
+  requestAnimationFrame(() => {
+    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+  });
+}
+
+function resetStepButtonHtml() {
+  return "";
+}
+
+function updateUtilityBarState() {
+  const isHomeView = !views.home.classList.contains("hidden");
+  const isBuildView = !views.build.classList.contains("hidden");
+  if (homeButton) homeButton.disabled = isHomeView;
+  if (resetStepButton) resetStepButton.disabled = !isBuildView || !hasResettableCurrentStepChoices();
 }
 
 function abilityModifier(score) {
@@ -867,6 +936,30 @@ function hasCompleteClassFeatureGroup(character, group) {
 
 function hasCompleteClassFeatureChoices(character) {
   return getClassFeatureChoiceGroups(character).every((group) => hasCompleteClassFeatureGroup(character, group));
+}
+
+function getClassStepScrollTargetSelector(character) {
+  const groups = getClassFeatureChoiceGroups(character);
+  for (const group of groups) {
+    const selectedOption = getSelectedClassFeatureOption(character, group);
+    if (!selectedOption) return `[data-class-feature-group="${group.id}"]`;
+    if (group.humanoidChoices && selectedOption.id === "humanoids" && !hasCompleteClassFeatureGroup(character, group)) {
+      return `[data-class-feature-followup="${group.id}"]`;
+    }
+    if (group.dragonAncestorChoices && selectedOption.id === "draconic-bloodline" && !hasCompleteClassFeatureGroup(character, group)) {
+      return `[data-class-feature-followup="${group.id}"]`;
+    }
+  }
+  if (character.classId === "cleric" && groups.length) return "[data-cleric-faith-section]";
+  return "[data-selected-class-details]";
+}
+
+function getClassFeatureGroupForExtraField(character, fieldId) {
+  return getClassFeatureChoiceGroups(character).find((group) => {
+    if (group.humanoidChoices && group.humanoidChoices.fields.some((field) => field.id === fieldId)) return true;
+    if (group.dragonAncestorChoices && group.dragonAncestorChoices.field.id === fieldId) return true;
+    return false;
+  }) || null;
 }
 
 function getEquipmentDefinition(classId) {
@@ -1618,13 +1711,13 @@ function renderBackgroundSkillReplacementSection(race, background) {
     const selectedOption = options.find((option) => option.value === selectedValue);
     return `
       <div class="replacement-skill-control">
+        <button class="secondary-button" type="button" data-random-background-skill-replacement="${slot.id}">Randomize Choice</button>
         <div class="replacement-skill-picker inline-picker ${isOpen ? "open" : ""}">
           <button class="inline-picker-trigger" type="button" data-picker-toggle="${pickerId}" aria-expanded="${isOpen}">
             <span>${selectedOption ? selectedOption.label : "Choose a skill"}</span>
           </button>
           ${isOpen ? `<div class="inline-picker-options">${options.map((option) => `<button type="button" data-picker-option="${pickerId}" data-picker-action="background-skill-replacement" data-picker-value="${option.value}"><span>${option.label}</span></button>`).join("")}</div>` : ""}
         </div>
-        <button class="secondary-button" type="button" data-random-background-skill-replacement="${slot.id}">Randomize</button>
       </div>
     `;
   };
@@ -3002,6 +3095,101 @@ function resetFinishingRequiredChoices(character) {
   finishing.choices = {};
 }
 
+function hasResettableCurrentStepChoices() {
+  const step = wizardSteps[appState.wizardStepIndex];
+  if (!step) return false;
+  const character = appState.character;
+  if (step.key === "class") return Boolean(character.classId || Object.values(character.classFeatures || {}).some(Boolean));
+  if (step.key === "race") return Boolean(character.raceId || character.subraceId || (character.raceChoices && (
+    character.raceChoices.dragonbornAncestry
+    || (character.raceChoices.halfElfAbilities || []).length
+    || (character.raceChoices.halfElfSkills || []).length
+  )));
+  if (step.key === "background") return Boolean(character.backgroundId || Object.values(getBackgroundChoices(character).choices || {}).some(Boolean));
+  if (step.key === "equipment") {
+    const selections = getEquipmentSelections(character);
+    return Boolean(selections.method !== EQUIPMENT_METHODS.take || Object.keys(selections.choices || {}).length || selections.rolledGold || selections.startingGoldRerollCount);
+  }
+  if (step.key === "abilities") {
+    const standardTouched = Object.values(appState.abilityState.standard.assignments || {}).some((value) => value !== "");
+    const rolledTouched = (appState.abilityState.rolled.results || []).length || Object.values(appState.abilityState.rolled.assignments || {}).some(Boolean) || appState.abilityState.rolled.rerollCount;
+    const pointBuyTouched = Object.values(appState.abilityState.pointBuy.touched || {}).some(Boolean) || appState.abilityState.pointBuy.finalized;
+    return Boolean(standardTouched || rolledTouched || pointBuyTouched || Object.values(character.baseAbilities || {}).some((value) => value !== ""));
+  }
+  if (step.key === "skills") {
+    return Boolean(Object.keys(character.classSkillProficiencies || {}).length || Object.keys(character.domainSkillProficiencies || {}).length || (character.raceChoices && (character.raceChoices.halfElfSkills || []).length));
+  }
+  if (step.key === "spellSelection") {
+    const spellcasting = character.spellcasting || {};
+    return Boolean((spellcasting.cantrips || []).length || (spellcasting.spellbookSpells || []).length || (spellcasting.preparedSpells || []).length || (spellcasting.natureBonusCantrip || []).length || (spellcasting.racialCantrip || []).length);
+  }
+  if (step.key === "finishing") {
+    const finishing = getFinishingTouches(character);
+    return Boolean((character.name || "").trim()
+      || Object.values(finishing.choices || {}).some(Boolean)
+      || (finishing.alignment && (finishing.alignment.selected || finishing.alignment.skipped))
+      || Object.values(finishing.personality || {}).some((entry) => entry && (entry.selected || entry.custom || entry.skipped))
+      || (finishing.trinket && finishing.trinket.id));
+  }
+  return false;
+}
+
+function resetCurrentStepChoices() {
+  const step = wizardSteps[appState.wizardStepIndex];
+  if (!step) return;
+  const character = appState.character;
+  if (step.key === "class") {
+    character.classId = "";
+    resetClassFeatureSelections(character);
+    resetEquipmentSelections(character);
+    resetSkillSelections(character);
+    resetSpellSelections(character);
+    resetFinishingRequiredChoices(character);
+  }
+  if (step.key === "race") {
+    character.raceId = "";
+    resetRaceDependentState(character);
+  }
+  if (step.key === "background") {
+    character.backgroundId = "";
+    resetBackgroundChoices(character);
+    resetSkillSelections(character);
+    resetFinishingRequiredChoices(character);
+  }
+  if (step.key === "equipment") resetEquipmentSelections(character);
+  if (step.key === "abilities") {
+    appState.abilityState = createAbilityState();
+    character.baseAbilities = emptyAbilityScores();
+    character.abilities = emptyAbilityScores();
+    character.rolledScores = [];
+    character.rolledAssignments = emptyAbilityScores();
+    character.abilityScoreRerollCount = 0;
+    if (character.raceChoices) character.raceChoices.halfElfAbilities = [];
+    resetSkillSelections(character);
+    resetSpellSelections(character);
+  }
+  if (step.key === "skills") {
+    resetSkillSelections(character);
+    if (character.raceChoices) character.raceChoices.halfElfSkills = [];
+  }
+  if (step.key === "spellSelection") resetSpellSelections(character);
+  if (step.key === "finishing") {
+    character.name = "";
+    resetFinishingTouches(character);
+    appState.confirmBlankName = false;
+  }
+  appState.openFinishingPicker = "";
+  syncAbilityScoresFromState();
+}
+
+function performResetCurrentStep() {
+  if (!hasResettableCurrentStepChoices()) return;
+  if (!window.confirm("Reset this step? This will clear the choices on this step only.")) return;
+  resetCurrentStepChoices();
+  renderWizard();
+  scrollBuilderStepToTop();
+}
+
 function getSelectedTrinket(character) {
   const trinketId = getFinishingTouches(character).trinket.id;
   return trinketId ? DND_DATA.getTrinketById(trinketId) : null;
@@ -3417,23 +3605,71 @@ function guidancePanel(text) {
   return `<div class="guidance-panel">${text}</div>`;
 }
 
-function defaultClassGuidancePanel() {
-  return `<div class="class-info-panel"><p>Your class is your character's main job in the party. It determines how you are trained to handle danger, the weapons and armor you can use, your starting equipment, and the abilities you bring into combat.</p><p>When choosing a class, think about:</p><p class="guidance-bullet">- How you want to fight or help the group</p><p class="guidance-bullet">- Whether you prefer armor, weapons, speed, or special techniques</p><p class="guidance-bullet">- What role sounds most fun to play at the table</p><p>You will make more choices later, but your class is the foundation for how your character works.</p></div>`;
+function classInfoPanel(characterClass) {
+  if (!characterClass) return "";
+  const notes = characterClass.proficiencyNotes || [];
+  const features = (characterClass.features || []).map((feature) => splitFeatureText(feature).name).filter(Boolean);
+  return `
+    <section class="selected-class-details" data-selected-class-details>
+      <h3>Class Details</h3>
+      <div class="race-detail-card class-detail-card">
+        <h4>${characterClass.name}</h4>
+        <p>${characterClass.detail}</p>
+        <div class="race-detail-grid">
+          <div><span>Hit Die</span><strong>d${characterClass.hitDie}</strong></div>
+          <div><span>Recommended Abilities</span><strong>${(characterClass.primaryAbilities || []).slice(0, 3).join(", ") || "None"}</strong></div>
+          <div><span>Saving Throws</span><strong>${characterClass.proficiencyDetails["Saving Throws"] || "None"}</strong></div>
+        </div>
+        <div class="proficiency-block">
+          <h5>Proficiencies</h5>
+          <div class="proficiency-list">
+            ${Object.entries(characterClass.proficiencyDetails)
+              .filter(([label]) => label !== "Saving Throws")
+              .map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`)
+              .join("")}
+            ${notes.map((note) => `<p><strong>Note:</strong> ${note}</p>`).join("")}
+          </div>
+        </div>
+        ${features.length ? `<h5>Level 1 Features</h5><ul>${features.map((feature) => `<li>${feature}</li>`).join("")}</ul>` : ""}
+      </div>
+    </section>
+  `;
 }
 
-function classInfoPanel(characterClass) {
-  if (!characterClass) return defaultClassGuidancePanel();
-  const notes = characterClass.proficiencyNotes || [];
-  return `<div class="class-info-panel selected"><p>${characterClass.detail}</p><p><strong>Hit Die:</strong> d${characterClass.hitDie}</p><div class="proficiency-block"><h3>Proficiencies</h3><div class="proficiency-list">${Object.entries(characterClass.proficiencyDetails).map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`).join("")}${notes.map((note) => `<p><strong>Note:</strong> ${note}</p>`).join("")}</div></div></div>`;
+function renderClassChoiceSections() {
+  const groups = getClassFeatureChoiceGroups(appState.character);
+  if (!groups.length) return "";
+  return `
+    <section class="selected-class-details class-choice-details" data-class-choice-details>
+      <h3>Class Choices</h3>
+      ${groups.map((group) => renderClassFeatureGroup(group)).join("")}
+      ${renderClassFeatureExtraFields(appState.character)}
+    </section>
+  `;
 }
 
 function renderClassStep(step) {
   const selectedClass = getById(DND_DATA.classes, appState.character.classId);
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${classInfoPanel(selectedClass)}<div class="option-grid">${DND_DATA.classes.map((option) => optionCard(option, appState.character.classId, "class", `${option.cardDescription}. Hit Die: d${option.hitDie}`, "class-option-card")).join("")}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${appState.character.classId ? "" : "disabled"}>Continue</button></div>`;
+  const canContinue = appState.character.classId && hasCompleteClassFeatureChoices(appState.character);
+  wizardStep.innerHTML = `
+    <p class="progress-text">${step.progress}</p>
+    <h2>${step.title}</h2>
+    ${guidancePanel(stepGuidance.class)}
+    <div class="race-step-controls"><button class="secondary-button race-randomize-button" type="button" data-action="randomize-class">Randomize Class</button></div>
+    <div class="option-grid">${DND_DATA.classes.map((option) => optionCard(option, appState.character.classId, "class", `${option.cardDescription}. Hit Die: d${option.hitDie}`, "class-option-card")).join("")}</div>
+    ${selectedClass ? renderClassChoiceSections() : ""}
+    ${classInfoPanel(selectedClass)}
+    <div class="wizard-actions">
+      <button class="secondary-button" type="button" data-action="back">Back</button>
+      ${resetStepButtonHtml()}
+      <button class="secondary-button" type="button" data-action="randomize-current">Randomize</button>
+      <button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button>
+    </div>
+  `;
 }
 
 function renderChoiceStep(step, options, selectedId, type, detailForOption) {
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${guidancePanel(stepGuidance[step.key])}<div class="option-grid">${options.map((option) => optionCard(option, selectedId, type, detailForOption(option))).join("")}</div><div class="wizard-actions">${appState.wizardStepIndex > 0 ? '<button class="secondary-button" type="button" data-action="back">Back</button>' : ""}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${selectedId ? "" : "disabled"}>Continue</button></div>`;
+  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${guidancePanel(stepGuidance[step.key])}<div class="option-grid">${options.map((option) => optionCard(option, selectedId, type, detailForOption(option))).join("")}</div><div class="wizard-actions">${appState.wizardStepIndex > 0 ? '<button class="secondary-button" type="button" data-action="back">Back</button>' : ""}${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${selectedId ? "" : "disabled"}>Continue</button></div>`;
 }
 
 function getKnownLanguageSetForBackground(character, currentChoiceId = "") {
@@ -3624,13 +3860,11 @@ function renderBackgroundChoiceCard(choice) {
         placeholder,
         options: getBackgroundChoiceOptions(choice),
         helper: choice.helper || "",
+        beforeTrigger: `<div class="personality-actions"><button class="secondary-button" type="button" data-random-background-choice="${choice.id}">Randomize Choice</button></div>`,
         note: isComplete ? "" : `<p class="finishing-validation">${placeholder} before continuing.</p>`,
         actionType: "background-choice",
       })}
-      <div class="personality-actions">
-        <button class="secondary-button" type="button" data-random-background-choice="${choice.id}">Randomize</button>
-        ${choice.removable ? `<button class="secondary-button" type="button" data-remove-background-routine="${getRoutineChoiceIndex(choice)}">Remove</button>` : ""}
-      </div>
+      ${choice.removable ? `<div class="personality-actions"><button class="secondary-button" type="button" data-remove-background-routine="${getRoutineChoiceIndex(choice)}">Remove</button></div>` : ""}
     </section>
   `;
 }
@@ -3659,12 +3893,10 @@ function renderBackgroundToolReplacementCard(slot) {
         placeholder: "Choose a tool proficiency",
         options,
         helper: `You already have ${slot.tool} proficiency, so choose a different tool proficiency.`,
+        beforeTrigger: `<div class="personality-actions"><button class="secondary-button" type="button" data-random-background-tool-replacement="${slot.id}">Randomize Choice</button></div>`,
         note: selectedValue ? "" : '<p class="finishing-validation">Choose a tool before continuing.</p>',
         actionType: "background-tool-replacement",
       })}
-      <div class="personality-actions">
-        <button class="secondary-button" type="button" data-random-background-tool-replacement="${slot.id}">Randomize</button>
-      </div>
     </section>
   `;
 }
@@ -3695,6 +3927,9 @@ function renderBackgroundVersionSection(rawBackground) {
   return `
     <section class="background-detail-subsection" data-background-version-section>
       <div class="equipment-group-header"><h3>Background Version</h3><span>Choose 1</span></div>
+      <div class="personality-actions background-version-actions">
+        <button class="secondary-button" type="button" data-random-background-version>Randomize Variant</button>
+      </div>
       <div class="equipment-options">
         ${getBackgroundVersionOptions(rawBackground).map((version) => {
           const isSelected = selectedVersion === version.id;
@@ -3749,6 +3984,7 @@ function renderSelectedBackgroundDetails() {
         <div class="equipment-group-header"><h3>Required Background Choices</h3><span>${requiredSections ? "Required" : "None"}</span></div>
         ${requiredSections || '<div class="finishing-empty">No required background choices.</div>'}
       </section>
+      <h3>Background Details</h3>
       <div class="race-detail-card" data-selected-background-description>
         <h4>${background.name}</h4>
         ${background.description ? `<p>${background.description}</p>` : ""}
@@ -3774,7 +4010,7 @@ function renderBackgroundStep(step) {
     ${guidancePanel(stepGuidance.background)}
     <div class="option-grid">${DND_DATA.backgrounds.map((background) => optionCard(background, appState.character.backgroundId, "background", (background.skills || []).join(", "), "background-option-card")).join("")}</div>
     ${renderSelectedBackgroundDetails()}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteBackgroundChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteBackgroundChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
   `;
 }
 
@@ -3825,10 +4061,10 @@ function renderSubraceSection() {
         <h3>Choose Your ${baseRace.name} Subrace</h3>
         <span>Required</span>
       </div>
+      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Subrace</button>
       <div class="subrace-grid">
         ${subraces.map(renderSubraceCard).join("")}
       </div>
-      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Subrace</button>
     </section>
   `;
 }
@@ -3855,10 +4091,10 @@ function renderDragonbornAncestrySection() {
         <h3>Choose Your Draconic Ancestry</h3>
         <span>Required</span>
       </div>
+      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Ancestor</button>
       <div class="subrace-grid">
         ${DND_DATA.dragonbornAncestries.map(renderDragonbornAncestryCard).join("")}
       </div>
-      <button class="secondary-button race-randomize-button" type="button" data-action="randomize-secondary-race-choice">Randomize Ancestry</button>
     </section>
   `;
 }
@@ -3908,7 +4144,7 @@ function renderSelectedRaceDetails() {
   }
   return `
     <section class="selected-race-details" data-selected-race-details>
-      <h3>Selected Race Details</h3>
+      <h3>Race Details</h3>
       <div class="race-detail-card">
         <h4>${race.name}</h4>
         <div class="race-detail-grid">
@@ -3934,26 +4170,10 @@ function renderRaceStep(step) {
     ${renderSelectedRaceDetails()}
     <div class="wizard-actions">
       <button class="secondary-button" type="button" data-action="back">Back</button>
+      ${resetStepButtonHtml()}
       <button class="secondary-button" type="button" data-action="randomize-current">Randomize</button>
       <button class="primary-button" type="button" data-action="continue" ${hasCompleteRaceSelection(appState.character) ? "" : "disabled"}>Continue</button>
     </div>
-  `;
-}
-
-function renderClassFeatureStep(step) {
-  const groups = getClassFeatureChoiceGroups(appState.character);
-  if (!groups.length) {
-    appState.wizardStepIndex = getNextStepIndex();
-    renderWizard();
-    return;
-  }
-  wizardStep.innerHTML = `
-    <p class="progress-text">${step.progress}</p>
-    <h2>${step.title}</h2>
-    ${guidancePanel(stepGuidance.classFeature)}
-    ${groups.map((group) => renderClassFeatureGroup(group)).join("")}
-    ${renderClassFeatureExtraFields(appState.character)}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteClassFeatureChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
   `;
 }
 
@@ -3962,11 +4182,17 @@ function renderClassFeatureGroup(group) {
   const selectedOption = group.options.find((option) => option.id === selectedId);
   const needsHumanoids = group.humanoidChoices && selectedOption && selectedOption.id === "humanoids";
   const needsDragonAncestor = group.dragonAncestorChoices && selectedOption && selectedOption.id === "draconic-bloodline";
+  const choiceControl = group.id === "naturalExplorer"
+    ? renderClassFeatureSelect(group, selectedId)
+    : `<div class="option-grid">${group.options.map((option) => optionCard(option, selectedId, group.id, option.description || "")).join("")}</div>`;
   return `
-    <section class="equipment-choice-group">
+    <section class="equipment-choice-group class-feature-group-${group.id}" data-class-feature-group="${group.id}">
       <div class="equipment-group-header"><h3>${group.title}</h3><span>Choose 1</span></div>
       ${group.description ? `<p class="equipment-note">${group.description}</p>` : ""}
-      <div class="option-grid">${group.options.map((option) => optionCard(option, selectedId, group.id, option.description || "")).join("")}</div>
+      <div class="personality-actions class-choice-actions">
+        <button class="secondary-button" type="button" data-random-class-feature="${group.id}">Randomize Choice</button>
+      </div>
+      ${choiceControl}
       ${needsHumanoids ? renderHumanoidEnemyPickers(group) : ""}
       ${needsDragonAncestor ? renderDragonAncestorPicker(group) : ""}
       ${!hasCompleteClassFeatureGroup(appState.character, group) ? `<p class="finishing-validation">${classFeatureValidationMessage(group)}</p>` : ""}
@@ -3974,10 +4200,21 @@ function renderClassFeatureGroup(group) {
   `;
 }
 
+function renderClassFeatureSelect(group, selectedId) {
+  return `
+    <label class="equipment-select-label class-feature-select-label">${group.title}
+      <select data-class-feature-select="${group.id}">
+        <option value="">Choose ${group.title.toLowerCase()}</option>
+        ${group.options.map((option) => `<option value="${option.id}" ${selectedId === option.id ? "selected" : ""}>${option.name}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderClassFeatureExtraFields(character) {
   if (character.classId !== "cleric") return "";
   return `
-    <section class="equipment-choice-group">
+    <section class="equipment-choice-group" data-cleric-faith-section>
       <div class="equipment-group-header"><h3>Cleric Faith</h3><span>Optional</span></div>
       <label class="custom-personality-label">Deity, Faith, or Philosophy
         <input type="text" data-cleric-faith value="${escapeHtml(character.classFeatures.clericFaith || "")}" placeholder="Optional faith, deity, or philosophy" />
@@ -3990,7 +4227,7 @@ function renderClassFeatureExtraFields(character) {
 function renderHumanoidEnemyPickers(group) {
   const selectedValues = group.humanoidChoices.fields.map((field) => appState.character.classFeatures[field.id] || "");
   return `
-    <div class="equipment-dropdowns humanoid-enemy-pickers">
+    <div class="equipment-dropdowns humanoid-enemy-pickers" data-class-feature-followup="${group.id}">
       ${group.humanoidChoices.fields.map((field, index) => {
         const selectedValue = appState.character.classFeatures[field.id] || "";
         const blockedValues = selectedValues.filter((value, valueIndex) => value && valueIndex !== index);
@@ -4004,13 +4241,16 @@ function renderDragonAncestorPicker(group) {
   const choices = group.dragonAncestorChoices;
   const selectedValue = appState.character.classFeatures[choices.field.id] || "";
   return `
-    <div class="equipment-dropdowns">
+    <div class="equipment-dropdowns" data-class-feature-followup="${group.id}">
       <label class="equipment-select-label">${choices.field.label}
         <select data-class-feature-extra="${choices.field.id}">
           <option value="">Choose dragon ancestor</option>
           ${choices.options.map((option) => `<option value="${option.id}" ${selectedValue === option.id ? "selected" : ""}>${option.name} - ${option.damageType}</option>`).join("")}
         </select>
       </label>
+      <div class="personality-actions class-choice-actions">
+        <button class="secondary-button" type="button" data-random-class-feature-extra="${choices.field.id}">Randomize Choice</button>
+      </div>
     </div>
     <p class="equipment-note">${choices.note}</p>
   `;
@@ -4154,7 +4394,7 @@ function renderEquipmentStep(step) {
       ${renderEquipmentList(backgroundItems, appState.character.backgroundId ? "No background equipment listed." : "Choose a background first.")}
     </section>
     `}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteEquipmentSelections(appState.character) ? "" : "disabled"}>Continue</button></div>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteEquipmentSelections(appState.character) ? "" : "disabled"}>Continue</button></div>
   `;
 }
 
@@ -4390,7 +4630,7 @@ function renderAbilityScoreGuidancePanel() {
       <div class="guidance-section">
         <span class="guidance-section-label">Selected Build</span>
         <p><strong>Class:</strong> ${characterClass ? characterClass.name : "Not selected"}</p>
-        ${choice ? `<p><strong>Level 1 Class Choice:</strong> ${featureName}</p>` : ""}
+        ${choice ? `<p><strong>Class Choice:</strong> ${featureName}</p>` : ""}
         <p><strong>Race:</strong> ${formatRaceBonusSummary(race)}</p>
         <p><strong>Starter Equipment:</strong> ${summarizeStarterEquipment(appState.character)}</p>
       </div>
@@ -4480,7 +4720,7 @@ function pointBuyControls() {
   }).join("")}</div><p class="point-buy-legend">Scores shown include racial bonuses. Point Buy costs use base scores. * = +1 racial bonus; ** = +2 racial bonus.</p>${renderHalfElfAbilityChoices()}`;
 }
 
-function renderInlinePicker({ id, label, value, placeholder, options, helper = "", note = "", actionType, skipped = false }) {
+function renderInlinePicker({ id, label, value, placeholder, options, helper = "", beforeTrigger = "", note = "", actionType, skipped = false }) {
   const isOpen = appState.openFinishingPicker === id;
   const selectedOption = options.find((option) => option.value === value);
   const displayValue = skipped ? "Skipped for now" : selectedOption ? selectedOption.label : placeholder;
@@ -4488,6 +4728,7 @@ function renderInlinePicker({ id, label, value, placeholder, options, helper = "
     <div class="inline-picker ${isOpen ? "open" : ""}">
       <span class="inline-picker-label">${label}</span>
       ${helper ? `<p>${helper}</p>` : ""}
+      ${beforeTrigger || ""}
       <button class="inline-picker-trigger" type="button" data-picker-toggle="${id}" aria-expanded="${isOpen}">
         <span>${displayValue}</span>
       </button>
@@ -4513,8 +4754,9 @@ function renderFinishingChoiceCard(choice) {
     ? ""
     : `<p class="finishing-validation">${selectedValue ? "Choose a different option before finishing." : `${placeholder} before finishing.`}</p>`;
   const note = `${choice.note ? `<p>${choice.note}</p>` : ""}${validation}`;
+  const incompleteAttribute = isFinishingChoiceComplete(appState.character, choice) ? "" : "data-incomplete-finishing-choice";
   return `
-    <section class="finishing-card">
+    <section class="finishing-card" ${incompleteAttribute}>
       ${renderInlinePicker({
         id: `choice:${choice.id}`,
         label: choice.label,
@@ -4522,12 +4764,10 @@ function renderFinishingChoiceCard(choice) {
         placeholder,
         options,
         helper: choice.helper,
+        beforeTrigger: `<div class="personality-actions"><button class="secondary-button" type="button" data-random-finishing-choice="${choice.id}">Randomize</button></div>`,
         note,
         actionType: "finishing-choice",
       })}
-      <div class="personality-actions">
-        <button class="secondary-button" type="button" data-random-finishing-choice="${choice.id}">Randomize</button>
-      </div>
     </section>
   `;
 }
@@ -4550,6 +4790,9 @@ function renderPersonalityField(field, label, options = []) {
         <button class="secondary-button ${mode === "skip" ? "selected" : ""}" type="button" data-personality-mode="${field}" data-personality-mode-value="skip">Skip this for now</button>
       </div>
       ${mode === "suggestion" ? `
+        <div class="personality-actions">
+          <button class="secondary-button" type="button" data-random-personality="${field}">Randomize</button>
+        </div>
         ${renderInlinePicker({
           id: `personality:${field}`,
           label: `${label} Suggestion`,
@@ -4558,9 +4801,6 @@ function renderPersonalityField(field, label, options = []) {
           options: options.map((option) => ({ value: option, label: option })),
           actionType: "personality-select",
         })}
-        <div class="personality-actions">
-          <button class="secondary-button" type="button" data-random-personality="${field}">Randomize</button>
-        </div>
       ` : ""}
       ${mode === "custom" ? `
         <label class="custom-personality-label">Custom text
@@ -4583,12 +4823,12 @@ function renderAlignmentField() {
         placeholder: "Choose an alignment",
         options: DND_DATA.alignments.map((alignment) => ({ value: alignment, label: alignment })),
         helper: "Alignment is a roleplay guide for your character's general outlook.",
+        beforeTrigger: '<div class="personality-actions"><button class="secondary-button" type="button" data-random-alignment>Randomize</button></div>',
         actionType: "alignment-select",
         skipped: Boolean(entry.skipped),
       })}
       ${entry.skipped ? '<p>This will be left blank on your sheet.</p>' : ""}
       <div class="personality-actions">
-        <button class="secondary-button" type="button" data-random-alignment>Randomize</button>
         <button class="secondary-button" type="button" data-skip-alignment>Skip this for now</button>
       </div>
     </section>
@@ -4675,13 +4915,13 @@ function renderFinishingStep(step) {
       </div>
     </section>
     ${renderTrinketSection()}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-randomize-finishing>Randomize</button><button class="primary-button" type="button" data-action="finish" ${canFinish ? "" : "disabled"}>Finish</button></div>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-randomize-finishing>Randomize</button><button class="primary-button" type="button" data-action="finish" ${canFinish ? "" : "disabled"}>Finish</button></div>
   `;
 }
 
 function renderAbilityStep(step) {
   const controls = appState.abilityMethod === ABILITY_METHODS.rolled ? rolledScoreControls() : appState.abilityMethod === ABILITY_METHODS.pointBuy ? pointBuyControls() : standardArrayControls();
-  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${renderAbilityScoreGuidancePanel()}${methodSelector()}<div class="method-content">${controls}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="primary-button" type="button" data-action="continue" ${hasValidAbilityAssignments() ? "" : "disabled"}>Continue</button></div>`;
+  wizardStep.innerHTML = `<p class="progress-text">${step.progress}</p><h2>${step.title}</h2>${renderAbilityScoreGuidancePanel()}${methodSelector()}<div class="method-content">${controls}</div><div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="primary-button" type="button" data-action="continue" ${hasValidAbilityAssignments() ? "" : "disabled"}>Continue</button></div>`;
 }
 
 function renderSkillsStep(step) {
@@ -4729,7 +4969,7 @@ function renderSkillsStep(step) {
     ` : ""}
     ${renderDomainSkillSection(race, background)}
     ${renderHalfElfSkillSection(race, background)}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current" ${choice.choose ? "" : "disabled"}>Randomize</button><button class="primary-button" type="button" data-action="continue" ${canFinish ? "" : "disabled"}>Continue</button></div>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current" ${choice.choose ? "" : "disabled"}>Randomize</button><button class="primary-button" type="button" data-action="continue" ${canFinish ? "" : "disabled"}>Continue</button></div>
   `;
 }
 
@@ -4920,7 +5160,7 @@ function renderSpellSelectionStep(step) {
     ${renderBonusCantripSelectionSection(appState.character)}
     ${renderRacialCantripSelectionSection(appState.character)}
     ${renderDomainSpellSelectionSection(appState.character)}
-    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button><button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button></div>
+    <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${canContinue ? "" : "disabled"}>Continue</button></div>
   `;
 }
 function renderWizard() {
@@ -4932,12 +5172,12 @@ function renderWizard() {
   if (step.key === "class") renderClassStep(step);
   if (step.key === "race") renderRaceStep(step);
   if (step.key === "background") renderBackgroundStep(step);
-  if (step.key === "classFeature") renderClassFeatureStep(step);
   if (step.key === "equipment") renderEquipmentStep(step);
   if (step.key === "abilities") renderAbilityStep(step);
   if (step.key === "skills") renderSkillsStep(step);
   if (step.key === "spellSelection") renderSpellSelectionStep(step);
   if (step.key === "finishing") renderFinishingStep(step);
+  updateUtilityBarState();
   saveProgress();
 }
 
@@ -4992,6 +5232,7 @@ function randomizeBaseRaceOnly() {
   appState.character.raceId = race.id;
   resetRaceDependentState(appState.character);
   renderWizard();
+  scrollToRaceStepTargetOnMobile();
 }
 
 function randomizeSecondaryRaceChoice() {
@@ -5003,6 +5244,7 @@ function randomizeSecondaryRaceChoice() {
     resetSpellSelections(appState.character);
     resetFinishingRequiredChoices(appState.character);
     renderWizard();
+    scrollToRaceStepTargetOnMobile();
     return;
   }
 
@@ -5012,7 +5254,19 @@ function randomizeSecondaryRaceChoice() {
     if (!appState.character.raceChoices) appState.character.raceChoices = { dragonbornAncestry: "", halfElfAbilities: [], halfElfSkills: [] };
     appState.character.raceChoices.dragonbornAncestry = ancestry.id;
     renderWizard();
+    scrollToRaceStepTargetOnMobile();
   }
+}
+
+function randomizeClassOnly() {
+  appState.character.classId = randomChoiceExcept(DND_DATA.classes, appState.character.classId).id;
+  resetClassFeatureSelections(appState.character);
+  resetEquipmentSelections(appState.character);
+  resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
+  resetFinishingRequiredChoices(appState.character);
+  renderWizard();
+  scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
 }
 
 function randomClassFeatureSelection(character, group) {
@@ -5037,6 +5291,26 @@ function randomClassFeatureSelection(character, group) {
   }
 }
 
+function randomizeClassFeatureChoice(groupId) {
+  const group = getClassFeatureChoiceGroups(appState.character).find((item) => item.id === groupId);
+  if (!group) return;
+  randomClassFeatureSelection(appState.character, group);
+  resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
+  renderWizard();
+  scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+}
+
+function randomizeClassFeatureExtraChoice(fieldId) {
+  const group = getClassFeatureGroupForExtraField(appState.character, fieldId);
+  if (!group || !group.dragonAncestorChoices || group.dragonAncestorChoices.field.id !== fieldId) return;
+  appState.character.classFeatures[fieldId] = DND_DATA.randomChoice(group.dragonAncestorChoices.options).id;
+  resetSkillSelections(appState.character);
+  resetSpellSelections(appState.character);
+  renderWizard();
+  scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+}
+
 function getNextStepIndex() {
   for (let index = appState.wizardStepIndex + 1; index < wizardSteps.length; index += 1) {
     if (isWizardStepAvailable(wizardSteps[index])) return index;
@@ -5052,7 +5326,6 @@ function getPreviousStepIndex() {
 }
 
 function isWizardStepAvailable(step) {
-  if (step.key === "classFeature") return Boolean(getClassFeatureChoice(appState.character));
   if (step.key === "spellSelection") return supportsSpellSelection(appState.character);
   return true;
 }
@@ -5085,10 +5358,14 @@ function randomizeCurrentStep() {
   if (step.key === "class") {
     appState.character.classId = randomChoiceExcept(DND_DATA.classes, appState.character.classId).id;
     resetClassFeatureSelections(appState.character);
+    getClassFeatureChoiceGroups(appState.character).forEach((group) => randomClassFeatureSelection(appState.character, group));
     resetEquipmentSelections(appState.character);
     resetSkillSelections(appState.character);
     resetSpellSelections(appState.character);
     resetFinishingRequiredChoices(appState.character);
+    renderWizard();
+    scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+    return;
   }
   if (step.key === "race") {
     const raceSelection = DND_DATA.randomRaceSelection
@@ -5112,11 +5389,6 @@ function randomizeCurrentStep() {
     resetSkillSelections(appState.character);
     resetFinishingRequiredChoices(appState.character);
   }
-  if (step.key === "classFeature") {
-    getClassFeatureChoiceGroups(appState.character).forEach((group) => randomClassFeatureSelection(appState.character, group));
-    resetSkillSelections(appState.character);
-    resetSpellSelections(appState.character);
-  }
   if (step.key === "equipment") randomizeEquipmentSelections(appState.character);
   if (step.key === "abilities") {
     randomizeCurrentAbilityStep();
@@ -5127,6 +5399,7 @@ function randomizeCurrentStep() {
   if (step.key === "skills") setRandomClassSkillSelections(appState.character);
   if (step.key === "spellSelection") setRandomSpellSelections(appState.character);
   renderWizard();
+  scrollToCurrentStepDetailsOnMobile();
 }
 
 function setRandomHalfElfAbilityChoices(character) {
@@ -5248,6 +5521,7 @@ wizardStep.addEventListener("click", (event) => {
   const randomBackgroundChoiceButton = event.target.closest("[data-random-background-choice]");
   const randomBackgroundSkillReplacementButton = event.target.closest("[data-random-background-skill-replacement]");
   const randomBackgroundToolReplacementButton = event.target.closest("[data-random-background-tool-replacement]");
+  const randomBackgroundVersionButton = event.target.closest("[data-random-background-version]");
   const addBackgroundRoutineButton = event.target.closest("[data-add-background-routine]");
   const removeBackgroundRoutineButton = event.target.closest("[data-remove-background-routine]");
   const backgroundVersionButton = event.target.closest("[data-background-version]");
@@ -5258,7 +5532,19 @@ wizardStep.addEventListener("click", (event) => {
   const personalityModeButton = event.target.closest("[data-personality-mode]");
   const rollTrinketButton = event.target.closest("[data-roll-trinket]");
   const clearTrinketButton = event.target.closest("[data-clear-trinket]");
+  const randomClassFeatureButton = event.target.closest("[data-random-class-feature]");
+  const randomClassFeatureExtraButton = event.target.closest("[data-random-class-feature-extra]");
   const actionButton = event.target.closest("[data-action]");
+
+  if (randomClassFeatureExtraButton) {
+    randomizeClassFeatureExtraChoice(randomClassFeatureExtraButton.dataset.randomClassFeatureExtra);
+    return;
+  }
+
+  if (randomClassFeatureButton) {
+    randomizeClassFeatureChoice(randomClassFeatureButton.dataset.randomClassFeature);
+    return;
+  }
 
   if (randomFinishingButton) {
     randomizeFinishingTouches(appState.character);
@@ -5272,15 +5558,15 @@ wizardStep.addEventListener("click", (event) => {
     randomizeFinishingChoice(appState.character, randomFinishingChoiceButton.dataset.randomFinishingChoice);
     appState.openFinishingPicker = "";
     renderWizard();
+    scrollToFinishingStepTargetOnMobile();
     return;
   }
 
   if (randomBackgroundChoiceButton) {
-    const wasComplete = hasCompleteBackgroundChoices(appState.character);
     randomizeBackgroundChoice(appState.character, randomBackgroundChoiceButton.dataset.randomBackgroundChoice);
     appState.openFinishingPicker = "";
     renderWizard();
-    if (!wasComplete && hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
+    scrollToBackgroundStepTargetOnMobile();
     return;
   }
 
@@ -5288,15 +5574,31 @@ wizardStep.addEventListener("click", (event) => {
     randomizeBackgroundSkillReplacement(appState.character, randomBackgroundSkillReplacementButton.dataset.randomBackgroundSkillReplacement);
     appState.openFinishingPicker = "";
     renderWizard();
+    scrollToBackgroundStepTargetOnMobile();
     return;
   }
 
   if (randomBackgroundToolReplacementButton) {
-    const wasComplete = hasCompleteBackgroundChoices(appState.character);
     randomizeBackgroundToolReplacement(appState.character, randomBackgroundToolReplacementButton.dataset.randomBackgroundToolReplacement);
     appState.openFinishingPicker = "";
     renderWizard();
-    if (!wasComplete && hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
+    scrollToBackgroundStepTargetOnMobile();
+    return;
+  }
+
+  if (randomBackgroundVersionButton) {
+    const rawBackground = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+    const versions = rawBackground ? getBackgroundVersionOptions(rawBackground) : [];
+    if (!versions.length) return;
+    const version = randomChoiceExcept(versions, getBackgroundVersion(appState.character));
+    if (!version) return;
+    setBackgroundVersion(appState.character, version.id);
+    sanitizeBackgroundChoices(appState.character);
+    resetSkillSelections(appState.character);
+    resetFinishingRequiredChoices(appState.character);
+    appState.openFinishingPicker = "";
+    renderWizard();
+    scrollToBackgroundStepTargetOnMobile();
     return;
   }
 
@@ -5538,15 +5840,18 @@ wizardStep.addEventListener("click", (event) => {
   if (optionButton) {
     const optionType = optionButton.dataset.optionType;
     const optionId = optionButton.dataset.optionId;
+    let shouldScrollToClassTarget = false;
     let shouldScrollToSubrace = false;
     let shouldScrollToRaceDetails = false;
     if (optionType === "class") {
-      appState.character.classId = appState.character.classId === optionId ? "" : optionId;
+      const isSameClass = appState.character.classId === optionId;
+      appState.character.classId = isSameClass ? "" : optionId;
       resetClassFeatureSelections(appState.character);
       resetEquipmentSelections(appState.character);
       resetSkillSelections(appState.character);
       resetSpellSelections(appState.character);
       resetFinishingRequiredChoices(appState.character);
+      shouldScrollToClassTarget = !isSameClass;
     }
     if (optionType === "race") {
       if (appState.character.raceId === optionId) {
@@ -5592,6 +5897,7 @@ wizardStep.addEventListener("click", (event) => {
     if (optionType === "fightingStyle") {
       appState.character.classFeatures.fightingStyle = appState.character.classFeatures.fightingStyle === optionId ? "" : optionId;
       resetSkillSelections(appState.character);
+      shouldScrollToClassTarget = true;
     }
     const featureGroup = getClassFeatureChoiceGroups(appState.character).find((group) => group.id === optionType);
     if (featureGroup && optionType !== "fightingStyle") {
@@ -5606,8 +5912,18 @@ wizardStep.addEventListener("click", (event) => {
       }
       resetSkillSelections(appState.character);
       resetSpellSelections(appState.character);
+      const selectedOption = getSelectedClassFeatureOption(appState.character, featureGroup);
+      const revealsSameSectionFollowup = (
+        featureGroup.dragonAncestorChoices
+        || featureGroup.humanoidChoices
+      )
+        && selectedOption
+        && (selectedOption.id === "draconic-bloodline" || selectedOption.id === "humanoids")
+        && !hasCompleteClassFeatureGroup(appState.character, featureGroup);
+      shouldScrollToClassTarget = !revealsSameSectionFollowup;
     }
     renderWizard();
+    if (shouldScrollToClassTarget) scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
     if (shouldScrollToSubrace) scrollToRequiredRaceChoiceOnMobile();
     if (shouldScrollToRaceDetails) scrollToSelectedRaceDetailsOnMobile();
     return;
@@ -5630,10 +5946,15 @@ wizardStep.addEventListener("click", (event) => {
   const action = actionButton.dataset.action;
   if (action === "back") {
     appState.confirmBlankName = false;
+    if (appState.wizardStepIndex === 0) {
+      showView("home");
+      return;
+    }
     goToWizardStep(getPreviousStepIndex());
     return;
   }
   if (action === "continue") {
+    if (wizardSteps[appState.wizardStepIndex].key === "class" && (!appState.character.classId || !hasCompleteClassFeatureChoices(appState.character))) return;
     if (wizardSteps[appState.wizardStepIndex].key === "race" && !hasCompleteRaceSelection(appState.character)) return;
     if (wizardSteps[appState.wizardStepIndex].key === "background" && !hasCompleteBackgroundChoices(appState.character)) return;
     appState.confirmBlankName = false;
@@ -5648,6 +5969,14 @@ wizardStep.addEventListener("click", (event) => {
   }
   if (action === "finish-without-name") {
     finishCharacter({ allowBlankName: true });
+    return;
+  }
+  if (action === "reset-step") {
+    performResetCurrentStep();
+    return;
+  }
+  if (action === "randomize-class") {
+    randomizeClassOnly();
     return;
   }
   if (action === "randomize-current") randomizeCurrentStep();
@@ -5665,12 +5994,26 @@ wizardStep.addEventListener("click", (event) => {
 });
 
 wizardStep.addEventListener("change", (event) => {
+  if (event.target.matches("[data-class-feature-select]")) {
+    const groupId = event.target.dataset.classFeatureSelect;
+    appState.character.classFeatures[groupId] = event.target.value;
+    resetSkillSelections(appState.character);
+    resetSpellSelections(appState.character);
+    renderWizard();
+    scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+    return;
+  }
+
   if (event.target.matches("[data-class-feature-extra]")) {
     const fieldId = event.target.dataset.classFeatureExtra;
     appState.character.classFeatures[fieldId] = event.target.value;
     resetSkillSelections(appState.character);
     resetSpellSelections(appState.character);
     renderWizard();
+    const group = getClassFeatureGroupForExtraField(appState.character, fieldId);
+    if (!group || hasCompleteClassFeatureGroup(appState.character, group)) {
+      scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+    }
     return;
   }
 
@@ -5697,6 +6040,7 @@ wizardStep.addEventListener("input", (event) => {
   if (event.target.matches("[data-cleric-faith]")) {
     appState.character.classFeatures.clericFaith = event.target.value;
     saveProgress();
+    updateUtilityBarState();
     renderPreview(livePreview, appState.character);
     return;
   }
@@ -5706,6 +6050,7 @@ wizardStep.addEventListener("input", (event) => {
     appState.confirmBlankName = false;
     wizardStep.querySelector(".blank-name-confirmation")?.remove();
     saveProgress();
+    updateUtilityBarState();
     renderPreview(livePreview, appState.character);
     return;
   }
@@ -5714,6 +6059,7 @@ wizardStep.addEventListener("input", (event) => {
     const detailId = event.target.dataset.backgroundDetail;
     getBackgroundChoices(appState.character).details[detailId] = event.target.value;
     saveProgress();
+    updateUtilityBarState();
     renderPreview(livePreview, appState.character);
     return;
   }
@@ -5723,11 +6069,14 @@ wizardStep.addEventListener("input", (event) => {
     const entry = getFinishingTouches(appState.character).personality[field] || {};
     getFinishingTouches(appState.character).personality[field] = { ...entry, selected: "", custom: event.target.value, skipped: false, mode: "custom" };
     saveProgress();
+    updateUtilityBarState();
     renderPreview(livePreview, appState.character);
   }
 });
 
 homeButton.addEventListener("click", restartCharacterCreation);
+feedbackButton.addEventListener("click", () => {});
+resetStepButton.addEventListener("click", performResetCurrentStep);
 buildButton.addEventListener("click", () => startBuild());
 randomizeButton.addEventListener("click", () => {
   showRandomAbilityPrompt();
@@ -5757,6 +6106,7 @@ function initializeApp() {
 
   syncAbilityScoresFromState();
   renderPreview(livePreview, appState.character);
+  updateUtilityBarState();
 }
 
 initializeApp();
