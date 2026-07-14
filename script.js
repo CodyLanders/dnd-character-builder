@@ -50,16 +50,13 @@ const views = {
 const homeButton = document.querySelector("#homeButton");
 const buildButton = document.querySelector("#buildButton");
 const randomizeButton = document.querySelector("#randomizeButton");
-const rollCharacterButton = document.querySelector("#rollCharacterButton");
-const standardCharacterButton = document.querySelector("#standardCharacterButton");
-const randomizeBackButton = document.querySelector("#randomizeBackButton");
-const randomEquipmentPrompt = document.querySelector("#randomEquipmentPrompt");
-const randomEquipmentBackButton = document.querySelector("#randomEquipmentBackButton");
+const generateRandomButton = document.querySelector("#generateRandomButton");
+const randomizeRestartButton = document.querySelector("#randomizeRestartButton");
 const editRandomButton = document.querySelector("#editRandomButton");
+const completedRestartButton = document.querySelector("#completedRestartButton");
 const wizardStep = document.querySelector("#wizardStep");
 const livePreview = document.querySelector("#livePreview");
 const randomPreview = document.querySelector("#randomPreview");
-const feedbackButton = document.querySelector("#feedbackButton");
 const resetStepButton = document.querySelector("#resetStepButton");
 
 function emptyAbilityScores(value = "") {
@@ -138,7 +135,7 @@ const appState = {
   character: createBlankCharacter(),
   abilityMethod: ABILITY_METHODS.standard,
   abilityState: createAbilityState(),
-  pendingRandomAbilityMethod: "",
+  randomSetup: { abilityMethod: "standard-array", equipmentMethod: EQUIPMENT_METHODS.take },
   openFinishingPicker: "",
   confirmBlankName: false,
 };
@@ -473,32 +470,64 @@ function escapeHtml(value = "") {
     .replace(/"/g, "&quot;");
 }
 
-function showView(viewName) {
+function showView(viewName, options = {}) {
   Object.values(views).forEach((view) => view.classList.add("hidden"));
   views[viewName].classList.remove("hidden");
+  document.querySelector(".app-shell")?.classList.toggle("completed-view-active", viewName === "preview");
   updateUtilityBarState();
-  scrollToCurrentViewTop();
+  if (options.scroll !== false) scrollToCurrentViewTop();
 }
 
-function showRandomAbilityPrompt() {
-  appState.pendingRandomAbilityMethod = "";
-  document.querySelector(".random-ability-options")?.classList.remove("hidden");
-  randomEquipmentPrompt?.classList.add("hidden");
+function renderRandomSetupSelections() {
+  views.randomize.querySelectorAll("[data-random-ability-method]").forEach((button) => {
+    const isSelected = button.dataset.randomAbilityMethod === appState.randomSetup.abilityMethod;
+    button.classList.toggle("selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+  views.randomize.querySelectorAll("[data-random-equipment-method]").forEach((button) => {
+    const isSelected = button.dataset.randomEquipmentMethod === appState.randomSetup.equipmentMethod;
+    button.classList.toggle("selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
 }
 
-function showRandomEquipmentPrompt(abilityMethod) {
-  appState.pendingRandomAbilityMethod = abilityMethod;
-  document.querySelector(".random-ability-options")?.classList.add("hidden");
-  randomEquipmentPrompt?.classList.remove("hidden");
-  scrollWindowToTop();
+function optimizeRolledCharacterAbilities(character) {
+  const sortedRolls = [...(character.rolledScores || [])].sort((a, b) => b.total - a.total);
+  const preferredScores = DND_DATA.assignStandardArray(character.classId || "");
+  const abilityOrder = DND_DATA.abilities
+    .map((ability) => ({ ability, priority: preferredScores[ability] || 0 }))
+    .sort((a, b) => b.priority - a.priority)
+    .map((entry) => entry.ability);
+  const assignments = emptyAbilityScores();
+  abilityOrder.forEach((ability, index) => {
+    assignments[ability] = sortedRolls[index] ? sortedRolls[index].id : "";
+  });
+  character.rolledAssignments = assignments;
+  character.baseAbilities = DND_DATA.abilities.reduce((scores, ability) => {
+    const roll = sortedRolls.find((item) => item.id === assignments[ability]);
+    scores[ability] = roll ? roll.total : "";
+    return scores;
+  }, {});
+  character.abilities = DND_DATA.applyRaceIncreases(character.baseAbilities, character.raceId, character.subraceId, character.raceChoices);
+  character.spellcasting = DND_DATA.randomSpellSelectionForClass(character.classId, {
+    abilities: character.abilities,
+    domainId: character.classFeatures.divineDomain,
+    patronId: character.classFeatures.otherworldlyPatron,
+  });
+  const race = getSelectedRace(character);
+  if (race && race.racialCantripChoice) {
+    const choice = race.racialCantripChoice;
+    const options = DND_DATA.shuffle(DND_DATA.getSpellsForClassLevel(choice.classId, choice.level));
+    character.spellcasting.racialCantrip = options.slice(0, choice.choose).map((spell) => spell.id);
+  }
 }
 
-function generateRandomCharacter(equipmentMethod) {
-  const options = { equipmentMethod };
-  const character = appState.pendingRandomAbilityMethod === ABILITY_METHODS.rolled
-    ? DND_DATA.randomizeRolledCharacter(options)
-    : DND_DATA.randomizeStandardArrayCharacter(options);
-  showRandomAbilityPrompt();
+function generateRandomCharacter() {
+  const options = { equipmentMethod: appState.randomSetup.equipmentMethod };
+  const character = appState.randomSetup.abilityMethod === "standard-array"
+    ? DND_DATA.randomizeStandardArrayCharacter(options)
+    : DND_DATA.randomizeRolledCharacter(options);
+  if (appState.randomSetup.abilityMethod === "rolled-optimized") optimizeRolledCharacterAbilities(character);
   previewRandomizedCharacter(character);
 }
 
@@ -508,33 +537,176 @@ function scrollWindowToTop() {
   });
 }
 
-function scrollToCurrentViewTop() {
-  scrollWindowToTop();
-}
-
-function scrollBuilderStepToTop() {
-  scrollWindowToTop();
-}
-
 function isMobileViewport() {
   return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
+
+function isDesktopViewport() {
+  return !isMobileViewport();
 }
 
 function preferredScrollBehavior() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
+function desktopHeaderOffset() {
+  const header = document.querySelector(".app-header");
+  if (!header || getComputedStyle(header).position !== "sticky") return 0;
+  return Math.ceil(header.getBoundingClientRect().height);
+}
+
+function targetTopOffset() {
+  return isDesktopViewport() ? desktopHeaderOffset() + 20 : stickyUtilityOffset();
+}
+
+function completedHeadingOffset() {
+  return targetTopOffset();
+}
+
+function animateWindowScrollTo(targetTop, duration = 450) {
+  const safeTargetTop = Math.max(targetTop, 0);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.scrollTo({ top: safeTargetTop, left: 0, behavior: "auto" });
+    return;
+  }
+  const startTop = window.scrollY;
+  const distance = safeTargetTop - startTop;
+  const startTime = performance.now();
+  const easeInOut = (progress) => progress < 0.5
+    ? 4 * progress * progress * progress
+    : 1 - ((-2 * progress + 2) ** 3) / 2;
+
+  function step(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    window.scrollTo({ top: startTop + distance * easeInOut(progress), left: 0, behavior: "auto" });
+    if (progress < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+function navigateToCompletedSheet() {
+  showView("preview", { scroll: false });
+  afterLayoutFrames(() => {
+    const heading = document.querySelector("#previewTitle");
+    const targetTop = heading
+      ? window.scrollY + heading.getBoundingClientRect().top - completedHeadingOffset()
+      : 0;
+    animateWindowScrollTo(targetTop, 450);
+  }, 3);
+}
+
+function stickyUtilityOffset() {
+  const utilityRow = document.querySelector(".utility-action-row");
+  if (!utilityRow) return 12;
+  return Math.ceil(utilityRow.getBoundingClientRect().height) + 10;
+}
+
+function scrollElementBelowUtilityBar(element, behavior = preferredScrollBehavior()) {
+  if (!element) return;
+  const targetTop = window.scrollY + element.getBoundingClientRect().top - targetTopOffset();
+  window.scrollTo({ top: Math.max(targetTop, 0), left: 0, behavior });
+}
+
+function scrollSelectorBelowUtilityBar(selector, behavior = preferredScrollBehavior()) {
+  scrollElementBelowUtilityBar(wizardStep.querySelector(selector), behavior);
+}
+
+function scrollToCurrentViewTop() {
+  scrollWindowToTop();
+}
+
+function scrollBuilderStepToTop() {
+  afterRender(() => {
+    scrollElementBelowUtilityBar(wizardStep, "auto");
+  });
+}
+
+function desktopActionBarOffset() {
+  const actionBar = [...document.querySelectorAll(".wizard-actions")]
+    .find((bar) => bar.getClientRects().length && getComputedStyle(bar).visibility !== "hidden");
+  if (!actionBar || getComputedStyle(actionBar).position !== "fixed") return 24;
+  return Math.ceil(actionBar.getBoundingClientRect().height) + 20;
+}
+
+function isElementComfortablyVisible(element, mode = "required") {
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  const topLimit = desktopHeaderOffset() + 24;
+  const bottomLimit = window.innerHeight - desktopActionBarOffset();
+  if (mode === "details") {
+    return rect.top >= topLimit && rect.bottom <= bottomLimit - 12;
+  }
+  return rect.top >= topLimit && rect.top <= bottomLimit - 120;
+}
+
+function afterRender(callback) {
+  requestAnimationFrame(() => requestAnimationFrame(callback));
+}
+
+function afterLayoutFrames(callback, frames = 3) {
+  if (frames <= 0) {
+    callback();
+    return;
+  }
+  requestAnimationFrame(() => afterLayoutFrames(callback, frames - 1));
+}
+
+function scrollDesktopElementIntoView(element, mode = "required") {
+  if (!isDesktopViewport() || !element) return;
+  if (isElementComfortablyVisible(element, mode)) return;
+  const rect = element.getBoundingClientRect();
+  const targetTop = mode === "details"
+    ? window.scrollY + rect.bottom - (window.innerHeight - desktopActionBarOffset() - 20)
+    : window.scrollY + rect.top - (window.innerHeight * 0.28);
+  window.scrollTo({ top: Math.max(targetTop, 0), left: 0, behavior: preferredScrollBehavior() });
+}
+
+function scrollDesktopRequiredChoiceIntoView(selector) {
+  if (!isDesktopViewport() || !selector) return;
+  afterRender(() => {
+    const element = wizardStep.querySelector(selector);
+    scrollDesktopElementIntoView(element, "required");
+  });
+}
+
+function scrollDesktopDetailsIntoView(selector) {
+  if (!isDesktopViewport() || !selector) return;
+  afterRender(() => {
+    const element = wizardStep.querySelector(selector);
+    scrollDesktopElementIntoView(element, "details");
+  });
+}
+
+function scrollToClassStepTargetOnDesktop() {
+  if (!isDesktopViewport()) return;
+  if (!hasCompleteClassFeatureChoices(appState.character)) {
+    scrollDesktopRequiredChoiceIntoView(getClassStepScrollTargetSelector(appState.character));
+    return;
+  }
+  scrollDesktopDetailsIntoView("[data-selected-class-details]");
+}
+
+function scrollToRaceStepTargetOnDesktop() {
+  if (!isDesktopViewport()) return;
+  if (!hasCompleteRaceSelection(appState.character)) {
+    scrollDesktopRequiredChoiceIntoView("[data-required-race-choice]");
+    return;
+  }
+  scrollDesktopDetailsIntoView("[data-selected-race-details]");
+}
+
 function scrollToRequiredRaceChoiceOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-required-race-choice]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-required-race-choice]");
   });
 }
 
 function scrollToSelectedRaceDetailsOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-selected-race-details]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-selected-race-details]");
   });
 }
 
@@ -542,35 +714,35 @@ function scrollToRaceStepTargetOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
     const selector = hasCompleteRaceSelection(appState.character) ? "[data-selected-race-details]" : "[data-required-race-choice]";
-    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar(selector);
   });
 }
 
 function scrollToSelectedBackgroundDetailsOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-selected-background-details]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-selected-background-details]");
   });
 }
 
 function scrollToRequiredBackgroundChoicesOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-required-background-choices]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-required-background-choices]");
   });
 }
 
 function scrollToBackgroundVersionOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-background-version-section]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-background-version-section]");
   });
 }
 
 function scrollToSelectedBackgroundDescriptionOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-selected-background-description]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-selected-background-description]");
   });
 }
 
@@ -583,21 +755,35 @@ function scrollToBackgroundStepTargetOnMobile() {
       : hasCompleteBackgroundChoices(appState.character)
         ? "[data-selected-background-description]"
         : "[data-required-background-choices]";
-    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar(selector);
   });
+}
+
+function scrollToBackgroundStepTargetOnDesktop() {
+  if (!isDesktopViewport()) return;
+  const rawBackground = getById(DND_DATA.backgrounds, appState.character.backgroundId);
+  if (backgroundHasVersions(rawBackground) && backgroundVersionIsRequired(appState.character)) {
+    scrollDesktopRequiredChoiceIntoView("[data-background-version-section]");
+    return;
+  }
+  if (!hasCompleteBackgroundChoices(appState.character)) {
+    scrollDesktopRequiredChoiceIntoView("[data-required-background-choices]");
+    return;
+  }
+  scrollDesktopDetailsIntoView("[data-selected-background-description]");
 }
 
 function scrollToFinishingStepTargetOnMobile() {
   if (!isMobileViewport()) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector("[data-incomplete-finishing-choice]")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar("[data-incomplete-finishing-choice]");
   });
 }
 
 function scrollToClassStepTargetOnMobile(selector) {
   if (!isMobileViewport() || !selector) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar(selector);
   });
 }
 
@@ -612,19 +798,23 @@ function scrollToCurrentStepDetailsOnMobile() {
   const selector = step ? selectors[step.key] : "";
   if (!selector) return;
   requestAnimationFrame(() => {
-    wizardStep.querySelector(selector)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
+    scrollSelectorBelowUtilityBar(selector);
   });
 }
 
 function resetStepButtonHtml() {
-  return "";
+  return `
+    <button class="secondary-button desktop-action-only desktop-reset-button" type="button" data-action="reset-step" ${hasResettableCurrentStepChoices() ? "" : "disabled"}>Reset Step</button>
+    <button class="secondary-button desktop-action-only desktop-restart-button" type="button" data-action="restart-builder">Restart Builder</button>
+  `;
 }
 
 function updateUtilityBarState() {
   const isHomeView = !views.home.classList.contains("hidden");
   const isBuildView = !views.build.classList.contains("hidden");
+  const hasResettableChoices = hasResettableCurrentStepChoices();
   if (homeButton) homeButton.disabled = isHomeView;
-  if (resetStepButton) resetStepButton.disabled = !isBuildView || !hasResettableCurrentStepChoices();
+  if (resetStepButton) resetStepButton.disabled = !isBuildView || !hasResettableChoices;
 }
 
 function abilityModifier(score) {
@@ -744,26 +934,28 @@ function renderAbilityScoresTable(character, race) {
     ? `<p class="ability-reroll-note">Reroll Attempts: ${character.abilityScoreRerollCount || 0}</p>`
     : "";
   return `
-    <h3>Ability Scores</h3>
-    ${rerollNote}
-    <table class="ability-table">
-      <thead><tr><th>Ability</th><th>Score</th><th>Mod</th></tr></thead>
-      <tbody>
-        ${DND_DATA.abilities.map((ability) => {
-          const score = character.abilities[ability];
-          const hasAssignedScore = hasAssignedAbilityScore(character, ability);
-          const racialBonus = getRaceAbilityBonus(race, ability, character);
-          const scoreDisplay = hasAssignedScore
-            ? `${score}`
-            : racialBonus && shouldShowUnassignedRacialBonus(character)
-              ? formatRaceAbilityBonus(racialBonus)
-              : "";
+    <section class="preview-section dense-preview-section ability-scores-section">
+      <h3>Ability Scores</h3>
+      ${rerollNote}
+      <table class="ability-table">
+        <thead><tr><th>Ability</th><th>Score</th><th>Mod</th></tr></thead>
+        <tbody>
+          ${DND_DATA.abilities.map((ability) => {
+            const score = character.abilities[ability];
+            const hasAssignedScore = hasAssignedAbilityScore(character, ability);
+            const racialBonus = getRaceAbilityBonus(race, ability, character);
+            const scoreDisplay = hasAssignedScore
+              ? `${score}`
+              : racialBonus && shouldShowUnassignedRacialBonus(character)
+                ? formatRaceAbilityBonus(racialBonus)
+                : "";
 
-          return `<tr><td>${ability}${raceAbilityMarker(racialBonus)}</td><td>${scoreDisplay}</td><td>${hasAssignedScore ? abilityModifier(score) : ""}</td></tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-    <div class="table-note racial-bonus-legend">Racial Ability Score Bonus: Number of * indicates bonus points to that ability.</div>
+            return `<tr><td>${ability}${raceAbilityMarker(racialBonus)}</td><td>${scoreDisplay}</td><td>${hasAssignedScore ? abilityModifier(score) : ""}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+      <div class="table-note racial-bonus-legend">Racial Ability Score Bonus: Number of * indicates bonus points to that ability.</div>
+    </section>
   `;
 }
 
@@ -1521,36 +1713,40 @@ function renderSavingThrowsTable(character, characterClass) {
   const proficiencyBonus = getProficiencyBonus(character);
   const savingThrowLevels = getSavingThrowProficiencyLevels(character, characterClass);
   return `
-    <h3>Saving Throws</h3>
-    <table class="preview-table saving-throws-table">
-      <thead><tr><th>Prof</th><th>Ability</th><th>Mod</th></tr></thead>
-      <tbody>
-        ${DND_DATA.abilities.map((ability) => {
-          const level = savingThrowLevels[ability] || 0;
-          const hasAssignedScore = hasAssignedAbilityScore(character, ability);
-          const modifier = (hasAssignedScore ? abilityModifierValue(character.abilities[ability]) : 0) + proficiencyBonus * level;
-          return `<tr><td>${proficiencyMark(level)}</td><td>${ability}</td><td>${level || hasAssignedScore ? formatSignedModifier(modifier) : ""}</td></tr>`;
-        }).join("")}
-      </tbody>
-    </table>`;
+    <section class="preview-section dense-preview-section saving-throws-section">
+      <h3>Saving Throws</h3>
+      <table class="preview-table saving-throws-table">
+        <thead><tr><th>Prof</th><th>Ability</th><th>Mod</th></tr></thead>
+        <tbody>
+          ${DND_DATA.abilities.map((ability) => {
+            const level = savingThrowLevels[ability] || 0;
+            const hasAssignedScore = hasAssignedAbilityScore(character, ability);
+            const modifier = (hasAssignedScore ? abilityModifierValue(character.abilities[ability]) : 0) + proficiencyBonus * level;
+            return `<tr><td>${proficiencyMark(level)}</td><td>${ability}</td><td>${level || hasAssignedScore ? formatSignedModifier(modifier) : ""}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </section>`;
 }
 
 function renderSkillsTable(character, race, background) {
   const proficiencyBonus = getProficiencyBonus(character);
   const skillLevels = getSkillProficiencyLevels(character, race, background);
   return `
-    <h3>Skills</h3>
-    <table class="preview-table skills-table">
-      <thead><tr><th>Prof</th><th>Skill</th><th>Mod</th><th>Ability</th></tr></thead>
-      <tbody>
-        ${DND_DATA.skills.map((skill) => {
-          const level = skillLevels[skill.name] || 0;
-          const hasAssignedScore = hasAssignedAbilityScore(character, skill.ability);
-          const modifier = (hasAssignedScore ? abilityModifierValue(character.abilities[skill.ability]) : 0) + proficiencyBonus * level;
-          return `<tr><td>${proficiencyMark(level)}</td><td>${skill.name}</td><td>${level || hasAssignedScore ? formatSignedModifier(modifier) : ""}</td><td>${DND_DATA.abilityShortLabels[skill.ability]}</td></tr>`;
-        }).join("")}
-      </tbody>
-    </table>`;
+    <section class="preview-section dense-preview-section skills-section">
+      <h3>Skills</h3>
+      <table class="preview-table skills-table">
+        <thead><tr><th>Prof</th><th>Skill</th><th>Mod</th><th>Ability</th></tr></thead>
+        <tbody>
+          ${DND_DATA.skills.map((skill) => {
+            const level = skillLevels[skill.name] || 0;
+            const hasAssignedScore = hasAssignedAbilityScore(character, skill.ability);
+            const modifier = (hasAssignedScore ? abilityModifierValue(character.abilities[skill.ability]) : 0) + proficiencyBonus * level;
+            return `<tr><td>${proficiencyMark(level)}</td><td>${skill.name}</td><td>${level || hasAssignedScore ? formatSignedModifier(modifier) : ""}</td><td>${DND_DATA.abilityShortLabels[skill.ability]}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </section>`;
 }
 
 function resetSkillSelections(character) {
@@ -2736,9 +2932,10 @@ function renderProficienciesTrainingPreview(character, characterClass, race, bac
 }
 
 function renderSimpleFactsPreview(character, race, background) {
-  return [
+  const content = [
     renderPreviewCategory("Damage Resistances", getDamageResistanceEntries(character)),
   ].join("");
+  return renderPreviewSection("Character Details", "", content, "simple-facts-section");
 }
 
 function renderFeatureActionCards(character, characterClass) {
@@ -3399,11 +3596,12 @@ function personalityEntries(character) {
 
 function renderFinishingTouchesPreview(character, race, background) {
   const trinket = getSelectedTrinket(character);
-  return [
+  const content = [
     renderPreviewCategory("Languages", languageEntries(character, race, background)),
     renderPreviewCategory("Roleplaying Details", personalityEntries(character)),
     trinket ? renderPreviewCategory("Optional Trinket", [{ text: `#${trinket.roll} - ${trinket.description}` }]) : "",
   ].join("");
+  return renderPreviewSection("Finishing Touches", "", content, "finishing-touches-section");
 }
 
 function renderBackgroundDetailsPreview(character, background) {
@@ -3435,7 +3633,14 @@ function renderBackgroundDetailsPreview(character, background) {
       return { text: `${detail ? detail.label : detailId}: ${value}` };
     });
   const feature = background.feature ? [{ text: `${background.feature.name}: ${background.feature.description}` }] : [];
-  return renderPreviewCategory("Background Details", [...feature, ...choices, ...details, ...retainerEntries]);
+  const entries = [...feature, ...choices, ...details, ...retainerEntries];
+  if (!entries.length) return "";
+  return renderPreviewSection(
+    "Background Details",
+    "",
+    `<ul class="plain-list categorized-equipment-list">${entries.map((entry) => `<li>${entry.text}</li>`).join("")}</ul>`,
+    "background-details-section",
+  );
 }
 
 function renderRolledStartingGoldPreview(character) {
@@ -3583,17 +3788,25 @@ function renderPreview(container, character) {
     ${renderClassChoicePreviewItems(character)}
     ${renderClassFaithPreviewItem(character)}
     </div>
-    ${renderAbilityScoresTable(character, race)}
-    ${renderSavingThrowsTable(character, characterClass)}
-    ${renderSkillsTable(character, race, background)}
-    ${renderBackgroundDetailsPreview(character, background)}
-    ${renderProficienciesTrainingPreview(character, characterClass, race, background)}
-    ${renderSimpleFactsPreview(character, race, background)}
-    ${renderAttacksAndActionsPreview(character, characterClass)}
-    ${renderSpellsPreview(character, characterClass)}
-    ${renderTraitsAndFeaturesPreview(character, characterClass, race)}
-    ${renderEquipmentCarriedPreview(character)}
-    ${renderFinishingTouchesPreview(character, race, background)}`;
+    <div class="preview-core-tables">
+      ${renderAbilityScoresTable(character, race)}
+      ${renderSavingThrowsTable(character, characterClass)}
+      ${renderSkillsTable(character, race, background)}
+    </div>
+    <div class="preview-lower-columns">
+      <div class="preview-stack preview-left-stack">
+        ${renderBackgroundDetailsPreview(character, background)}
+        ${renderSimpleFactsPreview(character, race, background)}
+        ${renderFinishingTouchesPreview(character, race, background)}
+        ${renderSpellsPreview(character, characterClass)}
+        ${renderTraitsAndFeaturesPreview(character, characterClass, race)}
+      </div>
+      <div class="preview-stack preview-right-stack">
+        ${renderProficienciesTrainingPreview(character, characterClass, race, background)}
+        ${renderAttacksAndActionsPreview(character, characterClass)}
+        ${renderEquipmentCarriedPreview(character)}
+      </div>
+    </div>`;
 }
 
 function optionCard(option, selectedId, type, detail = "", extraClass = "") {
@@ -4008,6 +4221,7 @@ function renderBackgroundStep(step) {
     <p class="progress-text">${step.progress}</p>
     <h2>${step.title}</h2>
     ${guidancePanel(stepGuidance.background)}
+    <div class="race-step-controls"><button class="secondary-button race-randomize-button" type="button" data-action="randomize-background">Randomize Background</button></div>
     <div class="option-grid">${DND_DATA.backgrounds.map((background) => optionCard(background, appState.character.backgroundId, "background", (background.skills || []).join(", "), "background-option-card")).join("")}</div>
     ${renderSelectedBackgroundDetails()}
     <div class="wizard-actions"><button class="secondary-button" type="button" data-action="back">Back</button>${resetStepButtonHtml()}<button class="secondary-button" type="button" data-action="randomize-current">Randomize</button><button class="primary-button" type="button" data-action="continue" ${hasCompleteBackgroundChoices(appState.character) ? "" : "disabled"}>Continue</button></div>
@@ -4460,7 +4674,7 @@ function renderClassChoicePreviewItems(character) {
       <div class="sheet-item class-choice-sheet-item">
         <span class="sheet-label">${index + 1}. Class Choice</span>
         <span class="class-choice-preview-body">
-          <strong>${entry.label}:</strong>
+          <span>${entry.label}:</span>
           <span>${entry.value}</span>
         </span>
       </div>
@@ -5219,7 +5433,7 @@ function previewRandomizedCharacter(character) {
   setRandomClassSkillSelections(appState.character);
   recomputeCharacter();
   renderPreview(randomPreview, appState.character);
-  showView("preview");
+  navigateToCompletedSheet();
 }
 
 function randomChoiceExcept(items, currentId) {
@@ -5233,6 +5447,7 @@ function randomizeBaseRaceOnly() {
   resetRaceDependentState(appState.character);
   renderWizard();
   scrollToRaceStepTargetOnMobile();
+  scrollToRaceStepTargetOnDesktop();
 }
 
 function randomizeSecondaryRaceChoice() {
@@ -5245,6 +5460,7 @@ function randomizeSecondaryRaceChoice() {
     resetFinishingRequiredChoices(appState.character);
     renderWizard();
     scrollToRaceStepTargetOnMobile();
+    scrollToRaceStepTargetOnDesktop();
     return;
   }
 
@@ -5255,6 +5471,7 @@ function randomizeSecondaryRaceChoice() {
     appState.character.raceChoices.dragonbornAncestry = ancestry.id;
     renderWizard();
     scrollToRaceStepTargetOnMobile();
+    scrollToRaceStepTargetOnDesktop();
   }
 }
 
@@ -5267,6 +5484,26 @@ function randomizeClassOnly() {
   resetFinishingRequiredChoices(appState.character);
   renderWizard();
   scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+  scrollToClassStepTargetOnDesktop();
+}
+
+function randomizeBackgroundOnly() {
+  const currentVersion = getBackgroundVersion(appState.character);
+  const currentKey = currentVersion ? `${appState.character.backgroundId}:${currentVersion}` : appState.character.backgroundId;
+  const outcome = DND_DATA.randomBackgroundOutcome
+    ? DND_DATA.randomBackgroundOutcome(currentKey)
+    : { background: randomChoiceExcept(DND_DATA.backgrounds, appState.character.backgroundId), version: "" };
+  if (!outcome || !outcome.background) return;
+  appState.character.backgroundId = outcome.background.id;
+  resetBackgroundChoices(appState.character);
+  setBackgroundVersion(appState.character, outcome.version || "");
+  sanitizeBackgroundChoices(appState.character);
+  resetSkillSelections(appState.character);
+  resetFinishingRequiredChoices(appState.character);
+  appState.openFinishingPicker = "";
+  renderWizard();
+  scrollToBackgroundStepTargetOnMobile();
+  scrollToBackgroundStepTargetOnDesktop();
 }
 
 function randomClassFeatureSelection(character, group) {
@@ -5299,6 +5536,7 @@ function randomizeClassFeatureChoice(groupId) {
   resetSpellSelections(appState.character);
   renderWizard();
   scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+  scrollToClassStepTargetOnDesktop();
 }
 
 function randomizeClassFeatureExtraChoice(fieldId) {
@@ -5309,6 +5547,7 @@ function randomizeClassFeatureExtraChoice(fieldId) {
   resetSpellSelections(appState.character);
   renderWizard();
   scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+  scrollToClassStepTargetOnDesktop();
 }
 
 function getNextStepIndex() {
@@ -5365,6 +5604,7 @@ function randomizeCurrentStep() {
     resetFinishingRequiredChoices(appState.character);
     renderWizard();
     scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+    scrollToClassStepTargetOnDesktop();
     return;
   }
   if (step.key === "race") {
@@ -5400,6 +5640,8 @@ function randomizeCurrentStep() {
   if (step.key === "spellSelection") setRandomSpellSelections(appState.character);
   renderWizard();
   scrollToCurrentStepDetailsOnMobile();
+  if (step.key === "race") scrollToRaceStepTargetOnDesktop();
+  if (step.key === "background") scrollToBackgroundStepTargetOnDesktop();
 }
 
 function setRandomHalfElfAbilityChoices(character) {
@@ -5491,14 +5733,16 @@ function finishCharacter({ allowBlankName = false } = {}) {
   if (!allowBlankName && !appState.character.name.trim()) {
     appState.confirmBlankName = true;
     renderWizard();
-    scrollWindowToTop();
+    requestAnimationFrame(() => {
+      scrollElementBelowUtilityBar(wizardStep.querySelector(".blank-name-confirmation"), "auto");
+    });
     return;
   }
   appState.confirmBlankName = false;
   if (appState.abilityMethod === ABILITY_METHODS.pointBuy) appState.abilityState.pointBuy.finalized = true;
   syncAbilityScoresFromState();
   renderPreview(randomPreview, appState.character);
-  showView("preview");
+  navigateToCompletedSheet();
   saveProgress();
 }
 
@@ -5567,6 +5811,7 @@ wizardStep.addEventListener("click", (event) => {
     appState.openFinishingPicker = "";
     renderWizard();
     scrollToBackgroundStepTargetOnMobile();
+    scrollToBackgroundStepTargetOnDesktop();
     return;
   }
 
@@ -5575,6 +5820,7 @@ wizardStep.addEventListener("click", (event) => {
     appState.openFinishingPicker = "";
     renderWizard();
     scrollToBackgroundStepTargetOnMobile();
+    scrollToBackgroundStepTargetOnDesktop();
     return;
   }
 
@@ -5583,6 +5829,7 @@ wizardStep.addEventListener("click", (event) => {
     appState.openFinishingPicker = "";
     renderWizard();
     scrollToBackgroundStepTargetOnMobile();
+    scrollToBackgroundStepTargetOnDesktop();
     return;
   }
 
@@ -5599,6 +5846,7 @@ wizardStep.addEventListener("click", (event) => {
     appState.openFinishingPicker = "";
     renderWizard();
     scrollToBackgroundStepTargetOnMobile();
+    scrollToBackgroundStepTargetOnDesktop();
     return;
   }
 
@@ -5611,6 +5859,7 @@ wizardStep.addEventListener("click", (event) => {
     renderWizard();
     if (hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
     else scrollToRequiredBackgroundChoicesOnMobile();
+    scrollToBackgroundStepTargetOnDesktop();
     return;
   }
 
@@ -5891,6 +6140,7 @@ wizardStep.addEventListener("click", (event) => {
         if (backgroundHasVersions(rawBackground) && backgroundVersionIsRequired(appState.character)) scrollToBackgroundVersionOnMobile();
         else if (hasCompleteBackgroundChoices(appState.character)) scrollToSelectedBackgroundDescriptionOnMobile();
         else scrollToRequiredBackgroundChoicesOnMobile();
+        scrollToBackgroundStepTargetOnDesktop();
       }
       return;
     }
@@ -5926,6 +6176,8 @@ wizardStep.addEventListener("click", (event) => {
     if (shouldScrollToClassTarget) scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
     if (shouldScrollToSubrace) scrollToRequiredRaceChoiceOnMobile();
     if (shouldScrollToRaceDetails) scrollToSelectedRaceDetailsOnMobile();
+    if (shouldScrollToClassTarget) scrollToClassStepTargetOnDesktop();
+    if (shouldScrollToSubrace || shouldScrollToRaceDetails) scrollToRaceStepTargetOnDesktop();
     return;
   }
 
@@ -5975,8 +6227,16 @@ wizardStep.addEventListener("click", (event) => {
     performResetCurrentStep();
     return;
   }
+  if (action === "restart-builder") {
+    restartCharacterCreation();
+    return;
+  }
   if (action === "randomize-class") {
     randomizeClassOnly();
+    return;
+  }
+  if (action === "randomize-background") {
+    randomizeBackgroundOnly();
     return;
   }
   if (action === "randomize-current") randomizeCurrentStep();
@@ -6001,6 +6261,7 @@ wizardStep.addEventListener("change", (event) => {
     resetSpellSelections(appState.character);
     renderWizard();
     scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+    scrollToClassStepTargetOnDesktop();
     return;
   }
 
@@ -6013,6 +6274,7 @@ wizardStep.addEventListener("change", (event) => {
     const group = getClassFeatureGroupForExtraField(appState.character, fieldId);
     if (!group || hasCompleteClassFeatureGroup(appState.character, group)) {
       scrollToClassStepTargetOnMobile(getClassStepScrollTargetSelector(appState.character));
+      scrollToClassStepTargetOnDesktop();
     }
     return;
   }
@@ -6075,25 +6337,29 @@ wizardStep.addEventListener("input", (event) => {
 });
 
 homeButton.addEventListener("click", restartCharacterCreation);
-feedbackButton.addEventListener("click", () => {});
 resetStepButton.addEventListener("click", performResetCurrentStep);
+randomizeRestartButton.addEventListener("click", restartCharacterCreation);
+completedRestartButton.addEventListener("click", restartCharacterCreation);
 buildButton.addEventListener("click", () => startBuild());
 randomizeButton.addEventListener("click", () => {
-  showRandomAbilityPrompt();
+  appState.randomSetup = { abilityMethod: "standard-array", equipmentMethod: EQUIPMENT_METHODS.take };
+  renderRandomSetupSelections();
   showView("randomize");
 });
-randomizeBackButton.addEventListener("click", () => {
-  showRandomAbilityPrompt();
-  showView("home");
+views.randomize.addEventListener("click", (event) => {
+  const abilityButton = event.target.closest("[data-random-ability-method]");
+  if (abilityButton) {
+    appState.randomSetup.abilityMethod = abilityButton.dataset.randomAbilityMethod;
+    renderRandomSetupSelections();
+    return;
+  }
+  const equipmentButton = event.target.closest("[data-random-equipment-method]");
+  if (equipmentButton) {
+    appState.randomSetup.equipmentMethod = equipmentButton.dataset.randomEquipmentMethod;
+    renderRandomSetupSelections();
+  }
 });
-randomEquipmentBackButton.addEventListener("click", showRandomAbilityPrompt);
-rollCharacterButton.addEventListener("click", () => showRandomEquipmentPrompt(ABILITY_METHODS.rolled));
-standardCharacterButton.addEventListener("click", () => showRandomEquipmentPrompt(ABILITY_METHODS.standard));
-randomEquipmentPrompt.addEventListener("click", (event) => {
-  const methodButton = event.target.closest("[data-random-equipment-method]");
-  if (!methodButton) return;
-  generateRandomCharacter(methodButton.dataset.randomEquipmentMethod);
-});
+generateRandomButton.addEventListener("click", generateRandomCharacter);
 editRandomButton.addEventListener("click", () => startBuild(appState.character));
 
 function initializeApp() {

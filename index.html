@@ -10,10 +10,13 @@
     <main class="app-shell">
       <header class="app-header">
         <h1>D&amp;D 5e Character Generator</h1>
+        <div class="desktop-header-actions" aria-label="Desktop utility actions">
+          <a class="secondary-button utility-button" href="https://forms.gle/ZGG93opzCU8paexH8" target="_blank" rel="noopener noreferrer" aria-label="Open feedback form in a new tab">Feedback</a>
+        </div>
       </header>
       <div class="utility-action-row" aria-label="Builder utility actions">
         <button class="secondary-button utility-button" id="homeButton" type="button">Restart</button>
-        <button class="secondary-button utility-button" id="feedbackButton" type="button">Feedback</button>
+        <a class="secondary-button utility-button" id="feedbackButton" href="https://forms.gle/ZGG93opzCU8paexH8" target="_blank" rel="noopener noreferrer" aria-label="Open feedback form in a new tab">Feedback</a>
         <button class="secondary-button utility-button" id="resetStepButton" type="button">Reset</button>
       </div>
 
@@ -28,16 +31,40 @@
 
       <section class="view hidden randomize-view" id="randomizeView" aria-labelledby="randomizeTitle">
         <h2 id="randomizeTitle">Randomize a Character</h2>
-        <div class="home-actions random-ability-options" aria-label="Random character options">
-          <button class="primary-button" id="rollCharacterButton" type="button">Roll a Character</button>
-          <button class="primary-button" id="standardCharacterButton" type="button">Standard Array Character</button>
-          <button class="secondary-button" id="randomizeBackButton" type="button">Back</button>
-        </div>
-        <div class="random-equipment-prompt hidden" id="randomEquipmentPrompt">
-          <h3>Choose Equipment Method</h3>
-          <p>Choose how this random character should receive starting gear.</p>
+        <p>Choose how your ability scores and starting equipment should be generated. Everything else will be randomized for you.</p>
+        <section class="random-setup-section">
+          <h3>Choose Ability Score Method</h3>
           <div class="equipment-method-grid">
-            <button class="equipment-method-card" type="button" data-random-equipment-method="take-equipment">
+            <button class="equipment-method-card selected" type="button" data-random-ability-method="standard-array" aria-pressed="true">
+              <span class="equipment-method-indicator" aria-hidden="true"></span>
+              <span>
+                <strong>Standard Array</strong>
+                <em>Easy</em>
+                <span>Uses the standard 15, 14, 13, 12, 10, and 8 scores and assigns them intelligently based on the generated class, race, and background.</span>
+              </span>
+            </button>
+            <button class="equipment-method-card" type="button" data-random-ability-method="rolled-optimized" aria-pressed="false">
+              <span class="equipment-method-indicator" aria-hidden="true"></span>
+              <span>
+                <strong>Roll 4d6 and Optimize</strong>
+                <em>Moderate</em>
+                <span>Rolls six ability scores using 4d6, drops the lowest die from each roll, and assigns the results intelligently based on the generated class, race, and background.</span>
+              </span>
+            </button>
+            <button class="equipment-method-card" type="button" data-random-ability-method="rolled-random" aria-pressed="false">
+              <span class="equipment-method-indicator" aria-hidden="true"></span>
+              <span>
+                <strong>Roll 4d6 and Randomly Assign</strong>
+                <em>Hard</em>
+                <span>Rolls six ability scores using 4d6, drops the lowest die from each roll, and assigns the results randomly without optimizing them for the generated character.</span>
+              </span>
+            </button>
+          </div>
+        </section>
+        <section class="random-setup-section">
+          <h3>Choose Equipment Method</h3>
+          <div class="equipment-method-grid">
+            <button class="equipment-method-card selected" type="button" data-random-equipment-method="take-equipment" aria-pressed="true">
               <span class="equipment-method-indicator" aria-hidden="true"></span>
               <span>
                 <strong>Use Starting Equipment</strong>
@@ -45,16 +72,20 @@
                 <span>Uses normal class equipment plus background equipment and gold.</span>
               </span>
             </button>
-            <button class="equipment-method-card" type="button" data-random-equipment-method="rolled-starting-gold">
+            <button class="equipment-method-card" type="button" data-random-equipment-method="rolled-starting-gold" aria-pressed="false">
               <span class="equipment-method-indicator" aria-hidden="true"></span>
               <span>
                 <strong>Roll Starting Gold</strong>
                 <em>Advanced</em>
-                <span>Rolls class-based starting wealth and skips equipment choices. Equipment must be chosen manually from the Player's Handbook.</span>
+                <span>Rolls class-based starting wealth and skips normal class equipment choices.</span>
               </span>
             </button>
-            <button class="secondary-button" id="randomEquipmentBackButton" type="button">Back</button>
           </div>
+        </section>
+        <p class="random-setup-note">Want more control? Use Build a Character to choose individual races, classes, backgrounds, and other options.</p>
+        <div class="wizard-actions randomize-actions">
+          <button class="secondary-button desktop-action-only desktop-restart-button" id="randomizeRestartButton" type="button">Restart Builder</button>
+          <button class="primary-button" id="generateRandomButton" type="button">Generate Character</button>
         </div>
       </section>
       <section class="view hidden" id="buildView" aria-labelledby="buildTitle">
@@ -79,9 +110,12 @@
         <div class="view-header">
           <div>
             <p class="section-label">Randomized starter</p>
-            <h2 id="previewTitle">Character Preview</h2>
+            <h2 id="previewTitle">Completed Character Sheet</h2>
           </div>
-          <button class="secondary-button" id="editRandomButton" type="button">Edit Result</button>
+          <div class="completed-actions">
+            <button class="secondary-button" id="editRandomButton" type="button">Edit Result</button>
+            <button class="secondary-button completed-restart-button" id="completedRestartButton" type="button">Restart Builder</button>
+          </div>
         </div>
         <div class="panel" id="randomPreview"></div>
       </section>

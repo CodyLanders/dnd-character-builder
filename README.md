@@ -35,6 +35,19 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 
 ## Project Evolution
 
+### v0.8.1 — Desktop UX, Feedback Setup, and Randomize Character Redesign — July 14, 2026
+- Completed a dedicated desktop UX pass while preserving the existing mobile-first layout and behavior.
+- Widened the desktop builder, improved sticky-header scroll positioning, and added a persistent desktop action bar for core builder actions.
+- Reworked the Completed Character Sheet for desktop with a wider summary grid, better use of horizontal space, and cleaner section stacking.
+- Finalized completion-page behavior with Edit Result, Restart Builder, consistent Finish/Finish Without Name navigation, and clearer naming between Character Preview and Completed Character Sheet.
+- Added an independent Randomize Background button and continued standardizing local randomize controls separately from full-step randomization.
+- Set up the v1 feedback system using Google Forms, including anonymous submissions, structured feedback fields, a connected response spreadsheet, and email notifications.
+- Prepared Feedback button integration so the form can open in a new tab without disrupting the user’s character, autosave, or current builder step.
+- Redesigned the intended Randomize Character page as a quick setup screen focused on ability-score method and equipment method.
+- Defined the new randomize options: Standard Array, Roll 4d6 and Optimize, and Roll 4d6 and Randomly Assign.
+- Kept Use Starting Equipment as the recommended default while preserving Roll Starting Gold as the advanced option.
+- Planned the Randomize Character bottom action bar so Generate Character is the clear primary action and leads directly to the Completed Character Sheet.
+
 ### v0.8.0 — Randomize Controls, Utility Bar, and Class Step UX Polish — July 13, 2026
 - Standardized local Randomize controls across the builder so section-level buttons randomize only their own choice while the bottom Randomize button continues to randomize the whole step.
 - Improved mobile navigation after selections and randomization so the page guides users to the next required choice or the relevant details section without unnecessary desktop jumping.
