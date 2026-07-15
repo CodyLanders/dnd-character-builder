@@ -54,9 +54,11 @@ const generateRandomButton = document.querySelector("#generateRandomButton");
 const randomizeRestartButton = document.querySelector("#randomizeRestartButton");
 const editRandomButton = document.querySelector("#editRandomButton");
 const completedRestartButton = document.querySelector("#completedRestartButton");
+const printSheetButton = document.querySelector("#printSheetButton");
 const wizardStep = document.querySelector("#wizardStep");
 const livePreview = document.querySelector("#livePreview");
 const randomPreview = document.querySelector("#randomPreview");
+const printPreview = document.querySelector("#printPreview");
 const resetStepButton = document.querySelector("#resetStepButton");
 
 function emptyAbilityScores(value = "") {
@@ -522,12 +524,24 @@ function optimizeRolledCharacterAbilities(character) {
   }
 }
 
+function randomizeFullCharacterBackgroundOptions(character) {
+  const background = getActiveBackground(character);
+  if (!background) return;
+  visibleBackgroundChoiceGroups(background, character).forEach((choice) => {
+    randomizeBackgroundChoice(character, choice.id);
+  });
+  const race = getSelectedRace(character);
+  getBackgroundSkillDuplicateSlots(character, race, background).forEach((slot) => randomizeBackgroundSkillReplacement(character, slot.id));
+  getBackgroundToolDuplicateSlots(character, race, background).forEach((slot) => randomizeBackgroundToolReplacement(character, slot.id));
+}
+
 function generateRandomCharacter() {
   const options = { equipmentMethod: appState.randomSetup.equipmentMethod };
   const character = appState.randomSetup.abilityMethod === "standard-array"
     ? DND_DATA.randomizeStandardArrayCharacter(options)
     : DND_DATA.randomizeRolledCharacter(options);
   if (appState.randomSetup.abilityMethod === "rolled-optimized") optimizeRolledCharacterAbilities(character);
+  randomizeFullCharacterBackgroundOptions(character);
   previewRandomizedCharacter(character);
 }
 
@@ -2612,9 +2626,11 @@ function renderDetailContent(detail) {
 
 function splitFeatureText(featureText) {
   const [name, ...descriptionParts] = String(featureText || "").split(" - ");
+  const resolvedName = name.trim();
+  const explicitDescription = descriptionParts.join(" - ").trim();
   return {
-    name: name.trim(),
-    description: descriptionParts.join(" - ").trim() || String(featureText || "").trim(),
+    name: resolvedName,
+    description: explicitDescription || (DND_DATA.featureDescriptions && DND_DATA.featureDescriptions[resolvedName]) || String(featureText || "").trim(),
   };
 }
 
@@ -3643,6 +3659,913 @@ function renderBackgroundDetailsPreview(character, background) {
   );
 }
 
+function printSection(title, content, className = "") {
+  if (!content) return "";
+  return `<section class="print-section ${className}"><h3>${title}</h3>${content}</section>`;
+}
+
+function printSplitColumns(leftContent, rightContent, className = "") {
+  if (!leftContent && !rightContent) return "";
+  return `
+    <div class="print-split-columns ${className}">
+      <div>${leftContent || ""}</div>
+      <div>${rightContent || ""}</div>
+    </div>
+  `;
+}
+
+function printList(items) {
+  const values = items.filter(Boolean);
+  if (!values.length) return "";
+  return `<ul>${values.map((item) => `<li>${typeof item === "string" ? item : item.text || ""}</li>`).join("")}</ul>`;
+}
+
+function printField(label, value = "") {
+  return `<div class="print-field"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function printWritableField(label) {
+  return `<div class="print-field print-writable"><span>${label}</span><strong></strong></div>`;
+}
+
+function printWritableTextField(label, value = "") {
+  return `<div class="print-field print-text-field ${value ? "" : "print-writable"}"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function getPrintableCharacterName(character) {
+  const name = String(character.name || "").trim();
+  if (!name || /^random starter$/i.test(name)) return "";
+  return name;
+}
+
+function sanitizePrintFilenamePart(value) {
+  return String(value || "")
+    .replace(/&[a-z]+;/gi, "")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getSuggestedPrintTitle(character) {
+  const printableName = getPrintableCharacterName(character);
+  if (printableName) return sanitizePrintFilenamePart(printableName) || "Character-Sheet";
+  const background = getActiveBackground(character);
+  const race = getSelectedRace(character);
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const parts = [background && background.name, race && race.name, characterClass && characterClass.name]
+    .map(sanitizePrintFilenamePart)
+    .filter(Boolean);
+  return parts.length ? parts.join("-") : "Character-Sheet";
+}
+
+function printCompletedSheet() {
+  const originalTitle = document.title;
+  document.title = getSuggestedPrintTitle(appState.character);
+  const restoreTitle = () => {
+    document.title = originalTitle;
+    window.removeEventListener("afterprint", restoreTitle);
+  };
+  window.addEventListener("afterprint", restoreTitle);
+  window.print();
+  setTimeout(restoreTitle, 1000);
+}
+
+function renderPrintRerollLine(character) {
+  const entries = [];
+  if (character.abilityScoreMethod === ABILITY_METHODS.rolled) entries.push(`Ability Score Rerolls: ${character.abilityScoreRerollCount || 0}`);
+  if (usesRolledStartingGold(character)) entries.push(`Starting Gold Rerolls: ${getEquipmentSelections(character).startingGoldRerollCount || 0}`);
+  return entries.length ? `<div class="print-reroll-line">${entries.join("  |  ")}</div>` : "";
+}
+
+function renderPrintAbilityTable(character) {
+  return `
+    <table class="print-table print-ability-table">
+      <thead><tr><th>Ability</th><th>Score</th><th>Mod</th></tr></thead>
+      <tbody>
+        ${DND_DATA.abilities.map((ability) => {
+          const score = hasAssignedAbilityScore(character, ability) ? character.abilities[ability] : "";
+          return `<tr><td>${DND_DATA.abilityShortLabels[ability]}</td><td>${score}</td><td>${score === "" ? "" : abilityModifier(score)}</td></tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderPrintSavingThrows(character, characterClass) {
+  const proficiencyBonus = getProficiencyBonus(character);
+  const savingThrowLevels = getSavingThrowProficiencyLevels(character, characterClass);
+  return `
+    <table class="print-table print-saving-table">
+      <thead><tr><th>Prof</th><th>Save</th><th>Mod</th></tr></thead>
+      <tbody>
+        ${DND_DATA.abilities.map((ability) => {
+          const level = savingThrowLevels[ability] || 0;
+          const modifier = (hasAssignedAbilityScore(character, ability) ? abilityModifierValue(character.abilities[ability]) : 0) + proficiencyBonus * level;
+          return `<tr><td>${proficiencyMark(level)}</td><td>${ability}</td><td>${formatSignedModifier(modifier)}</td></tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderPrintSkills(character, race, background) {
+  const proficiencyBonus = getProficiencyBonus(character);
+  const skillLevels = getSkillProficiencyLevels(character, race, background);
+  return `
+    <table class="print-table print-skills-table">
+      <thead><tr><th>Prof</th><th>Skill</th><th>Mod</th><th>Ability</th></tr></thead>
+      <tbody>
+        ${DND_DATA.skills.map((skill) => {
+          const level = skillLevels[skill.name] || 0;
+          const modifier = (hasAssignedAbilityScore(character, skill.ability) ? abilityModifierValue(character.abilities[skill.ability]) : 0) + proficiencyBonus * level;
+          return `<tr><td>${proficiencyMark(level)}</td><td>${skill.name}</td><td>${formatSignedModifier(modifier)}</td><td>${DND_DATA.abilityShortLabels[skill.ability]}</td></tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderPrintProficiencies(character, characterClass, race, background) {
+  const groups = [
+    ["Armor", proficiencyEntries(character, characterClass, race, "Armor")],
+    ["Weapons", proficiencyEntries(character, characterClass, race, "Weapons")],
+    ["Tools", toolProficiencyEntries(character, characterClass, race, background)],
+    ["Languages", languageEntries(character, race, background)],
+  ].map(([label, entries]) => {
+    const values = entries.map((entry) => entry.text).filter((text) => text && text !== "None");
+    return values.length ? `<p><strong>${label}:</strong> ${values.join(", ")}</p>` : "";
+  }).join("");
+  return printSection("Proficiencies", groups, "print-proficiencies");
+}
+
+function renderPrintCombatStats(character, characterClass, race) {
+  const armorClass = calculateArmorClass(character);
+  return `
+    <section class="print-combat-grid print-core-stat-strip">
+      <div class="print-inspiration"><span aria-hidden="true"></span><strong>Inspiration</strong></div>
+      ${printField("Proficiency Bonus", formatSignedModifier(getProficiencyBonus(character)))}
+      ${printField("Armor Class", armorClass.total)}
+      ${printField("Max HP", calculateHitPoints(character, characterClass))}
+      ${printWritableField("Current HP")}
+      ${printWritableField("Temp HP")}
+      ${printField("Initiative", calculateInitiative(character))}
+      ${printField("Speed", formatSpeed(race))}
+      ${printField("Hit Dice", formatHitDice(character, characterClass))}
+      ${printField("Passive Perception", calculatePassivePerception(character, race, getActiveBackground(character)))}
+      ${(() => {
+        const senses = formatSenses(race);
+        return /darkvision|blindsight|tremorsense|truesight/i.test(senses) ? printField("Senses", senses) : "";
+      })()}
+    </section>
+  `;
+}
+
+function printWeaponRange(item) {
+  if (hasWeaponProperty(item, "ranged")) return item.range ? `${item.range} ft.` : "Ranged";
+  if (hasWeaponProperty(item, "thrown")) return item.range ? `Melee or ${item.range} ft.` : "Melee or thrown";
+  if (hasWeaponProperty(item, "reach")) return "10 ft.";
+  return "Melee";
+}
+
+function printWeaponProperties(item, extra = "") {
+  const properties = (item.properties || [])
+    .map((property) => property.replace(/\s+\d+d\d+$/i, ""))
+    .map((property) => property.charAt(0).toUpperCase() + property.slice(1));
+  if (extra) properties.push(extra);
+  return [...new Set(properties)].join(", ");
+}
+
+function printWeaponRowsForItem(character, item, label = item.name, options = {}) {
+  const abilityInfo = getWeaponAbilityInfo(character, item);
+  const attackBonus = getWeaponAttackBonus(character, item);
+  const damageType = formatDamageType(item.damageType);
+  const range = printWeaponRange(item);
+  const versatileDamage = getVersatileDamage(item);
+  const duelingBonus = shouldApplyDueling(character, item, "main") && !options.isPaired ? 2 : 0;
+  const mainDamage = formatDamage(item.damage, abilityInfo.modifier, duelingBonus);
+  if (options.isPaired) {
+    return [
+      { attack: `${item.name} - Main Hand`, bonus: attackBonus, damage: mainDamage, type: damageType, range, properties: printWeaponProperties(item) },
+      { attack: `${item.name} - Off Hand`, bonus: attackBonus, damage: formatDamage(item.damage, abilityInfo.modifier, 0, getFightingStyle(character) === "two-weapon-fighting"), type: damageType, range, properties: printWeaponProperties(item, "Bonus action") },
+    ];
+  }
+  const rows = [{ attack: label, bonus: attackBonus, damage: mainDamage, type: damageType, range, properties: printWeaponProperties(item) }];
+  if (versatileDamage) {
+    rows[0].attack = `${label} - One-Handed`;
+    rows.push({ attack: `${label} - Two-Handed`, bonus: attackBonus, damage: formatDamage(versatileDamage, abilityInfo.modifier), type: damageType, range, properties: "Versatile" });
+  }
+  return rows;
+}
+
+function getPrintAttackRows(character) {
+  const items = usesRolledStartingGold(character) ? [] : getPreviewEquipmentItems(character);
+  const rows = [];
+  const consumed = new Set();
+  const quantityWeapons = {
+    daggers2: { sourceId: "dagger", paired: true },
+    handaxes2: { sourceId: "handaxe", paired: true },
+    shortswords2: { sourceId: "shortsword", paired: true },
+    javelins4: { sourceId: "javelin", label: "Javelin" },
+    javelins5: { sourceId: "javelin", label: "Javelin" },
+    darts10: { sourceId: "dart", label: "Dart" },
+  };
+  const ammoCombos = [
+    { weaponId: "shortbow", ammoId: "arrows20" },
+    { weaponId: "longbow", ammoId: "arrows20" },
+    { weaponId: "lightCrossbow", ammoId: "bolts20" },
+  ];
+
+  ammoCombos.forEach(({ weaponId, ammoId }) => {
+    const weapon = items.find((item) => typeof item !== "string" && item.id === weaponId);
+    if (!weapon || !hasPreviewItem(items, ammoId)) return;
+    consumed.add(weaponId);
+    consumed.add(ammoId);
+    rows.push(...printWeaponRowsForItem(character, weapon));
+  });
+
+  items.forEach((item) => {
+    if (typeof item === "string" || consumed.has(item.id)) return;
+    const quantity = quantityWeapons[item.id];
+    if (quantity) {
+      const weapon = DND_DATA.getEquipmentItem(quantity.sourceId);
+      if (weapon) rows.push(...printWeaponRowsForItem(character, weapon, quantity.label || weapon.name, { isPaired: quantity.paired }));
+      consumed.add(item.id);
+      return;
+    }
+    if (item.type === "weapon") rows.push(...printWeaponRowsForItem(character, item));
+  });
+
+  const ancestry = getSelectedDragonbornAncestry(character);
+  if (ancestry) rows.push({ attack: "Breath Weapon", bonus: `DC ${calculateBreathWeaponSaveDc(character) || ""}`, damage: "2d6", type: ancestry.damageType, range: ancestry.area, properties: "Once/rest" });
+  rows.push({
+    attack: "Unarmed Strike",
+    bonus: formatAttackBonus(getProficiencyBonus(character) + abilityModifierValue(character.abilities.Strength)),
+    damage: formatDamage("1", abilityModifierValue(character.abilities.Strength)),
+    type: "Bludgeoning",
+    range: "Melee",
+    properties: "",
+  });
+  return rows;
+}
+
+function renderPrintAttacks(character) {
+  const allRows = getPrintAttackRows(character);
+  return printSection("Weapons & Attacks", `
+    <table class="print-table print-attacks-table">
+      <colgroup>
+        <col class="print-attack-name">
+        <col class="print-attack-bonus">
+        <col class="print-attack-damage">
+        <col class="print-attack-type">
+        <col class="print-attack-range">
+        <col class="print-attack-properties">
+      </colgroup>
+      <thead><tr><th>Attack</th><th>Bonus</th><th>Damage</th><th>Type</th><th>Range</th><th>Properties</th></tr></thead>
+      <tbody>${allRows.map((entry) => `<tr><td>${entry.attack}</td><td>${entry.bonus}</td><td>${entry.damage}</td><td>${entry.type}</td><td>${entry.range}</td><td>${entry.properties}</td></tr>`).join("")}</tbody>
+    </table>
+  `, "print-attacks-section");
+}
+
+function renderPrintDefenses(character) {
+  const items = usesRolledStartingGold(character) ? [] : getPreviewEquipmentItems(character);
+  const armorDefense = armorDefenseEntries(items, character);
+  const resistances = getDamageResistanceEntries(character).map((entry) => entry.text);
+  return printSection("Armor & Defenses", [
+    armorDefense.entries.length ? printList(armorDefense.entries) : "",
+    armorDefense.note ? `<p>${armorDefense.note}</p>` : "",
+    resistances.length ? `<p><strong>Resistances:</strong> ${resistances.join(", ")}</p>` : "",
+  ].join(""));
+}
+
+function compactEquipmentName(item) {
+  if (typeof item === "string") return item;
+  const quantityLabels = {
+    daggers2: "Daggers x2",
+    handaxes2: "Handaxes x2",
+    shortswords2: "Shortswords x2",
+    javelins4: "Javelins x4",
+    javelins5: "Javelins x5",
+    darts10: "Darts x10",
+    arrows20: "Arrows x20",
+    bolts20: "Bolts x20",
+  };
+  return quantityLabels[item.id] || item.name;
+}
+
+function renderPrintEquipmentSummary(character) {
+  if (usesRolledStartingGold(character)) {
+    return printSection("Equipment & Wealth", `<p>Manual equipment chosen outside this builder.</p><p><strong>Starting Gold:</strong> ${getRolledStartingGoldGp(character)} gp</p>`);
+  }
+  const items = getPreviewEquipmentItems(character);
+  const packs = items.filter((item) => typeof item !== "string" && item.type === "pack");
+  const majorItems = items
+    .filter((item) => typeof item === "string" || item.type !== "pack")
+    .map(compactEquipmentName);
+  packs.forEach((pack) => majorItems.push(pack.name));
+  const gold = getStartingGoldGp(character);
+  if (gold) majorItems.push(`${gold} gp`);
+  const packContents = packs.length
+    ? packs.map((pack) => `<p><strong>${pack.name} contents:</strong> ${(pack.contents || []).join(", ")}</p>`).join("")
+    : "<p>No pack contents selected.</p>";
+  return printSection("Equipment & Wealth", `
+    <div class="print-equipment-grid">
+      <div>
+        <h4>Equipment</h4>
+        ${printList(majorItems)}
+      </div>
+      <div>
+        <h4>Pack Contents</h4>
+        ${packContents}
+      </div>
+    </div>
+  `);
+}
+
+function renderPrintEquipmentDetails(character) {
+  return "";
+}
+
+function shouldOmitPrintReferenceFeature(feature) {
+  return /^(ability score increase|languages?|extra language)$/i.test(feature.name || "");
+}
+
+function estimatePrintFeatureHeight(feature) {
+  return String(feature.name || "").length * 0.8 + String(feature.description || "").length;
+}
+
+function getPrintFeaturePriority(feature) {
+  const name = feature.name || "";
+  if (/rage|second wind|bardic inspiration|lay on hands|divine sense|martial arts|sneak attack|arcane recovery|fey presence|dark one's blessing|awakened mind|war priest|wrath of the storm|warding flare/i.test(name)) return 10;
+  if (/unarmored defense|relentless endurance|resistance|brave|lucky|gnome cunning|fey ancestry/i.test(name)) return 8;
+  if (/darkvision|breath weapon|savage attacks|natural illusionist|infernal legacy|drow magic/i.test(name)) return 7;
+  if (/fighting style|favored enemy|natural explorer|expertise|thieves' cant|skill versatility|draconic ancestry|dragon ancestor/i.test(name)) return 6;
+  if (/retainers|position of privilege|criminal contact|rustic hospitality|wanderer|shelter of the faithful|researcher|discovery|false identity|by popular demand|guild membership|ship's passage/i.test(name)) return 3;
+  return 5;
+}
+
+function sortPrintFeatureEntries(features) {
+  return [...features].sort((a, b) => getPrintFeaturePriority(b) - getPrintFeaturePriority(a));
+}
+
+function splitPrintFeatureEntriesForPages(character, characterClass, features) {
+  const sortedFeatures = sortPrintFeatureEntries(features);
+  const hasSpellcasting = hasLevelOneSpellcasting(character, characterClass) || getRacialCantripSpells(character).length;
+  const budget = hasSpellcasting ? 900 : 1500;
+  const pageOne = [];
+  const pageTwo = [];
+  let used = 0;
+  sortedFeatures.forEach((feature) => {
+    const cost = estimatePrintFeatureHeight(feature);
+    if (used + cost <= budget || pageOne.length < (hasSpellcasting ? 3 : 5)) {
+      pageOne.push(feature);
+      used += cost;
+    } else {
+      pageTwo.push(feature);
+    }
+  });
+  return { pageOne, pageTwo };
+}
+
+function balancePrintReferenceColumns(features) {
+  const columns = [[], []];
+  const weights = [0, 0];
+  features.forEach((feature) => {
+    const index = weights[0] <= weights[1] ? 0 : 1;
+    columns[index].push(feature);
+    weights[index] += estimatePrintFeatureHeight(feature);
+  });
+  return columns;
+}
+
+function getPrintOptionalBackgroundDetails(character, background) {
+  if (!background) return [];
+  const detailValues = getBackgroundChoices(character).details || {};
+  return Object.entries(detailValues)
+    .filter(([, value]) => String(value || "").trim())
+    .map(([detailId, value]) => {
+      const detail = (background.optionalDetails || []).find((item) => item.id === detailId);
+      return { label: detail ? detail.label : detailId, value: String(value).trim() };
+    });
+}
+
+function formatResolvedAbilityScoreIncrease(character) {
+  const increases = DND_DATA.abilities
+    .map((ability) => {
+      const base = Number(character.baseAbilities && character.baseAbilities[ability]);
+      const finalScore = Number(character.abilities && character.abilities[ability]);
+      const increase = Number.isFinite(base) && Number.isFinite(finalScore) ? finalScore - base : 0;
+      return increase > 0 ? `${ability} +${increase}` : "";
+    })
+    .filter(Boolean);
+  return increases.length ? increases.join(", ") + "." : "";
+}
+
+function getPrintClassChoiceFeatureEntries(character) {
+  const entries = [];
+  getClassFeatureChoiceGroups(character).forEach((group) => {
+    const selectedOption = getSelectedClassFeatureOption(character, group);
+    if (!selectedOption || !hasCompleteClassFeatureGroup(character, group)) return;
+    const label = group.previewLabel || group.title;
+    const headingValue = selectedOption.name.replace(/^The\s+/i, "");
+    let description = selectedOption.description || (DND_DATA.featureDescriptions && DND_DATA.featureDescriptions[label]) || headingValue;
+    if (group.humanoidChoices && selectedOption.id === "humanoids") {
+      const humanoids = group.humanoidChoices.fields.map((field) => character.classFeatures[field.id]).filter(Boolean);
+      description = humanoids.length ? `Selected humanoid enemies: ${humanoids.join(" and ")}.` : description;
+    }
+    entries.push({ name: `${label} — ${headingValue}`, description });
+    if (group.dragonAncestorChoices && selectedOption.id === "draconic-bloodline") {
+      const ancestor = getDragonAncestor(character);
+      if (ancestor) entries.push({ name: `Dragon Ancestor — ${ancestor.name}`, description: `Your draconic ancestry is tied to ${ancestor.damageType} damage. This matters for later Draconic features and identifies the type of dragon bloodline you carry.` });
+    }
+  });
+  return entries;
+}
+
+function getPrintFeatureReferenceEntries(character, characterClass, race, background) {
+  const ancestry = getSelectedDragonbornAncestry(character);
+  const ancestryChoices = ancestry ? [{ name: "Draconic Ancestry", description: `${ancestry.name}: ${ancestry.damageType} damage, ${ancestry.area}, ${ancestry.saveAbility} saving throw.` }] : [];
+  const abilityScoreIncrease = formatResolvedAbilityScoreIncrease(character);
+  const abilityScoreEntry = abilityScoreIncrease ? [{ name: "Ability Score Increase", description: abilityScoreIncrease }] : [];
+  const halfElfSkills = getHalfElfSkillChoices(character);
+  const halfElfSkillChoice = halfElfSkills.length
+    ? [{ name: "Skill Versatility", description: `Selected skill proficiencies: ${halfElfSkills.join(", ")}.` }]
+    : [];
+  const backgroundChoices = selectedBackgroundChoices(character)
+    .filter((choice) => choice.category === "option" && choice.value)
+    .map((choice) => ({ name: choice.label || "Background Choice", description: choice.value }));
+  const features = [
+    ...getClassFeatureObjects(character, characterClass),
+    ...getPrintClassChoiceFeatureEntries(character),
+    ...abilityScoreEntry,
+    ...ancestryChoices,
+    ...((race && (race.traitDetails || race.traits)) || []).map(splitFeatureText),
+    ...halfElfSkillChoice,
+    ...backgroundChoices,
+    ...(background && background.feature ? [{ name: `${background.name} Feature — ${background.feature.name}`, description: background.feature.description }] : []),
+  ];
+  const seen = new Set();
+  return features.filter((feature) => {
+    if (feature.name !== "Ability Score Increase" && shouldOmitPrintReferenceFeature(feature)) return false;
+    if (/^(fighting style|divine domain|sorcerous origin|dragon ancestor|otherworldly patron|favored enemy|natural explorer)$/i.test(feature.name)) return false;
+    if (/^skill versatility$/i.test(feature.name) && !/^selected skill proficiencies:/i.test(feature.description || "")) return false;
+    if (!feature.description || feature.description === feature.name) return false;
+    const key = `${feature.name}`.toLowerCase();
+    if (!feature.name || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderPrintReferenceCards(features) {
+  return features.map((feature) => `<article class="print-reference-card"><h4>${feature.name}</h4><p>${feature.description}</p></article>`).join("");
+}
+
+function renderPrintFeatureReference(character, characterClass, race, background, features = null, title = "Feature & Trait Reference") {
+  const entries = features || getPrintFeatureReferenceEntries(character, characterClass, race, background);
+  const [leftColumn, rightColumn] = balancePrintReferenceColumns(entries);
+  return printSection(
+    title,
+    `<div class="print-reference-columns"><div>${renderPrintReferenceCards(leftColumn)}</div><div>${renderPrintReferenceCards(rightColumn)}</div></div>`,
+    "print-feature-reference",
+  );
+}
+
+function renderPrintFunctionalFeatures(character, characterClass, race, background) {
+  const active = [
+    ...getSelectedClassFeatureChoiceEntries(character).map((entry) => ({ name: entry.label, description: entry.value })).filter((feature) => feature.description && feature.description !== feature.name),
+    ...getClassFeatureObjects(character, characterClass).filter((feature) => isActiveFeatureName(feature.name)),
+    ...(race && (race.traitDetails || race.traits) || []).map(splitFeatureText).filter((feature) => /darkvision|breath weapon|relentless endurance|resistance|lucky|brave/i.test(feature.name)),
+  ].slice(0, 8);
+  return printSection("Features & Traits", active.map((feature) => {
+    const firstSentence = (String(feature.description || "").match(/^[^.]+\.?/) || [""])[0];
+    return `<p><strong>${feature.name}:</strong> ${firstSentence}</p>`;
+  }).join(""));
+}
+
+function renderPrintSpellcastingLegacy(character, characterClass) {
+  if (!hasLevelOneSpellcasting(character, characterClass) && !getRacialCantripSpells(character).length) return "";
+  const spellGroups = [
+    ["Cantrips", getCantripDisplaySpells(character)],
+    [character.classId === "wizard" ? "Prepared Spells" : "Prepared / Known Spells", character.classId === "wizard" ? getSelectedSpells(character, "preparedSpells") : getSelectedSpells(character, "preparedSpells").concat(getSelectedSpells(character, "spellbookSpells"))],
+    ["Domain Spells", getClericDomainSpells(character)],
+    ["Spellbook Not Prepared", character.classId === "wizard" ? getWizardUnpreparedSpellbookSpells(character) : []],
+  ].map(([title, spells]) => spells.length ? `<h4>${title}</h4><table class="print-table print-spell-table"><tbody>${spells.map((spell) => `<tr><td><strong>${spell.name}</strong><br>${formatSpellLevel(spell)} ${spell.school}</td><td>${spell.castingTime}</td><td>${spell.range}</td><td>${spell.components}${spell.material ? `<br><em>${spell.material}</em>` : ""}${spell.concentration ? "<br>Concentration" : ""}${spell.ritual ? "<br>Ritual" : ""}</td></tr>`).join("")}</tbody></table>` : "").join("");
+  return printSection("Spellcasting", `
+    <p><strong>${characterClass ? characterClass.name : ""}</strong> ${getSpellcastingAbility(character, characterClass) || ""} &bull; Save DC ${calculateSpellSaveDc(character, characterClass) || "—"} &bull; Attack ${calculateSpellAttackBonus(character, characterClass) || "—"} &bull; Slots ${formatLevelOneSpellSlots(getLevelOneSpellSlotCount(character, characterClass))}</p>
+    ${spellGroups}
+  `);
+}
+
+function formatPrintSpellSlots(character, characterClass) {
+  const count = getLevelOneSpellSlotCount(character, characterClass);
+  const slotText = `${count} first-level ${count === 1 ? "slot" : "slots"}`;
+  return getSpellcastingMagicType(character, characterClass) === "pact" ? `${slotText} (Pact Magic)` : slotText;
+}
+
+const PRINT_SPELL_RANGE_OVERRIDES = {
+  "arms-of-hadar": "Self (10-ft. radius)",
+  "burning-hands": "Self (15-ft. cone)",
+  "color-spray": "Self (15-ft. cone)",
+  "detect-evil-and-good": "Self (30-ft. sense)",
+  "detect-magic": "Self (30-ft. sense)",
+  "detect-poison-and-disease": "Self (30-ft. sense)",
+  "fog-cloud": "120 ft. (20-ft. radius)",
+  "grease": "60 ft. (10-ft. square)",
+  "sleep": "90 ft. (20-ft. radius)",
+  "thunderwave": "Self (15-ft. cube)",
+};
+
+const PRINT_SPELL_EFFECTS = {
+  "acid-splash": "1d6 acid - DEX save",
+  "alarm": "Magical warning",
+  "animal-friendship": "Charms a beast - WIS save",
+  "armor-of-agathys": "5 temp HP - 5 cold retaliation",
+  "arms-of-hadar": "2d6 necrotic - STR save",
+  "bane": "-1d4 to attacks/saves - CHA save",
+  "blade-ward": "Resistance to weapon damage",
+  "bless": "+1d4 to attacks/saves",
+  "burning-hands": "3d6 fire - DEX save",
+  "charm-person": "Charms humanoid - WIS save",
+  "chill-touch": "1d8 necrotic - ranged attack",
+  "chromatic-orb": "3d8 chosen type - ranged attack",
+  "color-spray": "Blinds by HP total",
+  "command": "One-word command - WIS save",
+  "comprehend-languages": "Understand languages",
+  "create-or-destroy-water": "Creates/destroys water",
+  "cure-wounds": "1d8 + modifier healing",
+  "dancing-lights": "Creates moving lights",
+  "detect-evil-and-good": "Detects supernatural creatures",
+  "detect-magic": "Detects nearby magic",
+  "detect-poison-and-disease": "Detects poison/disease",
+  "disguise-self": "Illusory appearance",
+  "dissonant-whispers": "3d6 psychic - WIS save",
+  "divine-favor": "+1d4 radiant weapon damage",
+  "druidcraft": "Minor nature effect",
+  "eldritch-blast": "1d10 force - ranged attack",
+  "entangle": "Restrains creatures - STR save",
+  "expeditious-retreat": "Dash as bonus action",
+  "faerie-fire": "Advantage on attacks - DEX save",
+  "false-life": "1d4 + 4 temp HP",
+  "feather-fall": "Slows falling",
+  "find-familiar": "Summons familiar",
+  "fire-bolt": "1d10 fire - ranged attack",
+  "floating-disk": "Floating carrier",
+  "fog-cloud": "Heavily obscures area",
+  "friends": "Advantage on CHA checks",
+  "goodberry": "10 berries - 1 HP each",
+  "grease": "Prone hazard - DEX save",
+  "guidance": "+1d4 to one ability check",
+  "guiding-bolt": "4d6 radiant - ranged attack",
+  "healing-word": "1d4 + modifier healing",
+  "hellish-rebuke": "2d10 fire - DEX save",
+  "heroism": "Temp HP each turn",
+  "hex": "+1d6 necrotic on hits",
+  "hideous-laughter": "Prone/incapacitated - WIS save",
+  "identify": "Identifies magic",
+  "illusory-script": "Hidden written message",
+  "inflict-wounds": "3d10 necrotic - melee attack",
+  "jump": "Triples jump distance",
+  "light": "Object sheds light",
+  "longstrider": "+10 ft. speed",
+  "mage-armor": "AC becomes 13 + DEX",
+  "mage-hand": "Spectral hand",
+  "magic-missile": "3 x 1d4 + 1 force",
+  "mending": "Repairs small damage",
+  "message": "Private whispered message",
+  "minor-illusion": "Sound or image illusion",
+  "poison-spray": "1d12 poison - CON save",
+  "prestidigitation": "Minor magical effects",
+  "produce-flame": "1d8 fire - ranged attack",
+  "protection-from-evil-and-good": "Protection from creature types",
+  "purify-food-and-drink": "Purifies food/drink",
+  "ray-of-frost": "1d8 cold - ranged attack",
+  "ray-of-sickness": "2d8 poison - ranged attack",
+  "resistance": "+1d4 to one saving throw",
+  "sacred-flame": "1d8 radiant - DEX save",
+  "sanctuary": "Ward against attacks - WIS save",
+  "shield": "+5 AC reaction",
+  "shield-of-faith": "+2 AC",
+  "shillelagh": "Magical weapon - 1d8",
+  "shocking-grasp": "1d8 lightning - melee attack",
+  "silent-image": "Visual illusion",
+  "sleep": "5d8 HP of creatures sleep",
+  "speak-with-animals": "Talk with beasts",
+  "spare-the-dying": "Stabilizes a dying creature",
+  "thaumaturgy": "Minor divine effect",
+  "thorn-whip": "1d6 piercing - melee attack",
+  "thunderwave": "2d8 thunder - CON save",
+  "true-strike": "Advantage on next attack",
+  "unseen-servant": "Invisible simple servant",
+  "vicious-mockery": "1d4 psychic - WIS save",
+  "witch-bolt": "1d12 lightning - ranged attack",
+};
+
+function getPrintSpellRange(spell) {
+  return PRINT_SPELL_RANGE_OVERRIDES[spell.id] || spell.range || "";
+}
+
+function getPrintSpellDamageEffect(spell) {
+  return PRINT_SPELL_EFFECTS[spell.id] || spell.effect || spell.summary || "";
+}
+
+function getLegacyUnusedPrintSpellOutcome(spell) {
+  const text = `${spell.name} ${spell.summary || ""}`.toLowerCase();
+  const parts = [];
+  if (/spell attack|ranged .*attack|ray|bolt|blast|orb|whip/i.test(text)) parts.push(/melee|touch/i.test(text) ? "Melee spell attack" : "Ranged spell attack");
+  const saveMatch = text.match(/\b(str|dex|con|int|wis|cha|strength|dexterity|constitution|intelligence|wisdom|charisma)\b[^.]{0,18}\bsave|saving throw/i);
+  if (saveMatch) {
+    const ability = saveMatch[1].slice(0, 3).toUpperCase();
+    parts.push(`${ability} save`);
+  }
+  const damageMatch = text.match(/(\d+d\d+)\s+([a-z]+)\s+damage/i);
+  if (damageMatch) parts.push(`${damageMatch[1]} ${damageMatch[2]}`);
+  if (/healing|restore|hit points/i.test(text)) parts.push(/temporary hit points/i.test(text) ? "Temp HP" : "Healing");
+  if (/automatically hit|automatic/i.test(text)) parts.push("Automatic");
+  return parts.length ? [...new Set(parts)].join(" • ") : (/damage|harm|hurt|fire|poison|psychic|radiant|force|thunder|lightning|necrotic|acid|cold/i.test(text) ? "See description" : "Utility");
+}
+
+function renderPrintSpellDescription(spell) {
+  const description = spell.fullDescription || spell.description || spell.summary || "";
+  return description
+    ? escapeHtml(description).replace(/\r?\n\r?\n/g, "</p><p>").replace(/\r?\n/g, "<br>")
+    : "Description not available in current spell data.";
+}
+
+function renderPrintSpellTable(title, spells) {
+  if (!spells.length) return "";
+  return `
+    <div class="print-spell-group">
+      <h4>${title}</h4>
+      <table class="print-table print-spell-table">
+        <thead><tr><th>Spell</th><th>Casting Time</th><th>Range</th><th>Duration</th><th>Conc.</th><th>Components</th><th>Damage / Effect</th></tr></thead>
+        ${spells.map((spell) => {
+          const description = [
+            `<p>${renderPrintSpellDescription(spell)}</p>`,
+            spell.sourceNote ? `<p><strong>Source:</strong> ${escapeHtml(spell.sourceNote)}</p>` : "",
+          ].filter(Boolean).join("");
+          const materialDetail = spell.material
+            ? `<div class="print-spell-material-cell"><strong>MATERIAL:</strong> ${escapeHtml(spell.material)}</div>`
+            : "";
+          const ritualTag = spell.ritual ? '<em class="print-spell-tag">Ritual</em>' : "";
+          return `
+          <tbody class="print-spell-record">
+            <tr class="print-spell-meta-row">
+              <td>
+                <div class="print-spell-name-line">
+                  <strong>${escapeHtml(spell.name)}</strong>
+                  <span>${escapeHtml(spell.school || "")}${ritualTag}</span>
+                </div>
+              </td>
+              <td>${spell.castingTime}</td>
+              <td>${getPrintSpellRange(spell)}</td>
+              <td>${spell.duration || ""}</td>
+              <td class="print-concentration-cell">${spell.concentration ? "✓" : ""}</td>
+              <td>${spell.components}</td>
+              <td>${escapeHtml(getPrintSpellDamageEffect(spell))}</td>
+            </tr>
+            <tr class="print-spell-description-row">
+              <td colspan="7">
+                <div class="print-spell-detail-band ${spell.material ? "has-material" : ""}">
+                  <div class="print-spell-description-cell">${description}</div>
+                  ${materialDetail}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          `;
+        }).join("")}
+      </table>
+    </div>
+  `;
+}
+
+function renderPrintSpellcasting(character, characterClass) {
+  if (!hasLevelOneSpellcasting(character, characterClass) && !getRacialCantripSpells(character).length) return "";
+  const spellcasting = getLevelOneSpellcasting(character, characterClass);
+  const isKnownCaster = spellcasting.castingType === "known";
+  const classCantrips = [
+    ...getSelectedSpells(character, "cantrips"),
+    ...getBonusCantripSpells(character),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const spellGroups = [
+    renderPrintSpellTable("Cantrips", classCantrips),
+    renderPrintSpellTable("1st-Level Prepared Spells", character.classId === "wizard" || spellcasting.castingType === "prepared" ? getSelectedSpells(character, "preparedSpells") : []),
+    renderPrintSpellTable("1st-Level Known Spells", isKnownCaster ? getSelectedSpells(character, "spellbookSpells") : []),
+    renderPrintSpellTable("Domain Spells", getClericDomainSpells(character)),
+    renderPrintSpellTable("Racial Spells", getRacialCantripSpells(character)),
+    renderPrintSpellTable("1st-Level Spellbook — Not Prepared", character.classId === "wizard" ? getWizardUnpreparedSpellbookSpells(character) : []),
+  ].join("");
+  return printSection("Spellcasting", `
+    <div class="print-spellcasting-summary">
+      ${printField("Spellcasting Ability", getSpellcastingAbility(character, characterClass) || "")}
+      ${printField("Spell Save DC", calculateSpellSaveDc(character, characterClass) || "&mdash;")}
+      ${printField("Spell Attack Bonus", calculateSpellAttackBonus(character, characterClass) || "&mdash;")}
+      ${printField("Spell Slots", hasLevelOneSpellcasting(character, characterClass) ? formatPrintSpellSlots(character, characterClass) : "&mdash;")}
+    </div>
+    ${spellGroups}
+  `);
+}
+
+function renderPrintRoleplay(character) {
+  const trinket = getSelectedTrinket(character);
+  const faith = (character.classFeatures && character.classFeatures.clericFaith ? character.classFeatures.clericFaith : "").trim();
+  const background = getActiveBackground(character);
+  const personalityLabels = { trait: "Personality Trait", ideal: "Ideal", bond: "Bond", flaw: "Flaw" };
+  const personalityFields = Object.entries(personalityLabels)
+    .map(([field, label]) => printWritableTextField(label, getPersonalityValue(character, field)))
+    .join("");
+  const optionalEntries = [
+    faith ? { text: `Deity, Faith, or Philosophy: ${escapeHtml(faith)}` } : null,
+    ...getPrintOptionalBackgroundDetails(character, background).map((entry) => ({ text: `${entry.label}: ${entry.value}` })),
+    trinket ? { text: `Trinket: #${trinket.roll} - ${trinket.description}` } : null,
+  ].filter(Boolean);
+  return printSection("Personality & Background", `
+    <div class="print-personality-grid">${personalityFields}</div>
+    ${optionalEntries.length ? printList(optionalEntries) : ""}
+  `);
+}
+
+function renderPrintWeaponPropertiesReference(character) {
+  const items = usesRolledStartingGold(character) ? [] : getPreviewEquipmentItems(character);
+  const weapons = items.filter((item) => typeof item !== "string" && item.type === "weapon");
+  if (!weapons.length) return "";
+  const descriptions = {
+    ammunition: "The weapon requires and expends one piece of the appropriate ammunition for each attack.",
+    finesse: "You may use Strength or Dexterity for the attack and damage rolls.",
+    heavy: "Small creatures have disadvantage on attack rolls with this weapon.",
+    light: "The weapon can qualify for two-weapon fighting.",
+    loading: "Because of the time needed to load it, you can fire only one piece of ammunition from it when you use an action, bonus action, or reaction to fire it.",
+    reach: "This weapon adds 5 feet to your reach when you attack with it.",
+    thrown: "The weapon can be thrown using the same ability used for its normal attack.",
+    "two-handed": "This weapon requires two hands when you attack with it.",
+    versatile: "Use the alternate damage die shown when wielding the weapon with two hands.",
+  };
+  const usedProperties = new Set();
+  weapons.forEach((weapon) => (weapon.properties || []).forEach((property) => {
+    const key = property.toLowerCase().replace(/\s+\d+d\d+$/i, "");
+    if (descriptions[key]) usedProperties.add(key);
+  }));
+  const entries = [...usedProperties].sort().map((key) => `<p><strong>${key.split("-").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join("-")}:</strong> ${descriptions[key]}</p>`);
+  entries.push("<p><strong>Improvised Weapon:</strong> A typical improvised weapon deals 1d4 damage. The damage type depends on the object and the DM's ruling. An improvised thrown weapon normally has a range of 20/60 feet. Proficiency depends on whether the object sufficiently resembles an actual weapon or on the DM's ruling.</p>");
+  return printSection("Weapon Properties", entries.join(""));
+}
+
+function renderPrintAcBreakdown(character) {
+  const equipmentItems = getClassEquipmentItems(character);
+  const armor = getArmorInfo(equipmentItems);
+  const shieldBonus = equipmentItems.some((item) => item && item.type === "shield") ? 2 : 0;
+  const defenseBonus = character.classFeatures.fightingStyle === "defense" && armor.isArmor ? 1 : 0;
+  const rawDexBonus = armor.usesDex ? abilityModifierValue(character.abilities.Dexterity) : 0;
+  const dexBonus = Number.isInteger(armor.dexMax) ? Math.min(rawDexBonus, armor.dexMax) : rawDexBonus;
+  const conBonus = character.classId === "barbarian" && !armor.isArmor ? abilityModifierValue(character.abilities.Constitution) : 0;
+  const wisBonus = character.classId === "monk" && !armor.isArmor ? abilityModifierValue(character.abilities.Wisdom) : 0;
+  const isDraconic = isDraconicSorcerer(character) && !armor.isArmor;
+  const baseAc = isDraconic ? 13 : armor.baseAc;
+  const total = calculateArmorClass(character).total;
+  const parts = [`Your Armor Class is ${total}.`];
+  if (isDraconic) {
+    parts.push(`Draconic Resilience uses 13 + Dexterity modifier (${formatSignedModifier(dexBonus)}) while you are not wearing armor.`);
+  } else if (character.classId === "barbarian" && !armor.isArmor) {
+    parts.push(`Barbarian Unarmored Defense uses 10 + Dexterity modifier (${formatSignedModifier(dexBonus)}) + Constitution modifier (${formatSignedModifier(conBonus)}).`);
+  } else if (character.classId === "monk" && !armor.isArmor) {
+    parts.push(`Monk Unarmored Defense uses 10 + Dexterity modifier (${formatSignedModifier(dexBonus)}) + Wisdom modifier (${formatSignedModifier(wisBonus)}).`);
+  } else if (armor.isArmor) {
+    const dexText = armor.usesDex
+      ? Number.isInteger(armor.dexMax)
+        ? ` You add Dexterity modifier up to +${armor.dexMax}; your applied Dexterity bonus is ${formatSignedModifier(dexBonus)}.`
+        : ` You add your full Dexterity modifier (${formatSignedModifier(dexBonus)}).`
+      : " Dexterity is not added to this armor.";
+    parts.push(`${armor.name} provides base AC ${armor.baseAc}.${dexText}`);
+  } else {
+    parts.push(`No armor uses base AC 10 + Dexterity modifier (${formatSignedModifier(dexBonus)}).`);
+  }
+  if (shieldBonus) parts.push("A shield adds +2.");
+  if (defenseBonus) parts.push("The Defense Fighting Style adds +1 while armor is worn.");
+  return printSection("AC Breakdown", `<p>${parts.join(" ")}</p>`, "print-ac-breakdown");
+}
+
+function renderPrintableCharacterSheet(character) {
+  const characterClass = getById(DND_DATA.classes, character.classId);
+  const race = getSelectedRace(character);
+  const background = getActiveBackground(character);
+  const printableName = getPrintableCharacterName(character);
+  const featureEntries = getPrintFeatureReferenceEntries(character, characterClass, race, background);
+  const identity = `
+    <header class="print-identity">
+      <div class="print-brand-space">D&amp;D 5e Character Generator</div>
+      <div class="print-character-name ${printableName ? "" : "print-writable"}"><span>Character Name</span><strong>${printableName}</strong></div>
+      ${printWritableField("Player Name")}
+      ${printField("Class & Level", `${characterClass ? characterClass.name : ""} ${character.level || 1}`)}
+      ${printField("Race", race ? race.name : "")}
+      ${printField("Background", background ? background.name : "")}
+      ${printField("Alignment", getAlignmentValue(character))}
+      ${printField("Ruleset", "2014 Rules")}
+      ${renderPrintRerollLine(character)}
+    </header>
+  `;
+  const leftColumn = `
+    <aside class="print-left-column">
+      ${printSection("Ability Scores", renderPrintAbilityTable(character))}
+      ${printSection("Saving Throws", renderPrintSavingThrows(character, characterClass))}
+    </aside>
+  `;
+  const pageOneMain = `
+    <main class="print-main-column">
+      ${printSection("Skills", renderPrintSkills(character, race, background))}
+    </main>
+  `;
+  const pageOneLower = `
+    <div class="print-page-one-lower">
+      ${renderPrintAttacks(character)}
+      ${printSplitColumns(renderPrintProficiencies(character, characterClass, race, background), renderPrintEquipmentSummary(character), "print-proficiency-equipment-row")}
+    </div>
+  `;
+  const spellcastingDetails = renderPrintSpellcasting(character, characterClass);
+  const weaponProperties = renderPrintWeaponPropertiesReference(character);
+  const acBreakdown = renderPrintAcBreakdown(character);
+  const roleplayDetails = renderPrintRoleplay(character);
+  const featureReferenceDetails = featureEntries.length ? renderPrintFeatureReference(character, characterClass, race, background, sortPrintFeatureEntries(featureEntries), "Features & Traits") : "";
+  const fullWidthReference = spellcastingDetails
+    ? `${spellcastingDetails}${featureReferenceDetails}`
+    : featureReferenceDetails;
+  const secondaryBlocks = [roleplayDetails, weaponProperties, acBreakdown].filter(Boolean);
+  const secondaryColumns = balancePrintReferenceColumns(secondaryBlocks.map((content, index) => ({
+    name: `block-${index}`,
+    description: content,
+  }))).map((column) => column.map((entry) => entry.description).join(""));
+  return `
+    <article class="print-page print-page-one">
+      ${identity}
+      ${renderPrintCombatStats(character, characterClass, race)}
+      <div class="print-page-grid">${leftColumn}${pageOneMain}</div>
+      ${pageOneLower}
+    </article>
+    <article class="print-page print-page-two">
+      <header class="print-page-header"><h2>Reference Details</h2><span>${printableName || "Character Notes"}</span><small>D&amp;D 5e Character Generator</small></header>
+      ${fullWidthReference}
+      ${printSplitColumns(secondaryColumns[0], secondaryColumns[1], "print-page-two-lower")}
+    </article>
+  `;
+}
+
+function ensurePrintPageTwoFeatureSection() {
+  const pageTwoLower = printPreview ? printPreview.querySelector(".print-page-two-lower") : null;
+  if (!pageTwoLower) return null;
+  let section = pageTwoLower.querySelector(".print-feature-reference");
+  if (section) return section;
+  const firstColumn = pageTwoLower.firstElementChild;
+  if (!firstColumn) return null;
+  firstColumn.insertAdjacentHTML("afterbegin", `
+    <section class="print-section print-feature-reference">
+      <h3>Features &amp; Traits</h3>
+      <div class="print-reference-columns"><div></div><div></div></div>
+    </section>
+  `);
+  return firstColumn.querySelector(".print-feature-reference");
+}
+
+function rebalancePrintReferenceColumns(section) {
+  const columns = section ? [...section.querySelectorAll(".print-reference-columns > div")] : [];
+  if (columns.length < 2) return;
+  const cards = columns.flatMap((column) => [...column.querySelectorAll(".print-reference-card")]);
+  columns.forEach((column) => { column.innerHTML = ""; });
+  const heights = [0, 0];
+  cards.forEach((card) => {
+    const index = heights[0] <= heights[1] ? 0 : 1;
+    columns[index].appendChild(card);
+    heights[index] += card.getBoundingClientRect().height || card.textContent.length;
+  });
+}
+
+function composePrintableFeatureFlow() {
+  if (!printPreview) return;
+  const pageOne = printPreview.querySelector(".print-page-one");
+  const pageOneFeatureSection = pageOne ? pageOne.querySelector(".print-feature-reference") : null;
+  if (!pageOne || !pageOneFeatureSection) return;
+  const pageWidth = pageOne.getBoundingClientRect().width;
+  const targetHeight = pageWidth ? pageWidth * (10.5 / 8.5) : 0;
+  if (!targetHeight) return;
+  let movedAny = false;
+  while (pageOne.getBoundingClientRect().height > targetHeight) {
+    const cards = pageOneFeatureSection.querySelectorAll(".print-reference-card");
+    const card = cards[cards.length - 1];
+    if (!card) break;
+    const pageTwoSection = ensurePrintPageTwoFeatureSection();
+    const pageTwoColumns = pageTwoSection ? pageTwoSection.querySelectorAll(".print-reference-columns > div") : [];
+    if (pageTwoColumns.length < 2) break;
+    pageTwoColumns[0].insertBefore(card, pageTwoColumns[0].firstChild);
+    movedAny = true;
+    if (!pageOneFeatureSection.querySelector(".print-reference-card")) {
+      pageOneFeatureSection.remove();
+      break;
+    }
+  }
+  if (movedAny) {
+    rebalancePrintReferenceColumns(pageOneFeatureSection);
+    rebalancePrintReferenceColumns(ensurePrintPageTwoFeatureSection());
+  }
+}
+
 function renderRolledStartingGoldPreview(character) {
   if (!usesRolledStartingGold(character)) return "";
   return `
@@ -3807,6 +4730,14 @@ function renderPreview(container, character) {
         ${renderEquipmentCarriedPreview(character)}
       </div>
     </div>`;
+}
+
+function renderCompletedCharacterOutput(character) {
+  renderPreview(randomPreview, character);
+  if (printPreview) {
+    printPreview.innerHTML = renderPrintableCharacterSheet(character);
+    afterLayoutFrames(composePrintableFeatureFlow, 2);
+  }
 }
 
 function optionCard(option, selectedId, type, detail = "", extraClass = "") {
@@ -5432,7 +6363,7 @@ function previewRandomizedCharacter(character) {
   setRandomBackgroundChoices(appState.character);
   setRandomClassSkillSelections(appState.character);
   recomputeCharacter();
-  renderPreview(randomPreview, appState.character);
+  renderCompletedCharacterOutput(appState.character);
   navigateToCompletedSheet();
 }
 
@@ -5741,7 +6672,7 @@ function finishCharacter({ allowBlankName = false } = {}) {
   appState.confirmBlankName = false;
   if (appState.abilityMethod === ABILITY_METHODS.pointBuy) appState.abilityState.pointBuy.finalized = true;
   syncAbilityScoresFromState();
-  renderPreview(randomPreview, appState.character);
+  renderCompletedCharacterOutput(appState.character);
   navigateToCompletedSheet();
   saveProgress();
 }
@@ -6361,6 +7292,7 @@ views.randomize.addEventListener("click", (event) => {
 });
 generateRandomButton.addEventListener("click", generateRandomCharacter);
 editRandomButton.addEventListener("click", () => startBuild(appState.character));
+printSheetButton.addEventListener("click", printCompletedSheet);
 
 function initializeApp() {
   if (restoreSavedProgress()) {

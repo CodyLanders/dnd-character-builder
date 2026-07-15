@@ -128,6 +128,13 @@ DND_DATA.randomHalfElfSkillChoices = function randomHalfElfSkillChoices(race, ba
 
 DND_DATA.randomFinishingTouchesForCharacter = function randomFinishingTouchesForCharacter(characterClass, race, background, classFeatures) {
   const finishingTouches = { choices: {}, alignment: {}, personality: {}, trinket: {} };
+  if (DND_DATA.alignments && DND_DATA.alignments.length) {
+    finishingTouches.alignment = { selected: DND_DATA.randomChoice(DND_DATA.alignments), skipped: false };
+  }
+  ["trait", "ideal", "bond", "flaw"].forEach((field) => {
+    const options = background && background.personality ? background.personality[field] || [] : [];
+    if (options.length) finishingTouches.personality[field] = { selected: DND_DATA.randomChoice(options), custom: "", skipped: false, mode: "suggestion" };
+  });
   if (race && race.languageChoices) {
     const blockedLanguages = new Set([
       ...((race && race.languages) || []),

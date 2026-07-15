@@ -35,18 +35,33 @@ A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creatin
 
 ## Project Evolution
 
-### v0.8.1 — Desktop UX, Feedback Setup, and Randomize Character Redesign — July 14, 2026
+### v0.8.2 — Print-Friendly Character Sheet and Save-as-PDF Output — July 14, 2026
+- Added a dedicated Print / Save as PDF workflow using the browser’s native print dialog instead of a separate PDF-generation library.
+- Designed an original US Letter portrait character sheet with print-specific styling, restrained borders, and space reserved for future branding.
+- Reworked the printed output into a practical two-page target for typical level 1 characters, with additional pages only when spell or feature content requires it.
+- Fixed major print pagination issues, including blank trailing pages, duplicated equipment, isolated sections, and overly long five-page outputs.
+- Rebuilt Page 1 as a functional play sheet with identity fields, core stats, ability scores, saving throws, skills, proficiencies, weapons, attacks, equipment, wealth, and AC information.
+- Improved weapon and attack output with clearer handling for versatile weapons, paired light weapons, off-hand damage, ammunition, and concise weapon properties.
+- Added print support for reroll history, starting gold rolls, randomized character details, and writable blank fields for unfinished roleplay sections.
+- Replaced Armor & Defenses with a clearer AC Breakdown that explains the active armor calculation in plain language.
+- Normalized printed Features & Traits so resolved choices display cleanly, such as Sorcerous Origin, Dragon Ancestor, and Fighting Style selections.
+- Added printed reference support for class choices, racial traits, ability score increases, background features, background details, and roleplaying information.
+- Added suggested PDF filename behavior using the character name when available or a Background-Race-Class fallback.
+- Redesigned printed spellcasting output with a full-width spellcasting section, concise spell summary, structured spell metadata, full stored descriptions, material components, and stronger separation between spell records.
+- Confirmed the latest spell layout polish works, including cleaner Material alignment, stronger spell separators, and preserved compact page usage.
+
+### v0.8.1 — Desktop UX, Feedback Integration, and Randomize Character Redesign — July 14, 2026
 - Completed a dedicated desktop UX pass while preserving the existing mobile-first layout and behavior.
 - Widened the desktop builder, improved sticky-header scroll positioning, and added a persistent desktop action bar for core builder actions.
 - Reworked the Completed Character Sheet for desktop with a wider summary grid, better use of horizontal space, and cleaner section stacking.
 - Finalized completion-page behavior with Edit Result, Restart Builder, consistent Finish/Finish Without Name navigation, and clearer naming between Character Preview and Completed Character Sheet.
 - Added an independent Randomize Background button and continued standardizing local randomize controls separately from full-step randomization.
-- Set up the v1 feedback system using Google Forms, including anonymous submissions, structured feedback fields, a connected response spreadsheet, and email notifications.
-- Prepared Feedback button integration so the form can open in a new tab without disrupting the user’s character, autosave, or current builder step.
-- Redesigned the intended Randomize Character page as a quick setup screen focused on ability-score method and equipment method.
-- Defined the new randomize options: Standard Array, Roll 4d6 and Optimize, and Roll 4d6 and Randomly Assign.
+- Connected the Feedback button to the published D&D Character Builder Feedback form so users can report bugs, confusing behavior, incorrect game information, or feature suggestions.
+- Confirmed the Feedback form opens in a new browser tab without disrupting the user’s current character, autosave, or builder step.
+- Redesigned the Randomize Character page into a quick setup flow focused on ability-score method and equipment method.
+- Added clear random-generation options: Standard Array, Roll 4d6 and Optimize, and Roll 4d6 and Randomly Assign.
 - Kept Use Starting Equipment as the recommended default while preserving Roll Starting Gold as the advanced option.
-- Planned the Randomize Character bottom action bar so Generate Character is the clear primary action and leads directly to the Completed Character Sheet.
+- Updated Randomize Character so Generate Character is the clear primary action and sends users directly to the Completed Character Sheet.
 
 ### v0.8.0 — Randomize Controls, Utility Bar, and Class Step UX Polish — July 13, 2026
 - Standardized local Randomize controls across the builder so section-level buttons randomize only their own choice while the bottom Randomize button continues to randomize the whole step.

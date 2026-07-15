@@ -2722,3 +2722,663 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* Printable completed sheet preview */
+.print-preview-stage {
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+  margin-top: 28px;
+  border-radius: 10px;
+  padding: 28px 12px;
+  background: #d8dadd;
+  overflow-x: hidden;
+}
+
+.print-page {
+  width: min(8.5in, 100%);
+  min-height: 10.5in;
+  padding: 0.36in;
+  color: #111827;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(31, 41, 51, 0.24);
+  font-size: 0.68rem;
+  line-height: 1.22;
+}
+
+.print-page h2,
+.print-page h3,
+.print-page h4,
+.print-page p,
+.print-page ul {
+  margin: 0;
+}
+
+.print-page h3 {
+  border-bottom: 1px solid #c4c9d1;
+  background: #eef0f3;
+  padding: 4px 6px 3px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.print-page h4 {
+  margin-bottom: 2px;
+  font-size: 0.72rem;
+}
+
+.print-page ul {
+  padding-left: 15px;
+}
+
+.print-identity {
+  display: grid;
+  grid-template-columns: 1.45fr repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
+  border-bottom: 2px solid #111827;
+  padding: 0 0 7px;
+}
+
+.print-brand-space {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid #d1d5db;
+  padding-bottom: 3px;
+  color: #6b7280;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-character-name {
+  grid-row: span 2;
+  border: 1px solid #d1d5db;
+  border-left: 4px solid #111827;
+  border-radius: 5px;
+  padding: 5px 7px 7px;
+  background: #f9fafb;
+}
+
+.print-character-name strong {
+  display: block;
+  margin-top: 18px;
+  border-bottom: 1px solid #111827;
+  min-height: 1.05rem;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.print-reroll-line {
+  grid-column: 1 / -1;
+  color: #4b5563;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-field {
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 3px 5px;
+  background: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.print-field span {
+  display: block;
+  color: #4b5563;
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-field strong {
+  display: block;
+  min-height: 1.05rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.print-writable strong {
+  border-bottom: 1px solid #111827;
+}
+
+.print-page-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.print-left-column,
+.print-main-column,
+.print-page-two-left,
+.print-page-two-right {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.print-page-one-lower {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.print-split-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.print-split-columns > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.print-section {
+  break-inside: avoid;
+  display: grid;
+  gap: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 0 6px 6px;
+  background: #ffffff;
+}
+
+.print-section > h3 {
+  margin-right: -6px;
+  margin-left: -6px;
+  border-radius: 4px 4px 0 0;
+}
+
+.print-section p,
+.print-section li {
+  font-size: 0.64rem;
+}
+
+.print-combat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.print-combat-grid .print-writable:nth-child(5) strong,
+.print-combat-grid .print-writable:nth-child(6) strong {
+  display: flex;
+  align-items: flex-end;
+  min-height: 2.1rem;
+}
+
+.print-core-stat-strip {
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 5px;
+  background: #f9fafb;
+}
+
+.print-inspiration-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.print-inspiration {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 5px;
+  background: #ffffff;
+}
+
+.print-inspiration span {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #111827;
+  background: #ffffff;
+}
+
+.print-inspiration strong {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.66rem;
+}
+
+.print-table th,
+.print-table td {
+  border: 1px solid #aeb4bd;
+  padding: 2px 4px;
+  vertical-align: middle;
+}
+
+.print-table th {
+  background: #f3f4f6;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.print-skills-table {
+  font-size: 0.6rem;
+}
+
+.print-ability-table th:first-child,
+.print-ability-table td:first-child,
+.print-saving-table th:nth-child(2),
+.print-saving-table td:nth-child(2),
+.print-skills-table th:nth-child(2),
+.print-skills-table td:nth-child(2),
+.print-attacks-table th,
+.print-attacks-table td,
+.print-spell-table th,
+.print-spell-table td {
+  text-align: left;
+}
+
+.print-ability-table th:nth-child(2),
+.print-ability-table th:nth-child(3),
+.print-ability-table td:nth-child(2),
+.print-ability-table td:nth-child(3),
+.print-saving-table th:nth-child(3),
+.print-saving-table td:nth-child(3),
+.print-skills-table th:nth-child(3),
+.print-skills-table td:nth-child(3),
+.print-attacks-table th:nth-child(2),
+.print-attacks-table td:nth-child(2) {
+  text-align: right;
+}
+
+.print-saving-table th:nth-child(1),
+.print-saving-table td:nth-child(1),
+.print-skills-table th:nth-child(1),
+.print-skills-table td:nth-child(1),
+.print-skills-table th:nth-child(4),
+.print-skills-table td:nth-child(4) {
+  text-align: center;
+}
+
+.print-attack-name {
+  width: 24%;
+}
+
+.print-attack-bonus {
+  width: 9%;
+}
+
+.print-attack-damage {
+  width: 13%;
+}
+
+.print-attack-type {
+  width: 13%;
+}
+
+.print-attack-range {
+  width: 18%;
+}
+
+.print-attack-properties {
+  width: 23%;
+}
+
+.print-attacks-table th:nth-child(5),
+.print-attacks-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.print-reference-columns,
+.print-page-two-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.print-reference-columns > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.print-reference-card {
+  break-inside: avoid;
+  border-top: 1px solid #d1d5db;
+  padding-top: 4px;
+}
+
+.print-reference-card:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.print-page-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: end;
+  gap: 12px;
+  border-bottom: 1.5px solid #111827;
+  padding-bottom: 6px;
+}
+
+.print-page-header h2 {
+  font-size: 1rem;
+}
+
+.print-page-header span,
+.print-page-header small {
+  color: #4b5563;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-page-two-lower {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1.5px solid #c4c9d1;
+}
+
+.print-spellcasting-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.print-proficiency-equipment-row {
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+}
+
+.print-equipment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  gap: 7px;
+}
+
+.print-equipment-grid h4 {
+  margin-bottom: 2px;
+  color: #374151;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.print-equipment-grid p {
+  overflow-wrap: anywhere;
+}
+
+.print-personality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.print-text-field strong {
+  min-height: 2.4rem;
+  white-space: normal;
+}
+
+.print-spell-group {
+  display: grid;
+  gap: 2px;
+  margin-top: 5px;
+}
+
+.print-spell-group h4 {
+  padding-top: 2px;
+  border-top: 1px solid #d1d5db;
+  color: #374151;
+  text-transform: uppercase;
+}
+
+.print-spell-table {
+  font-size: 0.56rem;
+}
+
+.print-spell-table th,
+.print-spell-table td {
+  padding: 1.5px 3px;
+  vertical-align: middle;
+}
+
+.print-spell-record {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-spell-meta-row td {
+  border-bottom-color: #d1d5db;
+  background: #fcfcfd;
+}
+
+.print-spell-table th:nth-child(1) {
+  width: 21%;
+}
+
+.print-spell-table th:nth-child(2) {
+  width: 11%;
+}
+
+.print-spell-table th:nth-child(3) {
+  width: 12%;
+}
+
+.print-spell-table th:nth-child(4) {
+  width: 13%;
+}
+
+.print-spell-table th:nth-child(5),
+.print-spell-table td:nth-child(5) {
+  width: 5%;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.print-spell-table th:nth-child(6) {
+  width: 9%;
+}
+
+.print-spell-table th:nth-child(7) {
+  width: 29%;
+}
+
+.print-spell-meta-row td:nth-child(2),
+.print-spell-meta-row td:nth-child(3),
+.print-spell-meta-row td:nth-child(4),
+.print-spell-meta-row td:nth-child(5),
+.print-spell-meta-row td:nth-child(6) {
+  white-space: nowrap;
+}
+
+.print-spell-name-line {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.print-spell-name-line strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #111827;
+  font-size: 0.57rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.print-spell-name-line span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  color: #4b5563;
+  font-size: 0.49rem;
+  line-height: 1.05;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-spell-description-row td {
+  background: #f9fafb;
+  color: #1f2933;
+  font-size: 0.54rem;
+  line-height: 1.22;
+  text-align: left;
+  padding: 0;
+  border-top: 0;
+  border-bottom: 2px solid #6b7280;
+}
+
+.print-spell-description-row p + p {
+  margin-top: 2px;
+}
+
+.print-spell-detail-band {
+  display: block;
+}
+
+.print-spell-detail-band.has-material {
+  display: grid;
+  grid-template-columns: minmax(0, 0.6fr) minmax(0, 0.4fr);
+  gap: 0;
+  align-items: stretch;
+}
+
+.print-spell-description-cell {
+  min-width: 0;
+  padding: 1px 5px 3px 3px;
+}
+
+.print-spell-material-cell {
+  border-left: 1px solid #d1d5db;
+  min-width: 0;
+  padding: 1px 3px 3px 5px;
+  color: #374151;
+}
+
+.print-spell-material-cell strong {
+  color: #111827;
+  font-size: 0.5rem;
+  text-transform: uppercase;
+}
+
+.print-spell-tag {
+  display: inline-block;
+  margin-top: 1px;
+  border: 1px solid #9ca3af;
+  border-radius: 999px;
+  padding: 0 4px;
+  color: #374151;
+  font-size: 0.5rem;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-concentration-cell {
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .print-preview-stage {
+    margin-right: -18px;
+    margin-left: -18px;
+    border-radius: 0;
+    padding: 18px 8px;
+  }
+
+  .print-page {
+    padding: 18px;
+    font-size: 0.62rem;
+  }
+}
+
+@page {
+  size: Letter portrait;
+  margin: 0.35in;
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .app-header,
+  .utility-action-row,
+  #homeView,
+  #randomizeView,
+  #buildView,
+  #randomPreview,
+  #previewView > .view-header {
+    display: none !important;
+  }
+
+  .app-shell,
+  #previewView {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #printPreview {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    overflow: visible;
+  }
+
+  .print-page {
+    width: auto;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    font-size: 8.5pt;
+  }
+
+  .print-page + .print-page {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-section,
+  .print-reference-card,
+  .print-field,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-page-two {
+    display: block;
+  }
+
+  .print-page-two .print-section {
+    margin-bottom: 8px;
+  }
+}

@@ -476,6 +476,27 @@ DND_DATA.classFeatureChoices = {
   },
 };
 
+DND_DATA.featureDescriptions = {
+  "Fighting Style": "You choose a combat specialty that improves how you fight. The selected style is shown with your class choices and applied where this builder supports it.",
+  "Second Wind": "On your turn, you can use a bonus action to regain hit points. At level 1, you regain 1d10 + 1 hit points, and you regain this feature after a short or long rest.",
+  Rage: "You can enter a rage as a bonus action. It lasts up to 1 minute. While raging, you have advantage on Strength checks and Strength saving throws, gain +2 damage on melee weapon attacks that use Strength, and have resistance to bludgeoning, piercing, and slashing damage. You cannot cast spells or concentrate on spells while raging. Rage ends early if you are knocked unconscious, or if your turn ends and you have not attacked a hostile creature since your last turn or taken damage since then. At level 1, you can rage 2 times, and you regain expended uses when you finish a long rest.",
+  "Unarmored Defense": "While you are not wearing armor, your Armor Class equals 10 + your Dexterity modifier + your Constitution modifier. You can still use a shield and gain this benefit.",
+  Expertise: "Choose skills or tools where your proficiency bonus is doubled. This builder applies the selected Expertise choices to the relevant checks.",
+  "Sneak Attack": "Once per turn, you can deal extra damage when you hit with a finesse or ranged weapon and have the right opening, such as advantage or an ally threatening the target.",
+  "Thieves' Cant": "You know the secret signs, jargon, and coded messages used by rogues and criminal contacts.",
+  "Martial Arts": "While unarmed or using Monk weapons and not wearing armor or a shield, you can use Dexterity for attacks and damage, roll a martial arts die for unarmed strikes, and make an unarmed strike as a bonus action after attacking.",
+  Spellcasting: "You can cast spells using your class spellcasting ability. Your selected spells, spell save DC, spell attack bonus, and slots are shown in the spellcasting section.",
+  "Divine Domain": "Your Cleric domain shapes your divine magic and grants domain spells, features, and sometimes bonus proficiencies.",
+  "Divine Sense": "As an action, you can sense nearby celestials, fiends, undead, and consecrated or desecrated places a limited number of times per long rest.",
+  "Lay on Hands": "You have a pool of healing power equal to 5 hit points at level 1. As an action, you can restore hit points from the pool or spend 5 points to cure one disease or poison.",
+  "Favored Enemy": "You have advantage on Wisdom (Survival) checks to track your favored enemies and Intelligence checks to recall information about them. You also learn one language spoken by your favored enemies if they speak one.",
+  "Natural Explorer": "You are especially skilled at travel and survival in your chosen favored terrain.",
+  "Sorcerous Origin": "Your Sorcerous Origin explains the source of your magic and grants level 1 features.",
+  "Otherworldly Patron": "Your Warlock patron grants your magic and level 1 patron feature.",
+  "Pact Magic": "You cast Warlock spells using Pact Magic. Your spell slot returns when you finish a short or long rest.",
+  "Arcane Recovery": "Once per day after a short rest, you can recover some expended spell slots. At level 1, this lets you recover one level 1 spell slot.",
+};
+
 DND_DATA.clericDomainMechanics = {
   knowledge: {
     proficiencies: [],
