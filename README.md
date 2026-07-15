@@ -1,39 +1,71 @@
 # D&D Character Builder
-
 A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creating level 1 characters through a guided step-by-step workflow.
 
-# D&D Character Builder
+## Feedback
+Feedback is welcome, especially for missing expectations, confusing steps, incorrect game information, or bugs found while building a character.
 
-A mobile-friendly, web-based Dungeons & Dragons 5e character builder for creating level 1 characters through a guided step-by-step workflow.
+Use the in-app Feedback button to submit feedback through the D&D Character Builder Feedback form.
+
+## How to Use
+1. Choose Build a Character for a guided step-by-step process.
+2. Choose Randomize a Character to generate a complete level 1 character quickly.
+3. Review the Completed Character Sheet.
+4. Use Print / Save as PDF to create a printable copy.
+5. Use Feedback to report anything confusing, missing, or incorrect.
+
+## Current Scope
+This builder focuses on level 1 characters using the 2014 Player’s Handbook rules.
+
+Included:
+- Level 1 character creation
+- All 2014 PHB classes
+- All 2014 PHB races and subraces
+- All 13 base backgrounds and PHB variants
+- Level 1 spellcasting
+- Starting equipment and rolled starting gold
+- Printable / Save as PDF character sheet
+
+Not included yet:
+- Level-up workflow
+- Multiclassing
+- Feats
+- Equipment shop
+- Additional sourcebooks
 
 ## Features
-
-* Guided level 1 character creation for class, race, background, ability scores, skills, equipment, spells, and finishing touches
-* Support for all 2014 PHB classes at level 1, including martial classes, prepared casters, known-spell casters, and Pact Magic
-* Support for all 2014 PHB races and subraces, including required race choices, racial traits, racial spells, languages, senses, and randomization
-* Support for all 13 base 2014 PHB backgrounds plus PHB background variants
-* Background version handling for variants such as Spy, Gladiator, Guild Merchant, Knight, and Pirate
-* Multiple ability-score methods, including Standard Array, rolled scores, Point Buy, rerolls, and random assignment support
-* Skills & Proficiencies step with class skill choices, duplicate-proficiency prevention, replacement proficiency handling, and final skill bonus calculations
-* Starting equipment choices, advanced rolled starting gold, equipment warnings, and optional trinkets
-* Character Preview and final sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, proficiencies, senses, languages, equipment, attacks, spells, traits, background details, and starting gold
-* Armor & Defense explanation showing how Armor Class is calculated
-* Attack Summary with weapon attack bonuses, damage bonuses, ability used, range, properties, and relevant class bonuses
-* Spellcasting support with cantrips, known spells, prepared spells, spellbook spells, domain spells, patron spells, racial spells, spell slots, spell save DC, and spell attack bonus
-* Organized preview sections for Attacks & Actions, Spells, Traits & Features, Proficiencies & Training, and Equipment Carried
+* Guided level 1 character creation using the 2014 Player’s Handbook rules
+* Full level 1 support for all 2014 PHB classes, races, subraces, backgrounds, and PHB background variants
+* Step-by-step builder for class, race, background, ability scores, skills, equipment, spells, and finishing touches
+* Quick Randomize Character flow for generating a complete character using Standard Array, optimized rolled scores, or fully randomized rolled scores
+* Multiple ability-score methods, including Standard Array, rolled scores with rerolls, Point Buy, random assignment, and class-guided optimization
+* Class, race, background, and variant randomization with required-choice handling and cleanup when earlier choices change
+* Skills & Proficiencies step with class skill choices, duplicate-prevention, replacement proficiency handling, and final skill bonus calculations
+* Starting equipment choices, advanced rolled starting gold, equipment warnings, pack contents, equipment ownership, and optional trinkets
+* Spellcasting support for prepared casters, known-spell casters, spellbook casting, domain spells, patron spells, racial spells, Pact Magic, spell slots, spell save DC, and spell attack bonus
+* Character Preview and Completed Character Sheet with ability scores, saving throws, skills, armor class, initiative, speed, hit points, hit dice, passive perception, senses, proficiencies, languages, equipment, attacks, spells, traits, features, background details, and roleplay information
+* Armor, attack, and spell summaries with calculated AC, weapon attack bonuses, damage bonuses, ranges, properties, spell metadata, components, and spell descriptions
+* Organized sections for Attacks & Actions, Spells, Traits & Features, Proficiencies & Training, Equipment Carried, Background Details, and Finishing Touches
 * Expandable details for spells, traits, features, tools, kits, instruments, vehicles, equipment packs, carried gear, and background features
-* Finishing Touches step with character name, alignment, required language/tool choices, background-specific roleplay suggestions, custom roleplay text, and optional trinkets
-* Random character generation with support for class, race, background, variants, ability scores, skills, equipment, spells, and finishing-touch choices
-* Autosave, browser save/load, refresh protection, and Restart flow
-* Responsive mobile-friendly browser interface
+* Browser-based save/load, autosave, refresh protection, Restart, Reset Step, and edit-completed-character support
+* Print / Save as PDF workflow with a dedicated print-friendly character sheet layout
+* Feedback button for reporting bugs, confusing behavior, incorrect rules, or missing expectations
+* Responsive mobile-first interface with desktop layout polish
 
 ## Built With
-
 - HTML
 - CSS
 - JavaScript
 
 ## Project Evolution
+
+### v1.0.0 — Complete Level 1 Character Builder — July 15, 2026
+- Completed the core level 1 character builder with full 2014 PHB class, race, background, equipment, spellcasting, and finishing-touch support.
+- Added a complete guided build flow alongside a quick Randomize Character flow for users who want a finished character immediately.
+- Finalized the Completed Character Sheet with character stats, proficiencies, attacks, spells, traits, background details, equipment, and roleplay information.
+- Added Print / Save as PDF support with a dedicated printable character sheet layout.
+- Added feedback integration so users can report bugs, confusing behavior, incorrect rules, or missing expectations.
+- Completed major mobile and desktop UX passes, including sticky action bars, improved navigation, autosave, browser save/load, Restart, Reset, and responsive layouts.
+- Prepared the project for broader QA, external user testing, and public release polish.
 
 ### v0.8.2 — Print-Friendly Character Sheet and Save-as-PDF Output — July 14, 2026
 - Added a dedicated Print / Save as PDF workflow using the browser’s native print dialog instead of a separate PDF-generation library.
